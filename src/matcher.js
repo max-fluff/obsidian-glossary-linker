@@ -43,6 +43,9 @@ module.exports = {
     this.keysCache = new Map();
     const byKey = new Map();
     const canonicals = new Set();
+    // Flat list of indexed terms, kept for the autocomplete prefix scan and the
+    // public API (getTerms / resolveTerm / getUsageReport).
+    const terms = [];
     const excludeTerms = new Set(splitLines(this.settings.excludeTerms).map((s) => s.toLowerCase()));
     this.excludeWordKeys = new Set();
     for (const w of splitLines(this.settings.excludeWords)) {
@@ -59,6 +62,7 @@ module.exports = {
       const forms = [canonical, ...aliases].filter((x) => typeof x === 'string' && x.trim());
       const target = { canonical, path: file.path };
       canonicals.add(canonical);
+      terms.push({ canonical, path: file.path, aliases });
 
       for (const form of forms) {
         const words = this.tokenizeForm(form);
@@ -73,6 +77,23 @@ module.exports = {
       }
     }
     this.index = { byKey, termCount: canonicals.size };
+    this.terms = terms;
+    // Notify API subscribers (guarded: rebuildIndex also runs during onload,
+    // before the listener set exists).
+    if (this._indexListeners) for (const cb of this._indexListeners) { try { cb(); } catch (e) { /* subscriber threw */ } }
+  },
+
+  // Canonicals of every glossary term whose form matches `text` (single- or
+  // multi-word), optionally excluding one term. Reuses the matching engine, so a
+  // collision found here means the same thing it does for highlighting.
+  termsMatchingText(text, except) {
+    const out = new Set();
+    for (const m of this.findMatches(text, null)) {
+      out.add(m.canonical);
+      if (m.alts) for (const a of m.alts) out.add(a);
+    }
+    if (except) out.delete(except);
+    return [...out];
   },
 
   findMatches(text, currentCanonical, opts = {}) {

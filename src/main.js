@@ -8,6 +8,8 @@ const { GlossaryLinkerSettingTab } = require('./settings-tab');
 const matcher = require('./matcher');
 const highlight = require('./highlight');
 const actions = require('./actions');
+const api = require('./api');
+const { GlossaryTermSuggest, suggestAvailable } = require('./term-suggest');
 
 class GlossaryLinkerPlugin extends Plugin {
   async onload() {
@@ -26,9 +28,12 @@ class GlossaryLinkerPlugin extends Plugin {
     this.index = { byKey: new Map(), termCount: 0 };
     this.excludeWordKeys = new Set();
     this.keysCache = new Map();
+    this.terms = [];
+    this._indexListeners = new Set(); // API onChange subscribers; must exist before the first rebuild
 
     await this.loadLanguages();
     this.rebuildIndex();
+    this.api = this.buildApi(); // app.plugins.plugins['glossary-linker'].api
     this.scheduleRebuild = debounce(() => { this.rebuildIndex(); this.rerenderViews(); this.updateStatusBar(); }, 600, true);
 
     this.statusBarEl = this.addStatusBarItem();
@@ -42,6 +47,17 @@ class GlossaryLinkerPlugin extends Plugin {
 
     this.registerEvent(this.app.metadataCache.on('changed', (file) => {
       if (this.isGlossaryPath(file.path)) this.scheduleRebuild();
+    }));
+    // 'changed' fires on edits but not on add/remove/rename — a new or renamed term
+    // note (the title is the term) must also rebuild the index.
+    this.registerEvent(this.app.vault.on('create', (file) => {
+      if (this.isGlossaryPath(file.path)) this.scheduleRebuild();
+    }));
+    this.registerEvent(this.app.vault.on('delete', (file) => {
+      if (this.isGlossaryPath(file.path)) this.scheduleRebuild();
+    }));
+    this.registerEvent(this.app.vault.on('rename', (file, oldPath) => {
+      if (this.isGlossaryPath(file.path) || this.isGlossaryPath(oldPath)) this.scheduleRebuild();
     }));
 
     this.harvestOnSaveDebounced = debounce((file) => this.harvestFiles([file], this.settings.harvestOnSave !== 'preview'), 1500, true);
@@ -67,6 +83,17 @@ class GlossaryLinkerPlugin extends Plugin {
         menu.addItem((i) => i.setTitle(`Glossary: add "${sel}" to excluded words`).setIcon('ban')
           .onClick(() => this.addToExclusion('excludeWords', sel.toLowerCase())));
       }
+      // Right-clicking a wikilink to a glossary term (no selection): same exclude
+      // actions, targeting the link's visible text.
+      if (this.settings.menuExclude && !hasSel) {
+        const link = this.glossaryLinkAt(editor);
+        if (link) {
+          menu.addItem((i) => i.setTitle(`Glossary: add "${link.display}" to excluded words`).setIcon('ban')
+            .onClick(() => this.addToExclusion('excludeWords', link.display.toLowerCase())));
+          menu.addItem((i) => i.setTitle(`Glossary: add "${link.display}" to excluded terms`).setIcon('trash-2')
+            .onClick(() => this.addToExclusion('excludeTerms', link.display)));
+        }
+      }
       if (this.settings.menuCollect) {
         const file = this.app.workspace.getActiveFile();
         if (file) menu.addItem((i) => i.setTitle('Glossary: collect aliases from links (this note)').setIcon('download')
@@ -80,6 +107,8 @@ class GlossaryLinkerPlugin extends Plugin {
     this.registerMarkdownPostProcessor((el, ctx) => this.processReadingMode(el, ctx));
 
     this.registerEditingHighlight();
+
+    if (suggestAvailable()) this.registerEditorSuggest(new GlossaryTermSuggest(this.app, this));
 
     this.addCommand({
       id: 'materialize-current',
@@ -225,6 +254,28 @@ class GlossaryLinkerPlugin extends Plugin {
     return base.replace(/\.md$/, '');
   }
 
+  // The wikilink under the editor cursor if it points to a glossary term, else null.
+  // Returns { canonical, display } (display = the link's visible text).
+  glossaryLinkAt(editor) {
+    const pos = editor.getCursor();
+    const line = editor.getLine(pos.line);
+    const re = /\[\[([^\]\n]+)\]\]/g;
+    let m;
+    while ((m = re.exec(line)) !== null) {
+      if (pos.ch < m.index || pos.ch > m.index + m[0].length) continue;
+      const inner = m[1];
+      const pipe = inner.indexOf('|');
+      // Strip an escaped-pipe backslash (table cells) and any #subpath from the target.
+      const target = (pipe >= 0 ? inner.slice(0, pipe) : inner).replace(/\\$/, '').replace(/#.*$/, '').trim();
+      const display = (pipe >= 0 ? inner.slice(pipe + 1) : target).trim();
+      if (!target) continue;
+      const sourcePath = this.app.workspace.getActiveFile() ? this.app.workspace.getActiveFile().path : '';
+      const dest = this.app.metadataCache.getFirstLinkpathDest(target, sourcePath);
+      if (dest && this.isGlossaryFile(dest)) return { canonical: dest.basename, display };
+    }
+    return null;
+  }
+
   aliasesOf(file) {
     const fm = this.app.metadataCache.getFileCache(file);
     const a = fm && fm.frontmatter && fm.frontmatter.aliases;
@@ -306,6 +357,6 @@ class GlossaryLinkerPlugin extends Plugin {
   }
 }
 
-Object.assign(GlossaryLinkerPlugin.prototype, matcher, highlight, actions);
+Object.assign(GlossaryLinkerPlugin.prototype, matcher, highlight, actions, api);
 
 module.exports = GlossaryLinkerPlugin;

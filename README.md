@@ -18,7 +18,13 @@ In Reading view the highlights are real internal links, so they behave like ordi
 Commands for the current note / selection / all notes. A matching word is replaced with `[[Title|word]]`: the visible text stays exactly as in your note, the link points to the glossary title. There's an "only first match per note" option. Changes are previewed before writing.
 
 ### Collect aliases from links you made
-Scans for `[[Term|some wording]]` links you wrote by hand. If `Term` is a glossary note and the wording is custom, that wording becomes a new alias for the term. By default it's reduced to a base form first (`[[fruit|fruits]] → fruit`). Aliases are de-duplicated case-insensitively, and nothing is added if the word already matches anyway. Run it as a command or automatically on save. Previewed before writing.
+Scans for `[[Term|some wording]]` links you wrote by hand. If `Term` is a glossary note and the wording is custom, that wording becomes a new alias for the term. By default it's reduced to a base form first (`[[fruit|fruits]] → fruit`). Aliases are de-duplicated case-insensitively, and nothing is added if the word already matches anyway. Run it as a command or automatically on save. Previewed before writing — each alias has a checkbox, aliases that would collide with another term are flagged with ⚠, and candidates skipped because they already exist are listed separately.
+
+### Suggest links as you type (optional)
+With *Autocomplete → Suggest links while typing* on, typing in an in-scope note offers to insert a `[[link]]` to a matching glossary term — either a prefix of a term's title/alias (type `Vis` → *Vision radius*) or an inflected form of it. Picking a prefix match inserts `[[Term]]`; picking an inflected form keeps your wording as `[[Term|word]]`. Off by default; it never triggers inside the glossary folder, code, links or other protected spans.
+
+### Ambiguous terms
+When a word matches more than one glossary term (the same alias on two notes), it gets a distinct (wavy) underline; hovering shows a tooltip listing all the matching terms rather than a single (misleading) page preview. Acting on it — clicking to open, or *Turn into link* / *Open* from the right-click menu — pops a small picker so you choose which term, instead of silently following the first. A word that matches a single term acts immediately as usual.
 
 ## Morphology and languages
 
@@ -103,6 +109,14 @@ Settings are grouped into sections, each with a short description in the UI; the
 | **Status bar count** | on | show the count of terms on the current note (e.g. `3 terms`) in the status bar; the base count is plain-text (not-yet-linked) mentions; click it to link them |
 | **Count direct links** | on | also count terms already linked directly (`[[Term]]` / `[[Term\|alias]]`), not just plain-text mentions |
 
+The highlight's color and underline (and the ambiguous-term underline) are exposed to the [Style Settings](https://github.com/mgmeyers/obsidian-style-settings) plugin under a *Glossary Linker* section, so you can restyle them from a UI. Without Style Settings — or left at default — the highlight follows your theme's link color.
+
+**Autocomplete**
+| Setting | Default | Description |
+|---|---|---|
+| **Suggest links while typing** | off | offer a `[[link]]` to a matching term as you type in an in-scope note (prefix of a title/alias, or an inflected form); only triggers at the end of a word and only when there are matches |
+| **Minimum characters** | `3` | how many characters to type before suggestions appear |
+
 **Collecting aliases**
 | Setting | Default | Description |
 |---|---|---|
@@ -110,6 +124,7 @@ Settings are grouped into sections, each with a short description in the UI; the
 | **Collect on save** | `Off` | `Off` / `Silent (add automatically)` / `Ask first` — collect aliases on save (with a short delay) |
 | **Single-word aliases only** | on | collect single-word link texts only (multi-word ones reduce poorly) |
 | **Minimum alias length** | `2` | ignore aliases shorter than N characters |
+| **Warn about alias collisions** | on | when collecting an alias or creating a term, flag wording that already matches a different term, so you don't make one word point at two terms |
 
 **Context menu**
 | Setting | Default | Description |
@@ -129,6 +144,29 @@ In the editor the highlights behave like real internal links: a plain click plac
 ## Performance
 
 The index is built on load and rebuilt when glossary notes change (debounced). Word-form keys are cached in the index, and per-word stemmer results are memoised across a render pass (invalidated on rebuild); scanning is token-based with longest-match-first. The editor's right-click menu reads the term straight from the clicked decoration instead of re-scanning the document.
+
+## Public API
+
+The plugin exposes a small read-only API at `app.plugins.plugins['glossary-linker'].api`, so other plugins and DataviewJS can query the glossary:
+
+| Method | Returns |
+|---|---|
+| `getTerms()` | every indexed term: `{ canonical, path, aliases }` |
+| `resolveTerm(name)` | the term a title or alias (case-insensitive) belongs to, or `null` |
+| `keysFor(word)` / `lemmaFor(word)` | the morphology keys / base form of a word, same engine the matcher uses |
+| `findMatches(text)` | glossary matches in arbitrary text (protected spans skipped) |
+| `getUsageReport()` | async; per term, how many plain-text occurrences across in-scope notes and in which files — terms with `count: 0` are orphans |
+| `onChange(cb)` | subscribe to index rebuilds; returns an unsubscribe function |
+
+A "glossary dashboard" in DataviewJS, for example:
+
+```js
+const api = app.plugins.plugins['glossary-linker'].api;
+const report = await api.getUsageReport();
+dv.table(['Term', 'Uses'], report.sort((a, b) => b.count - a.count).map((r) => [r.canonical, r.count]));
+// orphans:
+dv.list(report.filter((r) => r.count === 0).map((r) => r.canonical));
+```
 
 ## Licenses & credits
 
@@ -159,11 +197,13 @@ npm run build    # bundle src/ -> main.js
 - `constants.js` — default settings.
 - `builtin-languages.js` — requires the modules in `languages/` so they are bundled into `main.js`.
 - `language-api.js` — the language-module contract and `validateLanguage()`.
-- `matcher.js` — the term index and matching engine (`keysFor`, `tokenizeForm`, `rebuildIndex`, `findMatches`, protected ranges).
+- `matcher.js` — the term index and matching engine (`keysFor`, `tokenizeForm`, `rebuildIndex`, `findMatches`, `termsMatchingText`, protected ranges).
 - `highlight.js` — Reading-view DOM highlighting and the CM6 editor extension.
 - `actions.js` — turning terms into links + collecting aliases.
-- `modals.js` — the two preview dialogs. `settings-tab.js` — the settings UI.
+- `api.js` — the public API mixin (`app.plugins.plugins['glossary-linker'].api`).
+- `modals.js` — the preview dialogs and the confirm dialog. `settings-tab.js` — the settings UI.
 - `folder-suggest.js` — folder autocomplete for the glossary-folder field (feature-detected).
+- `term-suggest.js` — the editor autocomplete (`EditorSuggest`, feature-detected).
 
 `main.js` is generated; edit `src/` (or `languages/`) and rebuild rather than editing `main.js` directly. `node_modules/` and `package-lock.json` are git-ignored.
 

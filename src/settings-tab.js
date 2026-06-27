@@ -152,6 +152,18 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
       .setDesc('Also count terms already linked directly, not only plain-text mentions.')
       .addToggle((t) => t.setValue(s.statusBarIncludeLinks).onChange(async (v) => { s.statusBarIncludeLinks = v; await save(false); this.plugin.updateStatusBar(); }));
 
+    containerEl.createEl('h3', { text: 'Autocomplete' });
+
+    new Setting(containerEl)
+      .setName('Suggest links while typing')
+      .setDesc('As you type in an in-scope note, offer to insert a [[link]] to a matching glossary term (prefix of a title/alias, or an inflected form).')
+      .addToggle((t) => t.setValue(s.linkSuggest).onChange(async (v) => { s.linkSuggest = v; await save(false); }));
+
+    new Setting(containerEl)
+      .setName('Minimum characters')
+      .setDesc('How many characters to type before suggestions appear.')
+      .addText((t) => { t.inputEl.type = 'number'; t.inputEl.min = '1'; t.setValue(String(s.suggestMinChars)).onChange(async (v) => { const n = parseInt(v, 10); s.suggestMinChars = Number.isFinite(n) && n > 0 ? n : 1; await save(false); }); });
+
     containerEl.createEl('h3', { text: 'Collecting aliases' });
     containerEl.createEl('div', { cls: 'glossary-section-desc', text: 'Reads the links you already made by hand, like [[Term|some wording]], and adds that wording to the term\'s aliases — so the same wording links automatically next time.' });
 
@@ -184,6 +196,11 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
       .setName('Minimum alias length')
       .setDesc('Ignore collected aliases shorter than this many characters.')
       .addText((t) => { t.inputEl.type = 'number'; t.inputEl.min = '1'; t.setValue(String(s.harvestMinLength)).onChange(async (v) => { const n = parseInt(v, 10); s.harvestMinLength = Number.isFinite(n) && n > 0 ? n : 1; await save(false); }); });
+
+    new Setting(containerEl)
+      .setName('Warn about alias collisions')
+      .setDesc('When collecting an alias or creating a term, flag wording that already matches a different term (so you can avoid making a word point at two terms).')
+      .addToggle((t) => t.setValue(s.aliasCollisionWarnings).onChange(async (v) => { s.aliasCollisionWarnings = v; await save(false); }));
 
     containerEl.createEl('h3', { text: 'Context menu' });
 

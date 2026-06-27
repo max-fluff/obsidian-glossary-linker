@@ -15,6 +15,9 @@ const DEFAULT_SETTINGS = {
   excludeTerms: '',
   excludeWords: '',
   linkFirstOnly: false,
+  linkSuggest: false, // offer [[link]] autocomplete while typing
+  suggestMinChars: 3, // min typed length before autocomplete triggers
+  aliasCollisionWarnings: true, // warn when a collected/created alias collides with another term
   highlightInReading: true,
   editingHighlight: 'live', // 'off' | 'live' | 'onSave'
   skipHeadings: true,
