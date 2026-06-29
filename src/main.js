@@ -11,9 +11,11 @@ const actions = require('./actions');
 const api = require('./api');
 const { GlossaryTermSuggest, suggestAvailable } = require('./term-suggest');
 const { GlossaryOverviewView, OVERVIEW_VIEW_TYPE } = require('./overview-view');
+const { initI18n, t, plural } = require('./i18n');
 
 class GlossaryLinkerPlugin extends Plugin {
   async onload() {
+    initI18n();
     const loaded = await this.loadData();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded);
     if (loaded) {
@@ -80,9 +82,9 @@ class GlossaryLinkerPlugin extends Plugin {
       const link = this.glossaryLinkAt(editor);
 
       if (this.settings.menuCreateTerm && hasSel && !link) {
-        menu.addItem((i) => i.setTitle('Glossary: create term & link').setIcon('plus-circle')
+        menu.addItem((i) => i.setTitle(t('menu.createTermLink')).setIcon('plus-circle')
           .onClick(() => this.createTermFromSelection(editor, true)));
-        menu.addItem((i) => i.setTitle('Glossary: create term').setIcon('file-plus')
+        menu.addItem((i) => i.setTitle(t('menu.createTerm')).setIcon('file-plus')
           .onClick(() => this.createTermFromSelection(editor, false)));
       }
       if (this.settings.menuExclude && hasSel && !link) {
@@ -94,16 +96,16 @@ class GlossaryLinkerPlugin extends Plugin {
         this.addExclusionMenuItem(menu, 'excludeTerms', link.display, 'Glossary: ');
       }
       if (this.settings.menuUnlink && link) {
-        menu.addItem((i) => i.setTitle('Glossary: unlink this term').setIcon('unlink')
+        menu.addItem((i) => i.setTitle(t('menu.unlinkThisTerm')).setIcon('unlink')
           .onClick(() => this.unlinkLinkAt(editor, link)));
       }
       if (this.settings.menuCollect && link && link.targetFile) {
-        menu.addItem((i) => i.setTitle('Glossary: collect this alias').setIcon('download')
+        menu.addItem((i) => i.setTitle(t('menu.collectThisAlias')).setIcon('download')
           .onClick(() => this.harvestOneLink(link.targetFile, link.display)));
       }
       if (this.settings.menuCollect) {
         const file = this.app.workspace.getActiveFile();
-        if (file) menu.addItem((i) => i.setTitle('Glossary: collect aliases from links (this note)').setIcon('download')
+        if (file) menu.addItem((i) => i.setTitle(t('menu.collectFromNote')).setIcon('download')
           .onClick(() => this.harvestFiles([file], false)));
       }
     }));
@@ -114,20 +116,20 @@ class GlossaryLinkerPlugin extends Plugin {
       const isFolder = file instanceof TFolder;
       if (!isFolder && !(file instanceof TFile && file.extension === 'md')) return;
       const path = file.path;
-      const noun = isFolder ? 'folder' : 'file';
+      const noun = isFolder ? t('noun.folder') : t('noun.file');
       const item = (title, icon, listKey, add) => menu.addItem((i) => i.setTitle(title).setIcon(icon)
         .onClick(() => this.setPathInList(listKey, path, add)));
 
       if (this.pathListed('excludeFolders', path)) {
-        item('Glossary: remove from always-excluded', 'rotate-ccw', 'excludeFolders', false);
+        item(t('menu.removeFromAlwaysExcluded'), 'rotate-ccw', 'excludeFolders', false);
       } else {
-        item(`Glossary: add ${noun} to always-excluded`, 'ban', 'excludeFolders', true);
+        item(t('menu.addToAlwaysExcluded', { noun }), 'ban', 'excludeFolders', true);
       }
 
       if (this.settings.scopeMode === 'folders') {
         const listed = this.pathListed('scopeFolders', path);
-        if (listed) item(`Glossary: remove ${noun} from scope`, 'folder-minus', 'scopeFolders', false);
-        else item(`Glossary: include ${noun} in scope`, 'folder-plus', 'scopeFolders', true);
+        if (listed) item(t('menu.removeFromScope', { noun }), 'folder-minus', 'scopeFolders', false);
+        else item(t('menu.includeInScope', { noun }), 'folder-plus', 'scopeFolders', true);
       }
     }));
 
@@ -145,42 +147,42 @@ class GlossaryLinkerPlugin extends Plugin {
 
     this.addCommand({
       id: 'open-overview',
-      name: 'Open glossary overview',
+      name: t('cmd.openOverview'),
       callback: () => this.activateOverview(),
     });
     this.addCommand({
       id: 'materialize-current',
-      name: 'Link glossary terms: this note',
+      name: t('cmd.linkThisNote'),
       callback: () => this.materializeCurrent(),
     });
     this.addCommand({
       id: 'materialize-selection',
-      name: 'Link glossary terms: selection',
+      name: t('cmd.linkSelection'),
       editorCallback: (editor) => this.materializeSelection(editor),
     });
     this.addCommand({
       id: 'materialize-scope',
-      name: 'Link glossary terms: all notes',
+      name: t('cmd.linkAllNotes'),
       callback: () => this.materializeScope(),
     });
     this.addCommand({
       id: 'unlink-current',
-      name: 'Unlink glossary terms: this note',
+      name: t('cmd.unlinkThisNote'),
       callback: () => this.unlinkCurrent(),
     });
     this.addCommand({
       id: 'unlink-selection',
-      name: 'Unlink glossary terms: selection',
+      name: t('cmd.unlinkSelection'),
       editorCallback: (editor) => this.unlinkSelection(editor),
     });
     this.addCommand({
       id: 'unlink-scope',
-      name: 'Unlink glossary terms: all notes',
+      name: t('cmd.unlinkAllNotes'),
       callback: () => this.unlinkScope(),
     });
     this.addCommand({
       id: 'harvest-current',
-      name: 'Collect aliases from links: this note',
+      name: t('cmd.collectThisNote'),
       callback: () => {
         const f = this.app.workspace.getActiveFile();
         if (f) this.harvestFiles([f], false);
@@ -188,18 +190,18 @@ class GlossaryLinkerPlugin extends Plugin {
     });
     this.addCommand({
       id: 'harvest-scope',
-      name: 'Collect aliases from links: all notes',
+      name: t('cmd.collectAllNotes'),
       callback: () => this.harvestFiles(this.getScopeFiles(), false),
     });
     this.addCommand({
       id: 'create-term-from-selection',
-      name: 'Create glossary term from selection',
+      name: t('cmd.createTerm'),
       editorCallback: (editor) => this.createTermFromSelection(editor, true),
     });
     this.addCommand({
       id: 'rebuild-index',
-      name: 'Rebuild glossary index',
-      callback: () => { this.rebuildIndex(); new Notice('Glossary Linker: index rebuilt'); },
+      name: t('cmd.rebuildIndex'),
+      callback: () => { this.rebuildIndex(); new Notice(t('notice.indexRebuilt')); },
     });
 
     this.addSettingTab(new GlossaryLinkerSettingTab(this.app, this));
@@ -278,8 +280,8 @@ class GlossaryLinkerPlugin extends Plugin {
         }
       }
       const n = canon.size;
-      el.setText(`${n} term${n === 1 ? '' : 's'}`);
-      el.setAttribute('aria-label', `${n} glossary term(s) on this page — click to link them`);
+      el.setText(plural('term', n));
+      el.setAttribute('aria-label', t('statusBar.aria', { n }));
     } catch (e) {
       clear();
     }
@@ -402,7 +404,7 @@ class GlossaryLinkerPlugin extends Plugin {
   // Unlink the single glossary link under the cursor (from glossaryLinkAt).
   unlinkLinkAt(editor, link) {
     editor.replaceRange(link.display, { line: link.line, ch: link.from }, { line: link.line, ch: link.to });
-    new Notice('Glossary Linker: unlinked');
+    new Notice(t('notice.unlinked'));
     this.updateStatusBar();
   }
 
@@ -443,8 +445,10 @@ class GlossaryLinkerPlugin extends Plugin {
     this.rerenderViews();
     this.updateStatusBar();
     this.refreshOverviewDebounced();
-    const where = listKey === 'excludeFolders' ? 'always-excluded paths' : 'paths in scope';
-    new Notice(`Glossary Linker: ${add ? 'added' : 'removed'} "${entry}" ${add ? 'to' : 'from'} ${where}`);
+    const key = listKey === 'excludeFolders'
+      ? (add ? 'notice.pathAddedExcluded' : 'notice.pathRemovedExcluded')
+      : (add ? 'notice.pathAddedScope' : 'notice.pathRemovedScope');
+    new Notice(t(key, { entry }));
   }
 
   rerenderViews() {
@@ -483,7 +487,7 @@ class GlossaryLinkerPlugin extends Plugin {
   applyRibbonIcon() {
     const want = this.settings.showRibbonIcon;
     if (want && !this.ribbonEl) {
-      this.ribbonEl = this.addRibbonIcon('book-a', 'Glossary overview', () => this.activateOverview());
+      this.ribbonEl = this.addRibbonIcon('book-a', t('ribbon.tooltip'), () => this.activateOverview());
     } else if (!want && this.ribbonEl) {
       this.ribbonEl.remove();
       this.ribbonEl = null;

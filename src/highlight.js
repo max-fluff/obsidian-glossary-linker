@@ -1,6 +1,7 @@
 'use strict';
 
 const { Platform } = require('obsidian');
+const { t } = require('./i18n');
 
 // On touch there is no right-click or hover, so a held press stands in for the context
 // menu: it re-dispatches a `contextmenu` event, reusing the existing menu handlers below.
@@ -69,11 +70,11 @@ module.exports = {
         // preview, just the aria-label tooltip. Click asks which term to open.
         a.className = 'glossary-link glossary-ambiguous';
         const candidates = [canonical, ...m.alts];
-        a.setAttribute('aria-label', 'Matches: ' + candidates.join(', '));
+        a.setAttribute('aria-label', t('highlight.matches', { terms: candidates.join(', ') }));
         const pick = (e, newTab) => {
           e.preventDefault();
           e.stopPropagation();
-          this.chooseTerm(candidates, newTab ? 'Open in new tab…' : 'Open…', (c) => this.openTerm(c, sourcePath, newTab));
+          this.chooseTerm(candidates, newTab ? t('menu.openNewTabTitle') : t('menu.openTitle'), (c) => this.openTerm(c, sourcePath, newTab));
         };
         a.addEventListener('click', (e) => pick(e, e.ctrlKey || e.metaKey));
         // Middle-click fires auxclick; suppress the default new-tab nav so it routes
@@ -145,7 +146,7 @@ module.exports = {
     // The tooltip lists every matching term, including the one it resolves to.
     const markWithAlts = (canonical, alts) => Decoration.mark({
       class: 'cm-glossary-link cm-glossary-ambiguous',
-      attributes: { 'data-glossary-target': canonical, 'data-glossary-alts': alts.join('\n'), 'aria-label': 'Matches: ' + [canonical, ...alts].join(', ') },
+      attributes: { 'data-glossary-target': canonical, 'data-glossary-alts': alts.join('\n'), 'aria-label': t('highlight.matches', { terms: [canonical, ...alts].join(', ') }) },
     });
 
     const skipNode = (name) => /code|link|url|header|hashtag|frontmatter|comment|tag|escape/i.test(name);
@@ -201,12 +202,12 @@ module.exports = {
             // Like Obsidian's links: middle-click opens a tab, Ctrl/Cmd+click follows.
             // An ambiguous term asks which one to open first.
             if (e.button === 1) {
-              plugin.chooseTerm(candidates, 'Open in new tab…', (c) => plugin.openTerm(c, sourcePath, true));
+              plugin.chooseTerm(candidates, t('menu.openNewTabTitle'), (c) => plugin.openTerm(c, sourcePath, true));
               e.preventDefault();
               return;
             }
             if (e.button !== 0 || !(e.ctrlKey || e.metaKey)) return;
-            plugin.chooseTerm(candidates, 'Open…', (c) => plugin.openTerm(c, sourcePath, false));
+            plugin.chooseTerm(candidates, t('menu.openTitle'), (c) => plugin.openTerm(c, sourcePath, false));
             e.preventDefault();
           },
           mouseover(e) {

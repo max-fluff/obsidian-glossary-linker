@@ -3,6 +3,7 @@
 const { PluginSettingTab, Setting, Notice, TFolder } = require('obsidian');
 const { sanitizeFolder } = require('./constants');
 const { FolderSuggest, FileSuggest, folderSuggestAvailable } = require('./folder-suggest');
+const { t, plural } = require('./i18n');
 
 class GlossaryLinkerSettingTab extends PluginSettingTab {
   constructor(app, plugin) { super(app, plugin); this.plugin = plugin; }
@@ -19,78 +20,78 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
     // Scope changes don't touch the term index, so refresh views without a rebuild.
     const saveScope = async () => { await this.plugin.saveSettings(); this.plugin.rerenderViews(); this.plugin.updateStatusBar(); this.plugin.refreshOverviewDebounced(); };
 
-    new Setting(containerEl).setName('Scope').setHeading();
+    new Setting(containerEl).setName(t('set.heading.scope')).setHeading();
 
     new Setting(containerEl)
-      .setName('Glossary folder')
-      .setDesc('Folder with one note per term (file name = the term title).')
-      .addText((t) => {
-        t.setValue(s.glossaryFolder).onChange(async (v) => { s.glossaryFolder = sanitizeFolder(v); await save(true); this.renderFolderStatus(); this.plugin.refreshOverviewDebounced(); });
-        if (folderSuggestAvailable()) new FolderSuggest(this.app, t.inputEl);
+      .setName(t('set.glossaryFolder.name'))
+      .setDesc(t('set.glossaryFolder.desc'))
+      .addText((c) => {
+        c.setValue(s.glossaryFolder).onChange(async (v) => { s.glossaryFolder = sanitizeFolder(v); await save(true); this.renderFolderStatus(); this.plugin.refreshOverviewDebounced(); });
+        if (folderSuggestAvailable()) new FolderSuggest(this.app, c.inputEl);
       });
 
     this.folderStatusEl = containerEl.createEl('div', { cls: 'glossary-section-desc' });
     this.renderFolderStatus();
 
     new Setting(containerEl)
-      .setName('Term template')
-      .setDesc('Note used as the body of new term notes; placeholders like {{title}} and {{date}} are filled in. Empty = blank note.')
-      .addText((t) => {
-        t.setValue(s.termTemplate).onChange(async (v) => { s.termTemplate = v.trim(); await save(false); });
-        if (folderSuggestAvailable()) new FileSuggest(this.app, t.inputEl);
+      .setName(t('set.termTemplate.name'))
+      .setDesc(t('set.termTemplate.desc'))
+      .addText((c) => {
+        c.setValue(s.termTemplate).onChange(async (v) => { s.termTemplate = v.trim(); await save(false); });
+        if (folderSuggestAvailable()) new FileSuggest(this.app, c.inputEl);
       });
 
     new Setting(containerEl)
-      .setName('Link scope')
-      .setDesc('Which notes terms are highlighted and linked in.')
+      .setName(t('set.scopeMode.name'))
+      .setDesc(t('set.scopeMode.desc'))
       .addDropdown((d) => d
-        .addOption('folders', 'Listed paths only')
-        .addOption('vault', 'Everywhere')
+        .addOption('folders', t('set.scopeMode.folders'))
+        .addOption('vault', t('set.scopeMode.vault'))
         .setValue(s.scopeMode)
         .onChange(async (v) => { s.scopeMode = v; await saveScope(); this.display(); }));
 
     if (s.scopeMode === 'folders') {
       new Setting(containerEl)
-        .setName('Paths to include')
-        .setDesc('One path per line — a file or a folder. Only these (and notes inside listed folders) are in scope. To exclude folders instead, use "Everywhere" and the Always-excluded paths below.')
-        .addTextArea((t) => { t.setValue(s.scopeFolders).onChange(async (v) => { s.scopeFolders = v; await saveScope(); }); t.inputEl.rows = 5; });
+        .setName(t('set.scopeFolders.name'))
+        .setDesc(t('set.scopeFolders.desc'))
+        .addTextArea((c) => { c.setValue(s.scopeFolders).onChange(async (v) => { s.scopeFolders = v; await saveScope(); }); c.inputEl.rows = 5; });
     }
 
     new Setting(containerEl)
-      .setName('Always-excluded paths')
-      .setDesc('One path per line — a file or a folder, never highlighted, linked or scanned, whatever the mode above is.')
-      .addTextArea((t) => { t.setValue(s.excludeFolders).onChange(async (v) => { s.excludeFolders = v; await saveScope(); }); t.inputEl.rows = 3; });
+      .setName(t('set.excludeFolders.name'))
+      .setDesc(t('set.excludeFolders.desc'))
+      .addTextArea((c) => { c.setValue(s.excludeFolders).onChange(async (v) => { s.excludeFolders = v; await saveScope(); }); c.inputEl.rows = 3; });
 
-    new Setting(containerEl).setName('Matching').setHeading();
+    new Setting(containerEl).setName(t('set.heading.matching')).setHeading();
 
     new Setting(containerEl)
-      .setName('Morphology')
-      .setDesc('How an inflected word is matched to a term.')
+      .setName(t('set.matchMode.name'))
+      .setDesc(t('set.matchMode.desc'))
       .addDropdown((d) => d
-        .addOption('stemmer', 'Stemmer (recommended)')
-        .addOption('endingStrip', 'Ending strip')
-        .addOption('exact', 'Exact match')
+        .addOption('stemmer', t('set.matchMode.stemmer'))
+        .addOption('endingStrip', t('set.matchMode.endingStrip'))
+        .addOption('exact', t('set.matchMode.exact'))
         .setValue(s.matchMode)
         .onChange(async (v) => { s.matchMode = v; await save(true); }));
 
     new Setting(containerEl)
-      .setName('Minimum term length')
-      .setDesc('Ignore term titles and aliases shorter than this many characters, so single letters do not match everywhere.')
-      .addText((t) => { t.inputEl.type = 'number'; t.inputEl.min = '1'; t.setValue(String(s.minTermLength)).onChange(async (v) => { const n = parseInt(v, 10); s.minTermLength = Number.isFinite(n) && n > 0 ? n : 1; await save(true); }); });
+      .setName(t('set.minTermLength.name'))
+      .setDesc(t('set.minTermLength.desc'))
+      .addText((c) => { c.inputEl.type = 'number'; c.inputEl.min = '1'; c.setValue(String(s.minTermLength)).onChange(async (v) => { const n = parseInt(v, 10); s.minTermLength = Number.isFinite(n) && n > 0 ? n : 1; await save(true); }); });
 
     const langs = this.plugin.languages;
     const errors = this.plugin.languageErrors || [];
     const enabledCount = langs.filter((l) => (s.enabledLanguages || []).includes(l.id)).length;
     if (this.showLanguages === undefined) this.showLanguages = false;
 
-    const langDesc = `Bundled morphology modules — ${enabledCount} of ${langs.length} enabled`
-      + (errors.length ? `, ${errors.length} invalid` : '') + '.';
+    const langDesc = t('set.languages.desc', { enabled: enabledCount, total: langs.length })
+      + (errors.length ? t('set.languages.invalidSuffix', { n: errors.length }) : '') + '.';
 
     new Setting(containerEl)
-      .setName('Languages')
+      .setName(t('set.languages.name'))
       .setDesc(langDesc)
       .addExtraButton((b) => b.setIcon(this.showLanguages ? 'chevron-up' : 'chevron-down')
-        .setTooltip(this.showLanguages ? 'Hide languages' : 'Show languages')
+        .setTooltip(this.showLanguages ? t('set.languages.hide') : t('set.languages.show'))
         .onClick(() => { this.showLanguages = !this.showLanguages; this.display(); }));
 
     if (this.showLanguages) {
@@ -98,11 +99,11 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
         const row = new Setting(containerEl)
           .setName(lang.name)
           .setDesc(`id: ${lang.id}`)
-          .addExtraButton((b) => b.setIcon('chevron-up').setTooltip('Higher priority').setDisabled(i === 0)
+          .addExtraButton((b) => b.setIcon('chevron-up').setTooltip(t('set.lang.higher')).setDisabled(i === 0)
             .onClick(async () => { this.plugin.moveLanguage(lang.id, -1); await this.applyLanguageChange(); }))
-          .addExtraButton((b) => b.setIcon('chevron-down').setTooltip('Lower priority').setDisabled(i === langs.length - 1)
+          .addExtraButton((b) => b.setIcon('chevron-down').setTooltip(t('set.lang.lower')).setDisabled(i === langs.length - 1)
             .onClick(async () => { this.plugin.moveLanguage(lang.id, 1); await this.applyLanguageChange(); }))
-          .addToggle((t) => t.setValue((s.enabledLanguages || []).includes(lang.id)).onChange(async (v) => {
+          .addToggle((c) => c.setValue((s.enabledLanguages || []).includes(lang.id)).onChange(async (v) => {
             const set = new Set(s.enabledLanguages || []);
             if (v) set.add(lang.id); else set.delete(lang.id);
             s.enabledLanguages = [...set];
@@ -113,8 +114,8 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
       for (const bad of errors) {
         const row = new Setting(containerEl)
           .setName(bad.id)
-          .setDesc(`Invalid module: ${bad.error}`)
-          .addExtraButton((b) => b.setIcon('alert-triangle').setTooltip(`Invalid module: ${bad.error}`).setDisabled(true));
+          .setDesc(t('set.lang.invalid', { error: bad.error }))
+          .addExtraButton((b) => b.setIcon('alert-triangle').setTooltip(t('set.lang.invalid', { error: bad.error })).setDisabled(true));
         row.nameEl.addClass('glossary-lang-error');
         row.settingEl.addClass('glossary-lang-row');
         row.settingEl.addClass('mod-warning');
@@ -122,147 +123,147 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
     }
 
     new Setting(containerEl)
-      .setName('Link first occurrence only')
-      .setDesc('When turning terms into links, link only the first occurrence of each term on a page.')
-      .addToggle((t) => t.setValue(s.linkFirstOnly).onChange(async (v) => { s.linkFirstOnly = v; await save(false); }));
+      .setName(t('set.linkFirstOnly.name'))
+      .setDesc(t('set.linkFirstOnly.desc'))
+      .addToggle((c) => c.setValue(s.linkFirstOnly).onChange(async (v) => { s.linkFirstOnly = v; await save(false); }));
 
     new Setting(containerEl)
-      .setName('Excluded terms')
-      .setDesc('Term titles or aliases, one per line — drops the whole matching entry from the index.')
-      .addTextArea((t) => { t.setValue(s.excludeTerms).onChange(async (v) => { s.excludeTerms = v; await save(true); }); t.inputEl.rows = 3; });
+      .setName(t('set.excludeTerms.name'))
+      .setDesc(t('set.excludeTerms.desc'))
+      .addTextArea((c) => { c.setValue(s.excludeTerms).onChange(async (v) => { s.excludeTerms = v; await save(true); }); c.inputEl.rows = 3; });
 
     new Setting(containerEl)
-      .setName('Excluded words')
-      .setDesc('Surface words, one per line, that never trigger a link even if they match a term.')
-      .addTextArea((t) => { t.setValue(s.excludeWords).onChange(async (v) => { s.excludeWords = v; await save(true); }); t.inputEl.rows = 3; });
+      .setName(t('set.excludeWords.name'))
+      .setDesc(t('set.excludeWords.desc'))
+      .addTextArea((c) => { c.setValue(s.excludeWords).onChange(async (v) => { s.excludeWords = v; await save(true); }); c.inputEl.rows = 3; });
 
-    new Setting(containerEl).setName('Highlighting').setHeading();
-
-    new Setting(containerEl)
-      .setName('Highlight in Reading view')
-      .setDesc('Underline detected terms as clickable links in Reading view (file unchanged).')
-      .addToggle((t) => t.setValue(s.highlightInReading).onChange(async (v) => { s.highlightInReading = v; await save(false); this.plugin.rerenderViews(); }));
+    new Setting(containerEl).setName(t('set.heading.highlighting')).setHeading();
 
     new Setting(containerEl)
-      .setName('Highlight while editing')
-      .setDesc('Underline terms in the editor (Live Preview / Source) too.')
+      .setName(t('set.highlightInReading.name'))
+      .setDesc(t('set.highlightInReading.desc'))
+      .addToggle((c) => c.setValue(s.highlightInReading).onChange(async (v) => { s.highlightInReading = v; await save(false); this.plugin.rerenderViews(); }));
+
+    new Setting(containerEl)
+      .setName(t('set.editingHighlight.name'))
+      .setDesc(t('set.editingHighlight.desc'))
       .addDropdown((d) => d
-        .addOption('off', 'Off')
-        .addOption('live', 'Live (as you type)')
-        .addOption('onSave', 'On save')
+        .addOption('off', t('set.editingHighlight.off'))
+        .addOption('live', t('set.editingHighlight.live'))
+        .addOption('onSave', t('set.editingHighlight.onSave'))
         .setValue(s.editingHighlight)
         .onChange(async (v) => { s.editingHighlight = v; await save(false); this.plugin.refreshEditors(); }));
 
     new Setting(containerEl)
-      .setName('Skip headings')
-      .setDesc('Do not highlight or link terms that appear inside Markdown headings.')
-      .addToggle((t) => t.setValue(s.skipHeadings).onChange(async (v) => { s.skipHeadings = v; await save(false); this.plugin.rerenderViews(); }));
+      .setName(t('set.skipHeadings.name'))
+      .setDesc(t('set.skipHeadings.desc'))
+      .addToggle((c) => c.setValue(s.skipHeadings).onChange(async (v) => { s.skipHeadings = v; await save(false); this.plugin.rerenderViews(); }));
 
     new Setting(containerEl)
-      .setName('Status bar count')
-      .setDesc('Show how many glossary terms are on the current note in the status bar.')
-      .addToggle((t) => t.setValue(s.statusBar).onChange(async (v) => { s.statusBar = v; await save(false); this.plugin.updateStatusBar(); }));
+      .setName(t('set.statusBar.name'))
+      .setDesc(t('set.statusBar.desc'))
+      .addToggle((c) => c.setValue(s.statusBar).onChange(async (v) => { s.statusBar = v; await save(false); this.plugin.updateStatusBar(); }));
 
     new Setting(containerEl)
-      .setName('Count direct links')
-      .setDesc('Also count terms already linked directly, not only plain-text mentions.')
-      .addToggle((t) => t.setValue(s.statusBarIncludeLinks).onChange(async (v) => { s.statusBarIncludeLinks = v; await save(false); this.plugin.updateStatusBar(); }));
+      .setName(t('set.statusBarIncludeLinks.name'))
+      .setDesc(t('set.statusBarIncludeLinks.desc'))
+      .addToggle((c) => c.setValue(s.statusBarIncludeLinks).onChange(async (v) => { s.statusBarIncludeLinks = v; await save(false); this.plugin.updateStatusBar(); }));
 
-    new Setting(containerEl).setName('Autocomplete').setHeading();
-
-    new Setting(containerEl)
-      .setName('Suggest links while typing')
-      .setDesc('As you type in an in-scope note, offer to insert a [[link]] to a matching glossary term (prefix of a title/alias, or an inflected form).')
-      .addToggle((t) => t.setValue(s.linkSuggest).onChange(async (v) => { s.linkSuggest = v; await save(false); }));
+    new Setting(containerEl).setName(t('set.heading.autocomplete')).setHeading();
 
     new Setting(containerEl)
-      .setName('Minimum characters')
-      .setDesc('How many characters to type before suggestions appear.')
-      .addText((t) => { t.inputEl.type = 'number'; t.inputEl.min = '1'; t.setValue(String(s.suggestMinChars)).onChange(async (v) => { const n = parseInt(v, 10); s.suggestMinChars = Number.isFinite(n) && n > 0 ? n : 1; await save(false); }); });
-
-    new Setting(containerEl).setName('Collecting aliases').setHeading();
-    containerEl.createEl('div', { cls: 'glossary-section-desc', text: 'Reads the links you already made by hand, like [[Term|some wording]], and adds that wording to the term\'s aliases — so the same wording links automatically next time.' });
+      .setName(t('set.linkSuggest.name'))
+      .setDesc(t('set.linkSuggest.desc'))
+      .addToggle((c) => c.setValue(s.linkSuggest).onChange(async (v) => { s.linkSuggest = v; await save(false); }));
 
     new Setting(containerEl)
-      .setName('Alias form')
-      .setDesc('How collected link text is stored as an alias.')
+      .setName(t('set.suggestMinChars.name'))
+      .setDesc(t('set.suggestMinChars.desc'))
+      .addText((c) => { c.inputEl.type = 'number'; c.inputEl.min = '1'; c.setValue(String(s.suggestMinChars)).onChange(async (v) => { const n = parseInt(v, 10); s.suggestMinChars = Number.isFinite(n) && n > 0 ? n : 1; await save(false); }); });
+
+    new Setting(containerEl).setName(t('set.heading.collecting')).setHeading();
+    containerEl.createEl('div', { cls: 'glossary-section-desc', text: t('set.collecting.desc') });
+
+    new Setting(containerEl)
+      .setName(t('set.aliasHarvestMode.name'))
+      .setDesc(t('set.aliasHarvestMode.desc'))
       .addDropdown((d) => d
-        .addOption('lemma', 'Base form')
-        .addOption('literal', 'As written')
-        .addOption('both', 'Both')
+        .addOption('lemma', t('set.aliasHarvestMode.lemma'))
+        .addOption('literal', t('set.aliasHarvestMode.literal'))
+        .addOption('both', t('set.aliasHarvestMode.both'))
         .setValue(s.aliasHarvestMode)
         .onChange(async (v) => { s.aliasHarvestMode = v; await save(false); }));
 
     new Setting(containerEl)
-      .setName('Collect on save')
-      .setDesc('Collect aliases automatically when a note is saved.')
+      .setName(t('set.harvestOnSave.name'))
+      .setDesc(t('set.harvestOnSave.desc'))
       .addDropdown((d) => d
-        .addOption('off', 'Off')
-        .addOption('silent', 'Silent (add automatically)')
-        .addOption('preview', 'Ask first')
+        .addOption('off', t('set.harvestOnSave.off'))
+        .addOption('silent', t('set.harvestOnSave.silent'))
+        .addOption('preview', t('set.harvestOnSave.preview'))
         .setValue(s.harvestOnSave)
         .onChange(async (v) => { s.harvestOnSave = v; await save(false); }));
 
     new Setting(containerEl)
-      .setName('Single-word aliases only')
-      .setDesc('Only collect link texts that are a single word.')
-      .addToggle((t) => t.setValue(s.harvestSingleWordOnly).onChange(async (v) => { s.harvestSingleWordOnly = v; await save(false); }));
+      .setName(t('set.harvestSingleWordOnly.name'))
+      .setDesc(t('set.harvestSingleWordOnly.desc'))
+      .addToggle((c) => c.setValue(s.harvestSingleWordOnly).onChange(async (v) => { s.harvestSingleWordOnly = v; await save(false); }));
 
     new Setting(containerEl)
-      .setName('Minimum alias length')
-      .setDesc('Ignore collected aliases shorter than this many characters.')
-      .addText((t) => { t.inputEl.type = 'number'; t.inputEl.min = '1'; t.setValue(String(s.harvestMinLength)).onChange(async (v) => { const n = parseInt(v, 10); s.harvestMinLength = Number.isFinite(n) && n > 0 ? n : 1; await save(false); }); });
+      .setName(t('set.harvestMinLength.name'))
+      .setDesc(t('set.harvestMinLength.desc'))
+      .addText((c) => { c.inputEl.type = 'number'; c.inputEl.min = '1'; c.setValue(String(s.harvestMinLength)).onChange(async (v) => { const n = parseInt(v, 10); s.harvestMinLength = Number.isFinite(n) && n > 0 ? n : 1; await save(false); }); });
 
     new Setting(containerEl)
-      .setName('Warn about alias collisions')
-      .setDesc('When collecting an alias or creating a term, flag wording that already matches a different term (so you can avoid making a word point at two terms).')
-      .addToggle((t) => t.setValue(s.aliasCollisionWarnings).onChange(async (v) => { s.aliasCollisionWarnings = v; await save(false); }));
+      .setName(t('set.aliasCollisionWarnings.name'))
+      .setDesc(t('set.aliasCollisionWarnings.desc'))
+      .addToggle((c) => c.setValue(s.aliasCollisionWarnings).onChange(async (v) => { s.aliasCollisionWarnings = v; await save(false); }));
 
-    new Setting(containerEl).setName('Context menu').setHeading();
-
-    new Setting(containerEl)
-      .setName('"Link to term" items')
-      .setDesc('Show the "Link to term" / "Link all … to term" actions when right-clicking a highlighted term.')
-      .addToggle((t) => t.setValue(s.menuTurnInto).onChange(async (v) => { s.menuTurnInto = v; await save(false); }));
+    new Setting(containerEl).setName(t('set.heading.contextMenu')).setHeading();
 
     new Setting(containerEl)
-      .setName('"Collect aliases" item')
-      .setDesc('Show "Collect aliases from links (this note)" in the editor right-click menu.')
-      .addToggle((t) => t.setValue(s.menuCollect).onChange(async (v) => { s.menuCollect = v; await save(false); }));
+      .setName(t('set.menuTurnInto.name'))
+      .setDesc(t('set.menuTurnInto.desc'))
+      .addToggle((c) => c.setValue(s.menuTurnInto).onChange(async (v) => { s.menuTurnInto = v; await save(false); }));
 
     new Setting(containerEl)
-      .setName('"Exclude word / term" items')
-      .setDesc('Show "Add … to excluded words / terms" when right-clicking a term, and "Add … to excluded words" on a selected word.')
-      .addToggle((t) => t.setValue(s.menuExclude).onChange(async (v) => { s.menuExclude = v; await save(false); }));
+      .setName(t('set.menuCollect.name'))
+      .setDesc(t('set.menuCollect.desc'))
+      .addToggle((c) => c.setValue(s.menuCollect).onChange(async (v) => { s.menuCollect = v; await save(false); }));
 
     new Setting(containerEl)
-      .setName('"Open glossary note" items')
-      .setDesc('Show "Open glossary note" / "Open in new tab" when right-clicking a highlighted term.')
-      .addToggle((t) => t.setValue(s.menuOpen).onChange(async (v) => { s.menuOpen = v; await save(false); }));
+      .setName(t('set.menuExclude.name'))
+      .setDesc(t('set.menuExclude.desc'))
+      .addToggle((c) => c.setValue(s.menuExclude).onChange(async (v) => { s.menuExclude = v; await save(false); }));
 
     new Setting(containerEl)
-      .setName('"Create term from selection" items')
-      .setDesc('Show the "Glossary: create term…" actions when right-clicking a plain text selection.')
-      .addToggle((t) => t.setValue(s.menuCreateTerm).onChange(async (v) => { s.menuCreateTerm = v; await save(false); }));
+      .setName(t('set.menuOpen.name'))
+      .setDesc(t('set.menuOpen.desc'))
+      .addToggle((c) => c.setValue(s.menuOpen).onChange(async (v) => { s.menuOpen = v; await save(false); }));
 
     new Setting(containerEl)
-      .setName('"Unlink term" item')
-      .setDesc('Show "Glossary: unlink this term" when right-clicking an existing glossary link.')
-      .addToggle((t) => t.setValue(s.menuUnlink).onChange(async (v) => { s.menuUnlink = v; await save(false); }));
-
-    new Setting(containerEl).setName('Overview').setHeading();
+      .setName(t('set.menuCreateTerm.name'))
+      .setDesc(t('set.menuCreateTerm.desc'))
+      .addToggle((c) => c.setValue(s.menuCreateTerm).onChange(async (v) => { s.menuCreateTerm = v; await save(false); }));
 
     new Setting(containerEl)
-      .setName('Ribbon icon')
-      .setDesc('Show a ribbon button that opens the glossary overview panel. The "Open glossary overview" command works either way.')
-      .addToggle((t) => t.setValue(s.showRibbonIcon).onChange(async (v) => { s.showRibbonIcon = v; await save(false); this.plugin.applyRibbonIcon(); }));
+      .setName(t('set.menuUnlink.name'))
+      .setDesc(t('set.menuUnlink.desc'))
+      .addToggle((c) => c.setValue(s.menuUnlink).onChange(async (v) => { s.menuUnlink = v; await save(false); }));
 
-    new Setting(containerEl).setName('Maintenance').setHeading();
+    new Setting(containerEl).setName(t('set.heading.overview')).setHeading();
 
     new Setting(containerEl)
-      .setName('Rebuild glossary index')
-      .setDesc('Re-scan the glossary folder now.')
-      .addButton((b) => b.setButtonText('Rebuild').onClick(() => { this.plugin.rebuildIndex(); new Notice('Glossary Linker: index rebuilt'); this.renderFolderStatus(); }));
+      .setName(t('set.showRibbonIcon.name'))
+      .setDesc(t('set.showRibbonIcon.desc'))
+      .addToggle((c) => c.setValue(s.showRibbonIcon).onChange(async (v) => { s.showRibbonIcon = v; await save(false); this.plugin.applyRibbonIcon(); }));
+
+    new Setting(containerEl).setName(t('set.heading.maintenance')).setHeading();
+
+    new Setting(containerEl)
+      .setName(t('set.rebuild.name'))
+      .setDesc(t('set.rebuild.desc'))
+      .addButton((b) => b.setButtonText(t('set.rebuild.button')).onClick(() => { this.plugin.rebuildIndex(); new Notice(t('notice.indexRebuilt')); this.renderFolderStatus(); }));
   }
 
   async applyLanguageChange() {
@@ -283,11 +284,11 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
     const isFolder = f instanceof TFolder;
     if (!isFolder) {
       el.addClass('glossary-lang-error');
-      el.setText('⚠ Folder not found — no terms will be indexed.');
+      el.setText(t('set.folderNotFound'));
       return;
     }
     const n = (this.plugin.index && this.plugin.index.termCount) || 0;
-    el.setText(`${n} term${n === 1 ? '' : 's'} indexed.`);
+    el.setText(t('set.termsIndexed', { terms: plural('term', n) }));
   }
 }
 

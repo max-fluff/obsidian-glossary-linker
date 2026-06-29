@@ -1,6 +1,7 @@
 'use strict';
 
 const { Notice } = require('obsidian');
+const { t } = require('./i18n');
 
 // Public API exposed as `app.plugins.plugins['glossary-linker'].api`, so other
 // plugins and DataviewJS can read the glossary index. Mixed into the plugin
@@ -88,10 +89,10 @@ module.exports = {
     const minNotes = Math.max(1, this.settings.candidateMinNotes || 1);
     const groups = new Map(); // lemma -> { forms: Map<surface, count>, total, files: Set }
     const files = opts.wholeVault ? this.app.vault.getMarkdownFiles() : this.getScopeFiles();
-    const notice = new Notice('Glossary Linker: scanning…', 0);
+    const notice = new Notice(t('notice.scanning'), 0);
     try {
       for (let i = 0; i < files.length; i++) {
-        if (i % 25 === 0) notice.setMessage(`Glossary Linker: scanning ${i + 1}/${files.length}…`);
+        if (i % 25 === 0) notice.setMessage(t('notice.scanningProgress', { current: i + 1, total: files.length }));
         let text;
         try { text = await this.app.vault.cachedRead(files[i]); } catch (e) { continue; }
         const protect = this.computeProtected(text);

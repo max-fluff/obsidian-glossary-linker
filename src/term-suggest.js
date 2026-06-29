@@ -2,6 +2,7 @@
 
 const obsidian = require('obsidian');
 const { EditorSuggest } = obsidian;
+const { t } = require('./i18n');
 
 // Inline autocomplete: while typing in an in-scope note, offer to insert a
 // [[link]] to a glossary term. Two kinds of candidate:
@@ -74,8 +75,8 @@ class GlossaryTermSuggest extends EditorSuggest {
     el.addClass('glossary-suggestion');
     el.createSpan({ cls: 'glossary-suggestion-title', text: item.canonical });
     let note = '';
-    if (item.kind === 'form') note = 'inflection';
-    else if (item.matchedForm !== item.canonical) note = `alias: ${item.matchedForm}`;
+    if (item.kind === 'form') note = t('suggest.inflection');
+    else if (item.matchedForm !== item.canonical) note = t('suggest.alias', { form: item.matchedForm });
     if (note) el.createSpan({ cls: 'glossary-suggestion-note', text: note });
   }
 

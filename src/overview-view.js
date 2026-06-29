@@ -1,10 +1,9 @@
 'use strict';
 
 const { ItemView } = require('obsidian');
+const { t, plural } = require('./i18n');
 
 const OVERVIEW_VIEW_TYPE = 'glossary-overview';
-
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 // Right-sidebar panel: indexed terms (with usage / orphans) and candidate words
 // worth defining. Both lists come from heavy scans, so they refresh on demand.
@@ -17,7 +16,7 @@ class GlossaryOverviewView extends ItemView {
   }
 
   getViewType() { return OVERVIEW_VIEW_TYPE; }
-  getDisplayText() { return 'Glossary'; }
+  getDisplayText() { return t('view.title'); }
   getIcon() { return 'book-a'; }
 
   async onOpen() {
@@ -35,13 +34,13 @@ class GlossaryOverviewView extends ItemView {
     const root = this.contentEl;
     root.empty();
     const bar = root.createDiv({ cls: 'glossary-overview-bar' });
-    bar.createEl('button', { text: 'Rescan', cls: 'mod-cta' }).onclick = () => this.refresh();
+    bar.createEl('button', { text: t('overview.rescan'), cls: 'mod-cta' }).onclick = () => this.refresh();
 
     const scope = bar.createEl('label', { cls: 'glossary-overview-check' });
     const sc = scope.createEl('input', { type: 'checkbox' });
     sc.checked = this.plugin.settings.overviewWholeVault;
-    scope.createSpan({ text: 'whole vault' });
-    scope.setAttribute('aria-label', 'Scan every note instead of only the linker scope');
+    scope.createSpan({ text: t('overview.wholeVault') });
+    scope.setAttribute('aria-label', t('overview.wholeVaultAria'));
     sc.onchange = async () => {
       this.plugin.settings.overviewWholeVault = sc.checked;
       await this.plugin.saveSettings();
@@ -60,7 +59,7 @@ class GlossaryOverviewView extends ItemView {
   }
 
   sortControl(controls, options, value, onChange) {
-    controls.createSpan({ text: 'Sort' });
+    controls.createSpan({ text: t('overview.sort') });
     const sel = controls.createEl('select');
     for (const [text, val] of options) sel.createEl('option', { text, value: val });
     sel.value = value;
@@ -99,11 +98,11 @@ class GlossaryOverviewView extends ItemView {
     const el = this.termsSection;
     el.empty();
     const collapsed = this.plugin.settings.overviewTermsCollapsed;
-    this.foldHeader(el, 'Terms', this.terms.length, collapsed, () => this.toggleTerms());
+    this.foldHeader(el, t('overview.terms'), this.terms.length, collapsed, () => this.toggleTerms());
     if (collapsed) return;
 
     const controls = el.createDiv({ cls: 'glossary-overview-controls' });
-    this.sortControl(controls, [['Most used', 'usage'], ['Name', 'name']], this.plugin.settings.overviewSort, async (v) => {
+    this.sortControl(controls, [[t('overview.sortMostUsed'), 'usage'], [t('overview.sortName'), 'name']], this.plugin.settings.overviewSort, async (v) => {
       this.plugin.settings.overviewSort = v;
       await this.plugin.saveSettings();
       this.renderTerms();
@@ -112,8 +111,8 @@ class GlossaryOverviewView extends ItemView {
     const check = controls.createEl('label', { cls: 'glossary-overview-check' });
     const cb = check.createEl('input', { type: 'checkbox' });
     cb.checked = this.plugin.settings.overviewCountLinks;
-    check.createSpan({ text: 'count links' });
-    check.setAttribute('aria-label', 'Also count existing [[Term]] links, not just plain-text mentions');
+    check.createSpan({ text: t('overview.countLinks') });
+    check.setAttribute('aria-label', t('overview.countLinksAria'));
     cb.onchange = async () => {
       this.plugin.settings.overviewCountLinks = cb.checked;
       await this.plugin.saveSettings();
@@ -122,22 +121,22 @@ class GlossaryOverviewView extends ItemView {
     };
 
     const list = el.createDiv({ cls: 'glossary-overview-list' });
-    if (!this.terms.length) { list.createDiv({ cls: 'glossary-overview-empty', text: 'No terms indexed.' }); return; }
+    if (!this.terms.length) { list.createDiv({ cls: 'glossary-overview-empty', text: t('overview.noTerms') }); return; }
     const byName = this.plugin.settings.overviewSort === 'name';
     const sorted = this.terms.slice().sort((a, b) =>
       byName ? a.canonical.localeCompare(b.canonical) : (b.count - a.count || a.canonical.localeCompare(b.canonical)));
-    for (const t of sorted) {
+    for (const term of sorted) {
       const row = list.createDiv({ cls: 'glossary-overview-row' });
-      if (t.count === 0) row.addClass('is-orphan');
-      const name = row.createSpan({ cls: 'glossary-overview-name is-link', text: t.canonical });
-      name.setAttribute('aria-label', 'Open — middle-click for a new tab');
-      name.addEventListener('click', () => this.plugin.openTerm(t.canonical, '', false));
+      if (term.count === 0) row.addClass('is-orphan');
+      const name = row.createSpan({ cls: 'glossary-overview-name is-link', text: term.canonical });
+      name.setAttribute('aria-label', t('overview.openAria'));
+      name.addEventListener('click', () => this.plugin.openTerm(term.canonical, '', false));
       name.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); }); // suppress autoscroll
-      name.addEventListener('auxclick', (e) => { if (e.button === 1) { e.preventDefault(); this.plugin.openTerm(t.canonical, '', true); } });
-      row.createSpan({ cls: 'glossary-overview-count', text: t.count === 0 ? 'unused ⚠' : plural(t.count, 'use') });
+      name.addEventListener('auxclick', (e) => { if (e.button === 1) { e.preventDefault(); this.plugin.openTerm(term.canonical, '', true); } });
+      row.createSpan({ cls: 'glossary-overview-count', text: term.count === 0 ? t('overview.unused') : plural('use', term.count) });
       const actions = row.createSpan({ cls: 'glossary-overview-actions' });
-      const link = actions.createEl('a', { cls: 'glossary-overview-act', text: 'link all' });
-      link.onclick = () => this.plugin.materializeTermScope(t.canonical);
+      const link = actions.createEl('a', { cls: 'glossary-overview-act', text: t('overview.linkAll') });
+      link.onclick = () => this.plugin.materializeTermScope(term.canonical);
     }
   }
 
@@ -145,17 +144,17 @@ class GlossaryOverviewView extends ItemView {
     const el = this.candidatesSection;
     el.empty();
     const collapsed = this.plugin.settings.overviewCandidatesCollapsed;
-    this.foldHeader(el, 'Candidates', this.candidates.length, collapsed, () => this.toggleCandidates());
+    this.foldHeader(el, t('overview.candidates'), this.candidates.length, collapsed, () => this.toggleCandidates());
     if (collapsed) return;
 
     const controls = el.createDiv({ cls: 'glossary-overview-controls' });
-    this.sortControl(controls, [['Notes', 'notes'], ['Mentions', 'count']], this.plugin.settings.overviewCandidateSort, async (v) => {
+    this.sortControl(controls, [[t('overview.sortNotes'), 'notes'], [t('overview.sortMentions'), 'count']], this.plugin.settings.overviewCandidateSort, async (v) => {
       this.plugin.settings.overviewCandidateSort = v;
       await this.plugin.saveSettings();
       this.renderCandidates();
     });
 
-    controls.createSpan({ text: 'Min notes' });
+    controls.createSpan({ text: t('overview.minNotes') });
     const input = controls.createEl('input', { type: 'number' });
     input.min = '1';
     input.value = String(this.plugin.settings.candidateMinNotes);
@@ -168,16 +167,16 @@ class GlossaryOverviewView extends ItemView {
     };
 
     const list = el.createDiv({ cls: 'glossary-overview-list' });
-    if (!this.candidates.length) { list.createDiv({ cls: 'glossary-overview-empty', text: 'No candidates.' }); return; }
+    if (!this.candidates.length) { list.createDiv({ cls: 'glossary-overview-empty', text: t('overview.noCandidates') }); return; }
     const byCount = this.plugin.settings.overviewCandidateSort === 'count';
     const sorted = this.candidates.slice().sort((a, b) =>
       byCount ? (b.count - a.count || b.docFreq - a.docFreq) : (b.docFreq - a.docFreq || b.count - a.count));
     for (const c of sorted) {
       const row = list.createDiv({ cls: 'glossary-overview-row' });
       row.createSpan({ cls: 'glossary-overview-name', text: c.display });
-      row.createSpan({ cls: 'glossary-overview-count', text: `${plural(c.docFreq, 'note')} · ${plural(c.count, 'use')}` });
+      row.createSpan({ cls: 'glossary-overview-count', text: `${plural('note', c.docFreq)} · ${plural('use', c.count)}` });
       const actions = row.createSpan({ cls: 'glossary-overview-actions' });
-      const add = actions.createEl('a', { cls: 'glossary-overview-act', text: '+ term' });
+      const add = actions.createEl('a', { cls: 'glossary-overview-act', text: t('overview.addTerm') });
       add.onclick = async () => { await this.plugin.createTermNote(null, c.display, false); this.drop(c); };
       const dismiss = actions.createEl('a', { cls: 'glossary-overview-act', text: '✕' });
       dismiss.onclick = async () => { await this.plugin.addToExclusion('excludeWords', c.display.toLowerCase()); this.drop(c); };

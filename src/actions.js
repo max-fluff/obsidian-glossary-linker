@@ -3,6 +3,7 @@
 const { Menu, Notice, TFile, moment } = require('obsidian');
 const { splitLines } = require('./constants');
 const { MaterializePreviewModal, HarvestPreviewModal, ChooseTermModal, UnlinkPreviewModal } = require('./modals');
+const { t, plural } = require('./i18n');
 
 // Turning terms into links + collecting aliases. Mixed into the plugin prototype.
 module.exports = {
@@ -39,18 +40,18 @@ module.exports = {
       if (written) total += r.count;
       else skipped++;
     }
-    let msg = `Glossary Linker: ${results.length - skipped} file(s), ${total} link(s)`;
-    if (skipped) msg += `, ${skipped} skipped (changed since preview)`;
+    let msg = t('notice.scopeWritten', { files: plural('file', results.length - skipped), links: plural('link', total) });
+    if (skipped) msg += t('notice.scopeSkipped', { n: skipped });
     new Notice(msg);
     this.updateStatusBar();
   },
 
   async materializeCurrent() {
     const file = this.app.workspace.getActiveFile();
-    if (!file) { new Notice('No active note'); return; }
+    if (!file) { new Notice(t('notice.noActiveNote')); return; }
     const text = await this.app.vault.cachedRead(file);
     const matches = this.collectMatches(text, this.canonicalForPath(file.path));
-    if (!matches.length) { new Notice('Glossary Linker: no matches found'); return; }
+    if (!matches.length) { new Notice(t('notice.noMatches')); return; }
     this.openMaterializePreview([{ file, original: text, matches }], async (results) => {
       const r = results[0];
       let written = false;
@@ -60,33 +61,33 @@ module.exports = {
         return r.newText;
       });
       if (!written) {
-        new Notice('Glossary Linker: note changed since preview, nothing written');
+        new Notice(t('notice.noteChanged'));
         return;
       }
-      new Notice(`Glossary Linker: ${r.count} link(s) created`);
+      new Notice(t('notice.linksCreated', { links: plural('link', r.count) }));
       this.updateStatusBar();
     });
   },
 
   materializeSelection(editor) {
     const sel = editor.getSelection();
-    if (!sel) { new Notice('No selection'); return; }
+    if (!sel) { new Notice(t('notice.noSelection')); return; }
     const file = this.app.workspace.getActiveFile();
     const matches = this.collectMatches(sel, file ? this.canonicalForPath(file.path) : null);
-    if (!matches.length) { new Notice('Glossary Linker: no matches found'); return; }
-    this.openMaterializePreview([{ file: null, original: sel, matches, label: 'selection' }], (results) => {
+    if (!matches.length) { new Notice(t('notice.noMatches')); return; }
+    this.openMaterializePreview([{ file: null, original: sel, matches, label: t('label.selection') }], (results) => {
       editor.replaceSelection(results[0].newText);
-      new Notice(`Glossary Linker: ${results[0].count} link(s) created`);
+      new Notice(t('notice.linksCreated', { links: plural('link', results[0].count) }));
     });
   },
 
   async scanScopeMatches(compute) {
     const files = this.getScopeFiles();
     const out = [];
-    const notice = new Notice('Glossary Linker: scanning…', 0);
+    const notice = new Notice(t('notice.scanning'), 0);
     try {
       for (let i = 0; i < files.length; i++) {
-        if (i % 25 === 0) notice.setMessage(`Glossary Linker: scanning ${i + 1}/${files.length}…`);
+        if (i % 25 === 0) notice.setMessage(t('notice.scanningProgress', { current: i + 1, total: files.length }));
         const file = files[i];
         const text = await this.app.vault.cachedRead(file);
         const matches = compute(text, file);
@@ -101,7 +102,7 @@ module.exports = {
   async materializeScope() {
     const files = await this.scanScopeMatches((text, file) =>
       this.collectMatches(text, this.canonicalForPath(file.path)));
-    if (!files.length) { new Notice('Glossary Linker: no matches found'); return; }
+    if (!files.length) { new Notice(t('notice.noMatches')); return; }
     this.openMaterializePreview(files, (results) => this.writeScopeResults(results));
   },
 
@@ -132,34 +133,34 @@ module.exports = {
 
   async unlinkCurrent() {
     const file = this.app.workspace.getActiveFile();
-    if (!file) { new Notice('No active note'); return; }
+    if (!file) { new Notice(t('notice.noActiveNote')); return; }
     const text = await this.app.vault.cachedRead(file);
     const links = this.findGlossaryLinks(text, file.path);
-    if (!links.length) { new Notice('Glossary Linker: no glossary links found'); return; }
+    if (!links.length) { new Notice(t('notice.noGlossaryLinks')); return; }
     this.openUnlinkPreview([{ file, original: text, matches: links }], (results) => this.writeScopeResults(results));
   },
 
   unlinkSelection(editor) {
     const sel = editor.getSelection();
-    if (!sel) { new Notice('No selection'); return; }
+    if (!sel) { new Notice(t('notice.noSelection')); return; }
     const file = this.app.workspace.getActiveFile();
     const links = this.findGlossaryLinks(sel, file ? file.path : '');
-    if (!links.length) { new Notice('Glossary Linker: no glossary links found'); return; }
-    this.openUnlinkPreview([{ file: null, original: sel, matches: links, label: 'selection' }], (results) => {
+    if (!links.length) { new Notice(t('notice.noGlossaryLinks')); return; }
+    this.openUnlinkPreview([{ file: null, original: sel, matches: links, label: t('label.selection') }], (results) => {
       editor.replaceSelection(results[0].newText);
-      new Notice(`Glossary Linker: ${results[0].count} link(s) removed`);
+      new Notice(t('notice.linksRemoved', { links: plural('link', results[0].count) }));
     });
   },
 
   async unlinkScope() {
     const files = await this.scanScopeMatches((text, file) => this.findGlossaryLinks(text, file.path));
-    if (!files.length) { new Notice('Glossary Linker: no glossary links found'); return; }
+    if (!files.length) { new Notice(t('notice.noGlossaryLinks')); return; }
     this.openUnlinkPreview(files, (results) => this.writeScopeResults(results));
   },
 
   async createTermFromSelection(editor, replaceWithLink) {
     const sel = (editor.getSelection() || '').trim();
-    if (!sel) { new Notice('Glossary Linker: nothing selected'); return; }
+    if (!sel) { new Notice(t('notice.nothingSelected')); return; }
 
     // If the selection already matches a term, open that one instead of making a duplicate.
     if (this.settings.aliasCollisionWarnings) {
@@ -167,7 +168,7 @@ module.exports = {
       if (hits.length) {
         const sourcePath = this.app.workspace.getActiveFile()?.path || '';
         this.openTerm(hits[0], sourcePath, false);
-        new Notice(`Glossary Linker: "${sel}" already matches "${hits[0]}" — opened it`);
+        new Notice(t('notice.alreadyMatchesOpened', { sel, term: hits[0] }));
         return;
       }
     }
@@ -176,20 +177,20 @@ module.exports = {
 
   async createTermNote(editor, sel, replaceWithLink) {
     const name = sel.replace(/[\\/:*?"<>|#^\[\]]/g, '').replace(/\s+/g, ' ').trim();
-    if (!name) { new Notice('Glossary Linker: selection is not a valid term name'); return; }
+    if (!name) { new Notice(t('notice.invalidTermName')); return; }
 
     await this.ensureGlossaryFolder();
     const folder = this.settings.glossaryFolder.replace(/\/+$/, '');
     const path = folder ? `${folder}/${name}.md` : `${name}.md`;
     let file = this.app.vault.getAbstractFileByPath(path);
     if (file) {
-      new Notice(`Glossary Linker: term "${name}" already exists`);
+      new Notice(t('notice.termExists', { name }));
     } else {
       try {
         const content = await this.buildTermContent(name, sel);
         file = await this.app.vault.create(path, content);
       }
-      catch (e) { new Notice('Glossary Linker: could not create term note'); return; }
+      catch (e) { new Notice(t('notice.couldNotCreate')); return; }
     }
 
     if (replaceWithLink) editor.replaceSelection(this.wikiLink(name, sel));
@@ -203,12 +204,12 @@ module.exports = {
     if (!tplPath) return '';
     const tpl = this.app.vault.getAbstractFileByPath(tplPath);
     if (!(tpl instanceof TFile)) {
-      new Notice(`Glossary Linker: template not found: ${tplPath}`);
+      new Notice(t('notice.templateNotFound', { path: tplPath }));
       return '';
     }
     let text;
     try { text = await this.app.vault.read(tpl); }
-    catch (e) { new Notice('Glossary Linker: could not read template'); return ''; }
+    catch (e) { new Notice(t('notice.couldNotReadTemplate')); return ''; }
     return this.applyTermPlaceholders(text, name, sel);
   },
 
@@ -238,16 +239,16 @@ module.exports = {
     const groups = [];
 
     if (file && this.settings.menuTurnInto) {
-      const scope = this.settings.linkFirstOnly ? 'first' : 'all';
+      const scope = this.settings.linkFirstOnly ? t('scope.first') : t('scope.all');
       groups.push((menu) => {
-        menu.addItem((i) => i.setTitle('Link to term').setIcon('link')
-          .onClick(() => this.chooseTerm(candidates, `Link "${display}" to…`,
+        menu.addItem((i) => i.setTitle(t('menu.linkToTerm')).setIcon('link')
+          .onClick(() => this.chooseTerm(candidates, t('menu.linkDisplayTo', { display }),
             (c) => this.materializeSingle(file, canonical, display, nearOffset, occurrence, c))));
-        menu.addItem((i) => i.setTitle(`Link ${scope} "${display}" to term: this note`).setIcon('links-coming-in')
-          .onClick(() => this.chooseTerm(candidates, `Link ${scope} "${display}" to…`,
+        menu.addItem((i) => i.setTitle(t('menu.linkScopeThisNote', { scope, display })).setIcon('links-coming-in')
+          .onClick(() => this.chooseTerm(candidates, t('menu.linkScopeTo', { scope, display }),
             (c) => this.materializeTerm(file, canonical, c))));
-        menu.addItem((i) => i.setTitle(`Link ${scope} "${display}" to term: all notes`).setIcon('links-going-out')
-          .onClick(() => this.chooseTerm(candidates, `Link ${scope} "${display}" to…`,
+        menu.addItem((i) => i.setTitle(t('menu.linkScopeAllNotes', { scope, display })).setIcon('links-going-out')
+          .onClick(() => this.chooseTerm(candidates, t('menu.linkScopeTo', { scope, display }),
             (c) => this.materializeTermScope(canonical, c))));
       });
     }
@@ -261,10 +262,10 @@ module.exports = {
     }
     if (this.settings.menuOpen) {
       groups.push((menu) => {
-        menu.addItem((i) => i.setTitle('Open glossary note').setIcon('file-text')
-          .onClick(() => this.chooseTerm(candidates, 'Open…', (c) => this.openTerm(c, sourcePath, false))));
-        menu.addItem((i) => i.setTitle('Open in new tab').setIcon('file-plus')
-          .onClick(() => this.chooseTerm(candidates, 'Open in new tab…', (c) => this.openTerm(c, sourcePath, true))));
+        menu.addItem((i) => i.setTitle(t('menu.openNote')).setIcon('file-text')
+          .onClick(() => this.chooseTerm(candidates, t('menu.openTitle'), (c) => this.openTerm(c, sourcePath, false))));
+        menu.addItem((i) => i.setTitle(t('menu.openNewTab')).setIcon('file-plus')
+          .onClick(() => this.chooseTerm(candidates, t('menu.openNewTabTitle'), (c) => this.openTerm(c, sourcePath, true))));
       });
     }
 
@@ -281,19 +282,18 @@ module.exports = {
     return splitLines(this.settings[listKey]).some((l) => l.toLowerCase() === v);
   },
 
-  // Add or remove exclusion item for `menu`, toggled by current state. The verb is lower-case
-  // with a prefix (native menus) and capitalised without (the plugin's own menu); excludeWords
-  // are stored lowercased.
+  // Add or remove exclusion item for `menu`, toggled by current state. A prefix (native menus)
+  // selects the brand-prefixed lower-case wording; without it (the plugin's own menu) the
+  // capitalised wording is used. excludeWords are stored lowercased.
   addExclusionMenuItem(menu, listKey, value, prefix = '') {
-    const noun = listKey === 'excludeWords' ? 'excluded words' : 'excluded terms';
-    const verb = (w) => (prefix ? w : w[0].toUpperCase() + w.slice(1));
+    const noun = listKey === 'excludeWords' ? t('exclude.words') : t('exclude.terms');
     if (this.isExcluded(listKey, value)) {
-      menu.addItem((i) => i.setTitle(`${prefix}${verb('remove')} "${value}" from ${noun}`).setIcon('rotate-ccw')
+      menu.addItem((i) => i.setTitle(t(prefix ? 'exclude.removePrefixed' : 'exclude.remove', { value, noun })).setIcon('rotate-ccw')
         .onClick(() => this.removeFromExclusion(listKey, value)));
     } else {
       const icon = listKey === 'excludeWords' ? 'ban' : 'trash-2';
       const stored = listKey === 'excludeWords' ? value.toLowerCase() : value;
-      menu.addItem((i) => i.setTitle(`${prefix}${verb('add')} "${value}" to ${noun}`).setIcon(icon)
+      menu.addItem((i) => i.setTitle(t(prefix ? 'exclude.addPrefixed' : 'exclude.add', { value, noun })).setIcon(icon)
         .onClick(() => this.addToExclusion(listKey, stored)));
     }
   },
@@ -301,7 +301,7 @@ module.exports = {
   async addToExclusion(listKey, value) {
     const lines = splitLines(this.settings[listKey]);
     if (lines.some((l) => l.toLowerCase() === value.toLowerCase())) {
-      new Notice(`Glossary Linker: "${value}" is already excluded`);
+      new Notice(t('notice.alreadyExcluded', { value }));
       return;
     }
     lines.push(value);
@@ -310,22 +310,22 @@ module.exports = {
     this.rebuildIndex();
     this.rerenderViews();
     this.updateStatusBar();
-    const where = listKey === 'excludeWords' ? 'excluded words' : 'excluded terms';
-    new Notice(`Glossary Linker: added "${value}" to ${where}`);
+    const where = listKey === 'excludeWords' ? t('exclude.words') : t('exclude.terms');
+    new Notice(t('notice.addedToExcluded', { value, where }));
   },
 
   async removeFromExclusion(listKey, value) {
     const v = value.toLowerCase();
     const lines = splitLines(this.settings[listKey]);
     const kept = lines.filter((l) => l.toLowerCase() !== v);
-    if (kept.length === lines.length) { new Notice(`Glossary Linker: "${value}" was not excluded`); return; }
+    if (kept.length === lines.length) { new Notice(t('notice.wasNotExcluded', { value })); return; }
     this.settings[listKey] = kept.join('\n');
     await this.saveSettings();
     this.rebuildIndex();
     this.rerenderViews();
     this.updateStatusBar();
-    const where = listKey === 'excludeWords' ? 'excluded words' : 'excluded terms';
-    new Notice(`Glossary Linker: removed "${value}" from ${where}`);
+    const where = listKey === 'excludeWords' ? t('exclude.words') : t('exclude.terms');
+    new Notice(t('notice.removedFromExcluded', { value, where }));
   },
 
   // linkAs (optional) overrides which term the occurrence is linked to — used when
@@ -346,8 +346,8 @@ module.exports = {
       created = true;
       return this.applyLinks(text, [chosen]).newText;
     });
-    if (!created) { new Notice('Glossary Linker: occurrence not found'); return; }
-    new Notice('Glossary Linker: link created');
+    if (!created) { new Notice(t('notice.occurrenceNotFound')); return; }
+    new Notice(t('notice.linkCreatedSingle'));
     this.updateStatusBar();
   },
 
@@ -364,8 +364,8 @@ module.exports = {
       count = matches.length;
       return this.applyLinks(text, matches).newText;
     });
-    if (!count) { new Notice('Glossary Linker: no occurrences found'); return; }
-    new Notice(`Glossary Linker: ${count} link(s) created`);
+    if (!count) { new Notice(t('notice.noOccurrences')); return; }
+    new Notice(t('notice.linksCreated', { links: plural('link', count) }));
     this.updateStatusBar();
   },
 
@@ -378,7 +378,7 @@ module.exports = {
       // Term already chosen → no per-occurrence picker in the preview.
       return matches.map((m) => ({ ...m, canonical: term, alts: null }));
     });
-    if (!files.length) { new Notice('Glossary Linker: no occurrences found'); return; }
+    if (!files.length) { new Notice(t('notice.noOccurrences')); return; }
     this.openMaterializePreview(files, (results) => this.writeScopeResults(results));
   },
 
@@ -455,7 +455,7 @@ module.exports = {
       const aliases = chosen.map(([text, collidesWith]) => ({ text, collidesWith }));
       additions.push({ file: entry.file, aliases, skipped: [...entry.skip] });
     }
-    if (!additions.length) { if (!silent) new Notice('Glossary Linker: no new aliases found'); return; }
+    if (!additions.length) { if (!silent) new Notice(t('notice.noNewAliases')); return; }
 
     if (silent) { await this.applyHarvest(additions); return; }
     new HarvestPreviewModal(this.app, additions, (selected) => this.applyHarvest(selected)).open();
@@ -478,7 +478,7 @@ module.exports = {
     }
     this.rebuildIndex();
     this.updateStatusBar();
-    new Notice(`Glossary Linker: ${total} alias(es) added`);
+    new Notice(t('notice.aliasesAdded', { aliases: plural('alias', total) }));
   },
 
   // Collect just one link's wording as an alias for its term — the per-link version of
@@ -487,12 +487,12 @@ module.exports = {
     const display = this.normalizeDisplay(rawDisplay);
     if (!targetFile || !this.isGlossaryFile(targetFile) || !display) return;
     if (display.toLowerCase() === targetFile.basename.toLowerCase()) {
-      new Notice('Glossary Linker: that wording already matches the term'); return;
+      new Notice(t('notice.wordingMatchesTerm')); return;
     }
     const add = new Map();
     const skip = new Set();
     this.collectAliasesFromDisplay(targetFile, display, this.termLiterals(targetFile), add, skip);
-    if (!add.size) { new Notice('Glossary Linker: no new alias to collect'); return; }
+    if (!add.size) { new Notice(t('notice.noNewAlias')); return; }
     const aliases = [...add.entries()].map(([text, collidesWith]) => ({ text, collidesWith }));
     const additions = [{ file: targetFile, aliases, skipped: [...skip] }];
     new HarvestPreviewModal(this.app, additions, (selected) => this.applyHarvest(selected)).open();
