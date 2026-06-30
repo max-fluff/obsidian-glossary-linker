@@ -32,8 +32,9 @@ class GlossaryTermSuggest extends EditorSuggest {
     if (query.length < Math.max(1, plugin.settings.suggestMinChars || 1)) return null;
 
     // Skip code/links/frontmatter/urls/headings — same ranges the linker protects.
+    // Position check, not a full-document scan: this runs on every keystroke.
     const off = editor.posToOffset(cursor);
-    if (plugin.overlapsProtected(plugin.computeProtected(editor.getValue()), off, off)) return null;
+    if (plugin.isProtectedAt(editor.getValue(), off)) return null;
 
     return { start: { line: cursor.line, ch: cursor.ch - query.length }, end: cursor, query };
   }

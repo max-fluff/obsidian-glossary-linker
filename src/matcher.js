@@ -214,4 +214,42 @@ module.exports = {
     }
     return false;
   },
+
+  // Same spans as computeProtected, but tested at a single position so it stays
+  // cheap on every keystroke — no whole-document scan with greedy [\s\S]*? regexes.
+  isProtectedAt(text, pos) {
+    if (/^---\r?\n/.test(text)) {
+      const end = text.indexOf('\n---', 3);
+      if (end !== -1 && pos <= end + 4) return true;
+    }
+    const lines = text.split('\n');
+    let lineStart = 0, lineIdx = 0;
+    for (; lineIdx < lines.length; lineIdx++) {
+      if (pos <= lineStart + lines[lineIdx].length) break;
+      lineStart += lines[lineIdx].length + 1; // + the '\n'
+    }
+    // Fenced code: parity of fence lines above the cursor.
+    let fenced = false;
+    for (let i = 0; i < lineIdx; i++) {
+      const s = lines[i].trimStart();
+      if (s.startsWith('```') || s.startsWith('~~~')) fenced = !fenced;
+    }
+    if (fenced) return true;
+    const line = lines[lineIdx] || '';
+    if (this.settings.skipHeadings && /^[ \t]*#{1,6}[ \t]/.test(line)) return true;
+    // Inline code, links and urls stay within the cursor's line.
+    const col = pos - lineStart;
+    return inMatch(line, col, /`[^`\n]+`/g)
+      || inMatch(line, col, /\[\[[^\]]*\]\]/g)
+      || inMatch(line, col, /\[[^\]]*\]\([^)]*\)/g)
+      || inMatch(line, col, /(?:https?:\/\/|www\.)\S+/g);
+  },
 };
+
+function inMatch(line, col, re) {
+  let m;
+  while ((m = re.exec(line)) !== null) {
+    if (col > m.index && col < m.index + m[0].length) return true;
+  }
+  return false;
+}
