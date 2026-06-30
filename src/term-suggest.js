@@ -32,6 +32,11 @@ class GlossaryTermSuggest extends EditorSuggest {
     const query = m[0];
     if (query.length < Math.max(1, plugin.settings.suggestMinChars || 1)) return null;
 
+    // A word glued to a sigil belongs to another suggester (code-linker's @@, a
+    // tag, math), not glossary prose — yield so it keeps the slot.
+    const before = line[cursor.ch - query.length - 1] || '';
+    if (before && (plugin.settings.suggestSkipAfter || '').includes(before)) return null;
+
     // Skip code/links/frontmatter/urls/headings — same ranges the linker protects.
     // Position check, not a full-document scan: this runs on every keystroke.
     const off = editor.posToOffset(cursor);

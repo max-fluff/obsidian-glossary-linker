@@ -103,7 +103,7 @@ This scans for `[[Term|some wording]]` links you wrote by hand. If `Term` is a g
 
 ### Suggest links as you type (optional)
 
-Turn on *Autocomplete → Suggest links while typing* and typing in an in-scope note offers to insert a `[[link]]` to a matching glossary term. The match can be a prefix of a term's title or alias (type `Vis` → *Vision radius*) or an inflected form of one. A prefix match inserts `[[Term]]`; an inflected form keeps your wording as `[[Term|word]]`. It's off by default and never fires inside the glossary folder, code, links or other protected spans.
+Turn on *Autocomplete → Suggest links while typing* and typing in an in-scope note offers to insert a `[[link]]` to a matching glossary term. The match can be a prefix of a term's title or alias (type `Vis` → *Vision radius*) or an inflected form of one. A prefix match inserts `[[Term]]`; an inflected form keeps your wording as `[[Term|word]]`. It's off by default and never fires inside the glossary folder, code, links or other protected spans. It also stays quiet when the word follows a sigil like `@`, `#` or `$`, so it doesn't fight tags, math or another plugin's autocomplete — see *Skip after characters*.
 
 <p align="center">
   <img src="docs/images/quick-capture.png" alt="The link-suggestion popup while typing, listing matching terms" width="560">
@@ -241,6 +241,7 @@ The highlight's color, underline style and offset — plus a separate underline 
 |---|---|---|
 | **Suggest links while typing** | off | offer a `[[link]]` to a matching term as you type in an in-scope note (prefix of a title/alias, or an inflected form); only triggers at the end of a word and only when there are matches |
 | **Minimum characters** | `3` | how many characters to type before suggestions appear |
+| **Skip after characters** | `@#$^` | stay quiet when the word follows one of these, so tags, math, and other plugins' autocompletes (e.g. Code Linker's `@@`) keep their slot; clear it to disable |
 
 **Collecting aliases**
 | Setting | Default | Description |

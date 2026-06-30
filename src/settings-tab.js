@@ -181,6 +181,11 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
       .setDesc(t('set.suggestMinChars.desc'))
       .addText((c) => { c.inputEl.type = 'number'; c.inputEl.min = '1'; c.setValue(String(s.suggestMinChars)).onChange(async (v) => { const n = parseInt(v, 10); s.suggestMinChars = Number.isFinite(n) && n > 0 ? n : 1; await save(false); }); });
 
+    new Setting(containerEl)
+      .setName(t('set.suggestSkipAfter.name'))
+      .setDesc(t('set.suggestSkipAfter.desc'))
+      .addText((c) => c.setValue(s.suggestSkipAfter).onChange(async (v) => { s.suggestSkipAfter = v; await save(false); }));
+
     new Setting(containerEl).setName(t('set.heading.collecting')).setHeading();
     containerEl.createEl('div', { cls: 'glossary-section-desc', text: t('set.collecting.desc') });
 

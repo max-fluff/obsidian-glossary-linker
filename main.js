@@ -38,6 +38,8 @@ var require_constants = __commonJS({
       // offer [[link]] autocomplete while typing
       suggestMinChars: 3,
       // min typed length before autocomplete triggers
+      suggestSkipAfter: "@#$^",
+      // yield when the word follows one of these sigils (code-linker @@, tags, math, block refs)
       aliasCollisionWarnings: true,
       // warn when a collected/created alias collides with another term
       candidateMinNotes: 3,
@@ -1053,6 +1055,8 @@ var require_en2 = __commonJS({
       "set.linkSuggest.desc": "As you type in an in-scope note, offer to insert a [[link]] to a matching glossary term (prefix of a title/alias, or an inflected form).",
       "set.suggestMinChars.name": "Minimum characters",
       "set.suggestMinChars.desc": "How many characters to type before suggestions appear.",
+      "set.suggestSkipAfter.name": "Skip after characters",
+      "set.suggestSkipAfter.desc": "Don't suggest when the word follows one of these characters, so other autocompletes (tags, code links, math) keep their slot. Leave empty to disable.",
       "set.aliasHarvestMode.name": "Alias form",
       "set.aliasHarvestMode.desc": "How collected link text is stored as an alias.",
       "set.aliasHarvestMode.lemma": "Base form",
@@ -1284,6 +1288,8 @@ var require_ru2 = __commonJS({
       "set.linkSuggest.desc": "\u041F\u043E \u043C\u0435\u0440\u0435 \u043D\u0430\u0431\u043E\u0440\u0430 \u0432 \u0437\u0430\u043C\u0435\u0442\u043A\u0435 \u0438\u0437 \u043E\u0431\u043B\u0430\u0441\u0442\u0438 \u043F\u0440\u0435\u0434\u043B\u0430\u0433\u0430\u0442\u044C \u0432\u0441\u0442\u0430\u0432\u0438\u0442\u044C [[\u0441\u0441\u044B\u043B\u043A\u0443]] \u043D\u0430 \u043F\u043E\u0434\u0445\u043E\u0434\u044F\u0449\u0438\u0439 \u0442\u0435\u0440\u043C\u0438\u043D \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F (\u043F\u043E \u043D\u0430\u0447\u0430\u043B\u0443 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044F/\u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u0430 \u0438\u043B\u0438 \u043F\u043E \u0441\u043B\u043E\u0432\u043E\u0444\u043E\u0440\u043C\u0435).",
       "set.suggestMinChars.name": "\u041C\u0438\u043D\u0438\u043C\u0443\u043C \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432",
       "set.suggestMinChars.desc": "\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432 \u043D\u0430\u0431\u0440\u0430\u0442\u044C, \u043F\u0440\u0435\u0436\u0434\u0435 \u0447\u0435\u043C \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0438.",
+      "set.suggestSkipAfter.name": "\u041F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u0442\u044C \u043F\u043E\u0441\u043B\u0435 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432",
+      "set.suggestSkipAfter.desc": "\u041D\u0435 \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C, \u0435\u0441\u043B\u0438 \u0441\u043B\u043E\u0432\u043E \u0438\u0434\u0451\u0442 \u0441\u0440\u0430\u0437\u0443 \u043F\u043E\u0441\u043B\u0435 \u043E\u0434\u043D\u043E\u0433\u043E \u0438\u0437 \u044D\u0442\u0438\u0445 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432 \u2014 \u0447\u0442\u043E\u0431\u044B \u0434\u0440\u0443\u0433\u0438\u0435 \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0438 (\u0442\u0435\u0433\u0438, \u0441\u0441\u044B\u043B\u043A\u0438 \u043D\u0430 \u043A\u043E\u0434, \u0444\u043E\u0440\u043C\u0443\u043B\u044B) \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u043B\u0438 \u0441\u0432\u043E\u0439 \u0441\u043B\u043E\u0442. \u041F\u0443\u0441\u0442\u043E \u2014 \u043E\u0442\u043A\u043B\u044E\u0447\u0438\u0442\u044C.",
       "set.aliasHarvestMode.name": "\u0424\u043E\u0440\u043C\u0430 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u0430",
       "set.aliasHarvestMode.desc": "\u041A\u0430\u043A \u0441\u043E\u0431\u0440\u0430\u043D\u043D\u044B\u0439 \u0442\u0435\u043A\u0441\u0442 \u0441\u0441\u044B\u043B\u043A\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u0435\u0442\u0441\u044F \u043A\u0430\u043A \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C.",
       "set.aliasHarvestMode.lemma": "\u041D\u0430\u0447\u0430\u043B\u044C\u043D\u0430\u044F \u0444\u043E\u0440\u043C\u0430",
@@ -1510,6 +1516,8 @@ var require_de2 = __commonJS({
       "set.linkSuggest.desc": "W\xE4hrend der Eingabe in einer Notiz im Bereich anbieten, einen [[Link]] zu einem passenden Glossarbegriff einzuf\xFCgen (Pr\xE4fix eines Titels/Alias oder eine flektierte Form).",
       "set.suggestMinChars.name": "Mindestanzahl Zeichen",
       "set.suggestMinChars.desc": "Wie viele Zeichen einzugeben sind, bevor Vorschl\xE4ge erscheinen.",
+      "set.suggestSkipAfter.name": "Nach Zeichen \xFCberspringen",
+      "set.suggestSkipAfter.desc": "Keine Vorschl\xE4ge, wenn das Wort direkt auf eines dieser Zeichen folgt, damit andere Autovervollst\xE4ndigungen (Tags, Code-Links, Mathe) ihren Platz behalten. Leer lassen zum Deaktivieren.",
       "set.aliasHarvestMode.name": "Aliasform",
       "set.aliasHarvestMode.desc": "Wie gesammelter Linktext als Alias gespeichert wird.",
       "set.aliasHarvestMode.lemma": "Grundform",
@@ -1736,6 +1744,8 @@ var require_es2 = __commonJS({
       "set.linkSuggest.desc": "Mientras escribes en una nota del \xE1mbito, ofrecer insertar un [[enlace]] a un t\xE9rmino del glosario coincidente (prefijo de un t\xEDtulo/alias, o una forma flexionada).",
       "set.suggestMinChars.name": "Caracteres m\xEDnimos",
       "set.suggestMinChars.desc": "Cu\xE1ntos caracteres escribir antes de que aparezcan las sugerencias.",
+      "set.suggestSkipAfter.name": "Omitir tras caracteres",
+      "set.suggestSkipAfter.desc": "No sugerir cuando la palabra sigue a uno de estos caracteres, para que otras autocompletados (etiquetas, enlaces de c\xF3digo, matem\xE1ticas) conserven su lugar. Dejar vac\xEDo para desactivar.",
       "set.aliasHarvestMode.name": "Forma del alias",
       "set.aliasHarvestMode.desc": "C\xF3mo se guarda como alias el texto de enlace recopilado.",
       "set.aliasHarvestMode.lemma": "Forma base",
@@ -1962,6 +1972,8 @@ var require_fr2 = __commonJS({
       "set.linkSuggest.desc": "Pendant la saisie dans une note de la port\xE9e, proposer d\u2019ins\xE9rer un [[lien]] vers un terme du glossaire correspondant (pr\xE9fixe d\u2019un titre/alias, ou une forme fl\xE9chie).",
       "set.suggestMinChars.name": "Caract\xE8res minimum",
       "set.suggestMinChars.desc": "Combien de caract\xE8res saisir avant que les suggestions apparaissent.",
+      "set.suggestSkipAfter.name": "Ignorer apr\xE8s caract\xE8res",
+      "set.suggestSkipAfter.desc": "Ne pas sugg\xE9rer quand le mot suit l'un de ces caract\xE8res, afin que les autres autocompl\xE9tions (\xE9tiquettes, liens de code, math) gardent leur place. Laisser vide pour d\xE9sactiver.",
       "set.aliasHarvestMode.name": "Forme de l\u2019alias",
       "set.aliasHarvestMode.desc": "Comment le texte de lien collect\xE9 est stock\xE9 comme alias.",
       "set.aliasHarvestMode.lemma": "Forme de base",
@@ -2188,6 +2200,8 @@ var require_uk2 = __commonJS({
       "set.linkSuggest.desc": "\u041F\u0456\u0434 \u0447\u0430\u0441 \u043D\u0430\u0431\u043E\u0440\u0443 \u0432 \u043D\u043E\u0442\u0430\u0442\u0446\u0456 \u0437 \u043E\u0431\u043B\u0430\u0441\u0442\u0456 \u043F\u0440\u043E\u043F\u043E\u043D\u0443\u0432\u0430\u0442\u0438 \u0432\u0441\u0442\u0430\u0432\u0438\u0442\u0438 [[\u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F]] \u043D\u0430 \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u043D\u0438\u0439 \u0442\u0435\u0440\u043C\u0456\u043D \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u044F (\u0437\u0430 \u043F\u043E\u0447\u0430\u0442\u043A\u043E\u043C \u043D\u0430\u0437\u0432\u0438/\u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0430 \u0430\u0431\u043E \u0437\u0430 \u0441\u043B\u043E\u0432\u043E\u0444\u043E\u0440\u043C\u043E\u044E).",
       "set.suggestMinChars.name": "\u041C\u0456\u043D\u0456\u043C\u0443\u043C \u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432",
       "set.suggestMinChars.desc": "\u0421\u043A\u0456\u043B\u044C\u043A\u0438 \u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432 \u043D\u0430\u0431\u0440\u0430\u0442\u0438, \u043F\u0435\u0440\u0448 \u043D\u0456\u0436 \u0437\u2019\u044F\u0432\u043B\u044F\u0442\u044C\u0441\u044F \u043F\u0456\u0434\u043A\u0430\u0437\u043A\u0438.",
+      "set.suggestSkipAfter.name": "\u041F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u0442\u0438 \u043F\u0456\u0441\u043B\u044F \u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432",
+      "set.suggestSkipAfter.desc": "\u041D\u0435 \u043F\u0456\u0434\u043A\u0430\u0437\u0443\u0432\u0430\u0442\u0438, \u044F\u043A\u0449\u043E \u0441\u043B\u043E\u0432\u043E \u0439\u0434\u0435 \u043E\u0434\u0440\u0430\u0437\u0443 \u043F\u0456\u0441\u043B\u044F \u043E\u0434\u043D\u043E\u0433\u043E \u0437 \u0446\u0438\u0445 \u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432 \u2014 \u0449\u043E\u0431 \u0456\u043D\u0448\u0456 \u043F\u0456\u0434\u043A\u0430\u0437\u043A\u0438 (\u0442\u0435\u0433\u0438, \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F \u043D\u0430 \u043A\u043E\u0434, \u0444\u043E\u0440\u043C\u0443\u043B\u0438) \u0437\u0431\u0435\u0440\u0456\u0433\u0430\u043B\u0438 \u0441\u0432\u0456\u0439 \u0441\u043B\u043E\u0442. \u041F\u043E\u0440\u043E\u0436\u043D\u044C\u043E \u2014 \u0432\u0438\u043C\u043A\u043D\u0443\u0442\u0438.",
       "set.aliasHarvestMode.name": "\u0424\u043E\u0440\u043C\u0430 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0430",
       "set.aliasHarvestMode.desc": "\u042F\u043A \u0437\u0456\u0431\u0440\u0430\u043D\u0438\u0439 \u0442\u0435\u043A\u0441\u0442 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F \u0437\u0431\u0435\u0440\u0456\u0433\u0430\u0454\u0442\u044C\u0441\u044F \u044F\u043A \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C.",
       "set.aliasHarvestMode.lemma": "\u041F\u043E\u0447\u0430\u0442\u043A\u043E\u0432\u0430 \u0444\u043E\u0440\u043C\u0430",
@@ -2510,6 +2524,10 @@ var require_settings_tab = __commonJS({
             await save(false);
           });
         });
+        new Setting(containerEl).setName(t2("set.suggestSkipAfter.name")).setDesc(t2("set.suggestSkipAfter.desc")).addText((c) => c.setValue(s.suggestSkipAfter).onChange(async (v) => {
+          s.suggestSkipAfter = v;
+          await save(false);
+        }));
         new Setting(containerEl).setName(t2("set.heading.collecting")).setHeading();
         containerEl.createEl("div", { cls: "glossary-section-desc", text: t2("set.collecting.desc") });
         new Setting(containerEl).setName(t2("set.aliasHarvestMode.name")).setDesc(t2("set.aliasHarvestMode.desc")).addDropdown((d) => d.addOption("lemma", t2("set.aliasHarvestMode.lemma")).addOption("literal", t2("set.aliasHarvestMode.literal")).addOption("both", t2("set.aliasHarvestMode.both")).setValue(s.aliasHarvestMode).onChange(async (v) => {
@@ -4127,6 +4145,9 @@ var require_term_suggest = __commonJS({
           return null;
         const query = m[0];
         if (query.length < Math.max(1, plugin.settings.suggestMinChars || 1))
+          return null;
+        const before = line[cursor.ch - query.length - 1] || "";
+        if (before && (plugin.settings.suggestSkipAfter || "").includes(before))
           return null;
         const off = editor.posToOffset(cursor);
         if (plugin.isProtectedAt(editor.getValue(), off))

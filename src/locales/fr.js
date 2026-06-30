@@ -145,6 +145,8 @@ module.exports = {
   'set.linkSuggest.desc': 'Pendant la saisie dans une note de la portée, proposer d’insérer un [[lien]] vers un terme du glossaire correspondant (préfixe d’un titre/alias, ou une forme fléchie).',
   'set.suggestMinChars.name': 'Caractères minimum',
   'set.suggestMinChars.desc': 'Combien de caractères saisir avant que les suggestions apparaissent.',
+  'set.suggestSkipAfter.name': 'Ignorer après caractères',
+  'set.suggestSkipAfter.desc': 'Ne pas suggérer quand le mot suit l\'un de ces caractères, afin que les autres autocomplétions (étiquettes, liens de code, math) gardent leur place. Laisser vide pour désactiver.',
   'set.aliasHarvestMode.name': 'Forme de l’alias',
   'set.aliasHarvestMode.desc': 'Comment le texte de lien collecté est stocké comme alias.',
   'set.aliasHarvestMode.lemma': 'Forme de base',

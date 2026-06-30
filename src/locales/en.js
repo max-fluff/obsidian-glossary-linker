@@ -155,6 +155,8 @@ module.exports = {
   'set.linkSuggest.desc': 'As you type in an in-scope note, offer to insert a [[link]] to a matching glossary term (prefix of a title/alias, or an inflected form).',
   'set.suggestMinChars.name': 'Minimum characters',
   'set.suggestMinChars.desc': 'How many characters to type before suggestions appear.',
+  'set.suggestSkipAfter.name': 'Skip after characters',
+  'set.suggestSkipAfter.desc': 'Don\'t suggest when the word follows one of these characters, so other autocompletes (tags, code links, math) keep their slot. Leave empty to disable.',
   'set.aliasHarvestMode.name': 'Alias form',
   'set.aliasHarvestMode.desc': 'How collected link text is stored as an alias.',
   'set.aliasHarvestMode.lemma': 'Base form',

@@ -145,6 +145,8 @@ module.exports = {
   'set.linkSuggest.desc': 'Während der Eingabe in einer Notiz im Bereich anbieten, einen [[Link]] zu einem passenden Glossarbegriff einzufügen (Präfix eines Titels/Alias oder eine flektierte Form).',
   'set.suggestMinChars.name': 'Mindestanzahl Zeichen',
   'set.suggestMinChars.desc': 'Wie viele Zeichen einzugeben sind, bevor Vorschläge erscheinen.',
+  'set.suggestSkipAfter.name': 'Nach Zeichen überspringen',
+  'set.suggestSkipAfter.desc': 'Keine Vorschläge, wenn das Wort direkt auf eines dieser Zeichen folgt, damit andere Autovervollständigungen (Tags, Code-Links, Mathe) ihren Platz behalten. Leer lassen zum Deaktivieren.',
   'set.aliasHarvestMode.name': 'Aliasform',
   'set.aliasHarvestMode.desc': 'Wie gesammelter Linktext als Alias gespeichert wird.',
   'set.aliasHarvestMode.lemma': 'Grundform',

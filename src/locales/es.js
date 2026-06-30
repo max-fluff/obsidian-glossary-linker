@@ -145,6 +145,8 @@ module.exports = {
   'set.linkSuggest.desc': 'Mientras escribes en una nota del ámbito, ofrecer insertar un [[enlace]] a un término del glosario coincidente (prefijo de un título/alias, o una forma flexionada).',
   'set.suggestMinChars.name': 'Caracteres mínimos',
   'set.suggestMinChars.desc': 'Cuántos caracteres escribir antes de que aparezcan las sugerencias.',
+  'set.suggestSkipAfter.name': 'Omitir tras caracteres',
+  'set.suggestSkipAfter.desc': 'No sugerir cuando la palabra sigue a uno de estos caracteres, para que otras autocompletados (etiquetas, enlaces de código, matemáticas) conserven su lugar. Dejar vacío para desactivar.',
   'set.aliasHarvestMode.name': 'Forma del alias',
   'set.aliasHarvestMode.desc': 'Cómo se guarda como alias el texto de enlace recopilado.',
   'set.aliasHarvestMode.lemma': 'Forma base',

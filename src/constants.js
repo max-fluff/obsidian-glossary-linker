@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS = {
   linkFirstOnly: false,
   linkSuggest: false, // offer [[link]] autocomplete while typing
   suggestMinChars: 3, // min typed length before autocomplete triggers
+  suggestSkipAfter: '@#$^', // yield when the word follows one of these sigils (code-linker @@, tags, math, block refs)
   aliasCollisionWarnings: true, // warn when a collected/created alias collides with another term
   candidateMinNotes: 3, // overview: a candidate must appear in at least this many notes
   overviewSort: 'usage', // overview terms order: 'usage' | 'name'
