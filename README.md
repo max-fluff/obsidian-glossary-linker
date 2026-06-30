@@ -34,6 +34,7 @@ The plugin ships as `main.js`, `manifest.json` and `styles.css`. Six language mo
 - [Development](#development)
 - [Installation](#installation)
 - [Compatibility](#compatibility)
+- [Related plugins](#related-plugins)
 
 ## What it does
 
@@ -360,3 +361,13 @@ Nothing below is required — the plugin runs on its own — but it cooperates w
 - **Page Preview** (core plugin) — provides the hover preview on glossary links; the plugin registers as its own *Glossary Linker* source you can toggle independently.
 - **[Dataview](https://github.com/blacksmithgu/obsidian-dataview)** — query the glossary from DataviewJS through the [public API](#public-api) (usage reports, orphan terms, and so on).
 - **Templates** (core) / **[Templater](https://github.com/SilentVoid13/Templater)** — fill the body of newly created term notes (see [Templates for new terms](#templates-for-new-terms)).
+
+## Related plugins
+
+Also by the author — **[Code Linker](https://github.com/max-fluff/obsidian-code-linker)**: autocompletes references to your source code and inserts a deep-link that opens the file at the exact line in your editor (VS Code, JetBrains, …). Desktop-only.
+
+<p align="center">
+  <a href="https://github.com/max-fluff/obsidian-code-linker">
+    <img src="docs/images/code-linker-banner.svg" alt="Code Linker — autocomplete code references, jump to the exact line" width="480">
+  </a>
+</p>

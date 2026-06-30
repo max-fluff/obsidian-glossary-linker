@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 260" width="960" height="260" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#27243d"/>
+      <stop offset="1" stop-color="#191826"/>
+    </linearGradient>
+    <radialGradient id="scrim" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#191826" stop-opacity="0.92"/>
+      <stop offset="0.6" stop-color="#191826" stop-opacity="0.82"/>
+      <stop offset="1" stop-color="#191826" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="card"><rect x="1" y="1" width="958" height="258" rx="24"/></clipPath>
+  </defs>
+
+  <rect x="1" y="1" width="958" height="258" rx="24" fill="url(#bg)" stroke="#ffffff" stroke-opacity="0.07"/>
+
+  <!-- background: language names and file extensions -->
+  <g clip-path="url(#card)" fill="#b6a6e8" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-weight="500">
+    <text x="44"  y="50"  font-size="24" fill-opacity="0.11">.cs</text>
+    <text x="120" y="44"  font-size="20" fill-opacity="0.09">TypeScript</text>
+    <text x="430" y="52"  font-size="20" fill-opacity="0.08">.py</text>
+    <text x="540" y="46"  font-size="26" fill-opacity="0.12">Rust</text>
+    <text x="664" y="50"  font-size="22" fill-opacity="0.10">.go</text>
+    <text x="740" y="44"  font-size="20" fill-opacity="0.09">Kotlin</text>
+    <text x="884" y="48"  font-size="18" fill-opacity="0.08">.rb</text>
+
+    <text x="56"  y="226" font-size="22" fill-opacity="0.10">Python</text>
+    <text x="186" y="240" font-size="18" fill-opacity="0.08">.tsx</text>
+    <text x="280" y="224" font-size="22" fill-opacity="0.11">C++</text>
+    <text x="372" y="240" font-size="18" fill-opacity="0.08">.rs</text>
+    <text x="452" y="224" font-size="22" fill-opacity="0.10">Java</text>
+    <text x="566" y="240" font-size="18" fill-opacity="0.08">.kt</text>
+    <text x="648" y="224" font-size="20" fill-opacity="0.09">Swift</text>
+    <text x="764" y="240" font-size="18" fill-opacity="0.08">.php</text>
+    <text x="852" y="226" font-size="20" fill-opacity="0.09">.lua</text>
+  </g>
+
+  <!-- focal scrim so the wordmark stays legible over the token cloud -->
+  <ellipse cx="380" cy="128" rx="360" ry="96" fill="url(#scrim)"/>
+
+  <!-- wordmark -->
+  <text x="60" y="124" font-size="56" font-weight="700" fill="#f4f4f6">Code Linker</text>
+  <text x="62" y="172" font-size="23" fill="#c2bfd2">Autocomplete code references, jump to the exact line.</text>
+
+  <!-- logo mark [{}] flush right -->
+  <text x="840" y="158" fill="#ffffff" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-weight="700" font-size="92" text-anchor="middle">[{}]</text>
+</svg>
