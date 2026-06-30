@@ -2,9 +2,17 @@
   <img src="docs/images/banner.svg" alt="Glossary Linker — highlight, link, and learn glossary terms in any word form" width="760">
 </p>
 
-# Glossary Linker
+# <img src="docs/images/icon.svg" alt="" height="28"> Glossary Linker
+
+<p align="center">
+  <a href="https://community.obsidian.md/plugins/glossary-linker"><img src="https://img.shields.io/badge/dynamic/json?logo=obsidian&color=7c3aed&query=%24%5B%22glossary-linker%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json&label=downloads" alt="Obsidian downloads"></a>
+  <a href="https://github.com/max-fluff/obsidian-glossary-linker/releases/latest"><img src="https://img.shields.io/github/v/release/max-fluff/obsidian-glossary-linker?sort=semver&color=7c3aed&label=release" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/max-fluff/obsidian-glossary-linker?color=7c3aed" alt="License: MIT"></a>
+</p>
 
 Highlights glossary terms in your notes in any word form (declensions, plurals), lets you turn them into real links, and picks up new aliases from links you've already made by hand. It was inspired by Virtual Linker, but it matches inflected forms instead of exact spellings only.
+
+Available in the Obsidian community catalog: **[community.obsidian.md/plugins/glossary-linker](https://community.obsidian.md/plugins/glossary-linker)**.
 
 <p align="center">
   <img src="docs/images/hero.png" alt="One note with glossary terms highlighted in several word forms and in two languages" width="700">
@@ -144,7 +152,7 @@ The built-in modules are stemmer code compiled into the plugin:
 
 - `ru.js` (Russian) — Porter stemmer (Snowball, public domain). The keys are the union of the Porter stem and an ending strip, dropping an over-short stem. That covers both awkward cases: `юнит/юнитов` (the stemmer over-truncates to `юн`, the ending strip rescues `юнит`) and `рой/роем`, while `юный/юнга/юности` don't stick to `Юнит`.
 - `uk.js` (Ukrainian) — the plugin's own light stemmer, handling the о/і and е/і vowel alternation in closed syllables (`кіт/кота`, `ніч/ночі`).
-- `en.js` (English) — Porter stemmer (Porter 1980, public domain): `units → unit`, `running → run`. That's why there's no separate "plural s" option.
+- `en.js` (English) — Porter stemmer (Porter 1980, public domain): `units → unit`, `running → run`.
 - `es.js` / `de.js` / `fr.js` (Spanish / German / French) — ports of the UniNE / Apache Lucene light stemmers (Apache License 2.0, J. Savoy): `unidades → unidad`, `Einheiten → einheit`, `chevaux → cheval`. Lighter than full Snowball, but enough to link a term across its word forms.
 
 > Enable only the languages your vault actually uses. Since same-script languages combine, leaving German on in an English-only vault can occasionally over-stem a word. On first run the plugin enables English plus your Obsidian interface language (if a module exists for it); switch on any others you need.
@@ -159,7 +167,7 @@ Matching is case-insensitive. The visible text keeps the casing from your note, 
 
 ### Adding a language
 
-A language is a small JavaScript module bundled into `main.js` at build time; nothing is loaded or executed at runtime. Adding one means contributing a module and rebuilding, through a pull request. The full contract, an annotated template and a step-by-step guide live in [`languages/README.md`](languages/README.md). The short version:
+A language is a small JavaScript module bundled into `main.js` at build time; nothing is loaded or executed at runtime. Adding one means contributing a module and rebuilding, through a pull request (see [Contributing](CONTRIBUTING.md)). The full contract, an annotated template and a step-by-step guide live in [`languages/README.md`](languages/README.md). The short version:
 
 1. Copy [`languages/_template.js`](languages/_template.js) to `languages/<id>.js` (e.g. `uk.js`). A module exports `id`, `name`, `match(word)` and `keys(word, mode)`, plus optional `priority` and `lemma(word)`. Reusing a built-in `id` (`ru`/`uk`/`en`/`es`/`de`/`fr`) overrides it.
 2. Implement `match` (claims a word, usually by script) and `keys` (returns the comparison keys for a word in the current mode — `stemmer` / `endingStrip` / `exact`). Two words link when their key sets overlap.
@@ -346,11 +354,11 @@ npm run build    # bundle src/ -> main.js
 
 ## Installation
 
-**Manually:** download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/max-fluff/obsidian-glossary-linker/releases) into `<vault>/.obsidian/plugins/glossary-linker/`, then enable the plugin in *Settings → Community plugins*. The default languages are baked into `main.js`, so nothing else is needed.
+**From Obsidian (recommended).** Open *Settings → Community plugins → Browse*, search for **Glossary Linker**, then *Install* and *Enable*. You can also open its catalog page directly: [community.obsidian.md/plugins/glossary-linker](https://community.obsidian.md/plugins/glossary-linker). The default languages are baked into `main.js`, so nothing else is needed.
 
-**Via [BRAT](https://github.com/TfTHacker/obsidian42-brat):** add the repository `max-fluff/obsidian-glossary-linker`.
+**Manually.** Download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/max-fluff/obsidian-glossary-linker/releases/latest) into `<vault>/.obsidian/plugins/glossary-linker/`, then enable the plugin in *Settings → Community plugins*.
 
-Once it's accepted into the community catalog it will also be installable from *Settings → Community plugins → Browse*.
+**Beta builds via [BRAT](https://github.com/TfTHacker/obsidian42-brat).** Add the repository `max-fluff/obsidian-glossary-linker` to test unreleased changes before they reach the catalog.
 
 ## Compatibility
 
