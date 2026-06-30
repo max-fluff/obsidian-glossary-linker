@@ -1,8 +1,8 @@
 'use strict';
 
 const { Plugin, Notice, TFile, TFolder, debounce } = require('obsidian');
-const { DEFAULT_SETTINGS, splitLines, sanitizeFolder } = require('./constants');
-const BUILTIN_LANGUAGES = require('./builtin-languages');
+const { DEFAULT_SETTINGS, splitLines, sanitizeFolder, inTableCell } = require('./constants');
+const { BUILTIN_LANGUAGES } = require('./builtin-languages');
 const { validateLanguage } = require('./language-api');
 const { GlossaryLinkerSettingTab } = require('./settings-tab');
 const matcher = require('./matcher');
@@ -364,24 +364,10 @@ class GlossaryLinkerPlugin extends Plugin {
     return inTable ? `[[${canonical}\\|${display}]]` : `[[${canonical}|${display}]]`;
   }
 
-  inTableCell(text, pos) {
-    const lines = text.split('\n');
-    const lineIdx = (text.slice(0, pos).match(/\n/g) || []).length;
-    if (!lines[lineIdx] || !lines[lineIdx].includes('|')) return false;
-    // Only a real GFM table escapes the pipe: the block of non-blank lines around this one
-    // must hold a delimiter row like "| --- | :--: |". A lone pipe in prose stays literal.
-    const isDelimiter = (l) => l.includes('|') && l.includes('-') && /^[\s|:-]+$/.test(l);
-    let top = lineIdx, bot = lineIdx;
-    while (top > 0 && lines[top - 1].trim() !== '') top--;
-    while (bot < lines.length - 1 && lines[bot + 1].trim() !== '') bot++;
-    for (let i = top; i <= bot; i++) if (isDelimiter(lines[i])) return true;
-    return false;
-  }
-
   // Replace each match (sorted, non-overlapping) with a wikilink, right to left.
   applyLinks(text, matches) {
     const sorted = matches.slice().sort((a, b) => a.start - b.start);
-    const links = sorted.map((m) => this.wikiLink(m.canonical, m.display, this.inTableCell(text, m.start)));
+    const links = sorted.map((m) => this.wikiLink(m.canonical, m.display, inTableCell(text, m.start)));
     let out = text;
     for (let j = sorted.length - 1; j >= 0; j--) {
       out = out.slice(0, sorted[j].start) + links[j] + out.slice(sorted[j].end);

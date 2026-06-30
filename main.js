@@ -68,7 +68,23 @@ var require_constants = __commonJS({
     };
     var splitLines2 = (s) => (s || "").split("\n").map((x) => x.trim()).filter(Boolean);
     var sanitizeFolder2 = (s) => (s || "").split("/").map((x) => x.trim()).filter((x) => x && x !== "." && x !== "..").join("/");
-    module2.exports = { DEFAULT_SETTINGS: DEFAULT_SETTINGS2, splitLines: splitLines2, sanitizeFolder: sanitizeFolder2 };
+    function inTableCell2(text, pos) {
+      const lines = text.split("\n");
+      const lineIdx = (text.slice(0, pos).match(/\n/g) || []).length;
+      if (!lines[lineIdx] || !lines[lineIdx].includes("|"))
+        return false;
+      const isDelimiter = (l) => l.includes("|") && l.includes("-") && /^[\s|:-]+$/.test(l);
+      let top = lineIdx, bot = lineIdx;
+      while (top > 0 && lines[top - 1].trim() !== "")
+        top--;
+      while (bot < lines.length - 1 && lines[bot + 1].trim() !== "")
+        bot++;
+      for (let i = top; i <= bot; i++)
+        if (isDelimiter(lines[i]))
+          return true;
+      return false;
+    }
+    module2.exports = { DEFAULT_SETTINGS: DEFAULT_SETTINGS2, splitLines: splitLines2, sanitizeFolder: sanitizeFolder2, inTableCell: inTableCell2 };
   }
 });
 
@@ -788,7 +804,7 @@ var require_fr = __commonJS({
 var require_builtin_languages = __commonJS({
   "src/builtin-languages.js"(exports2, module2) {
     "use strict";
-    module2.exports = [
+    var BUILTIN_LANGUAGES2 = [
       require_ru(),
       require_uk(),
       require_en(),
@@ -796,6 +812,7 @@ var require_builtin_languages = __commonJS({
       require_de(),
       require_fr()
     ];
+    module2.exports = { BUILTIN_LANGUAGES: BUILTIN_LANGUAGES2 };
   }
 });
 
@@ -2671,13 +2688,7 @@ var require_matcher = __commonJS({
         }
         this.index = { byKey, termCount: canonicals.size };
         this.terms = terms;
-        if (this._indexListeners)
-          for (const cb of this._indexListeners) {
-            try {
-              cb();
-            } catch (e) {
-            }
-          }
+        this.notifyIndexChange();
       },
       // Canonicals of every term whose form matches `text`, optionally excluding one.
       // Runs the same matcher as highlighting, so collisions agree with what gets linked.
@@ -3149,6 +3160,7 @@ var require_modals = __commonJS({
     "use strict";
     var { Modal } = require("obsidian");
     var { t: t2 } = require_i18n();
+    var { inTableCell: inTableCell2 } = require_constants();
     var SKIP = " skip";
     var MaterializePreviewModal = class extends Modal {
       constructor(app, files, plugin, onApply) {
@@ -3194,7 +3206,7 @@ var require_modals = __commonJS({
           contentEl.createDiv({ cls: "glossary-preview-file", text: fc.file ? fc.file.path : fc.label || t2("label.selection") });
           const table = contentEl.createEl("table", { cls: "glossary-preview-table" });
           fc.matches.slice(0, 50).forEach((m) => {
-            const inTable = this.plugin.inTableCell(fc.original, m.start);
+            const inTable = inTableCell2(fc.original, m.start);
             const tr = table.createEl("tr");
             tr.createEl("td", { text: m.display });
             tr.createEl("td", { text: "\u2192" });
@@ -4075,6 +4087,14 @@ var require_api = __commonJS({
           this._indexListeners = /* @__PURE__ */ new Set();
         this._indexListeners.add(cb);
         return () => this._indexListeners.delete(cb);
+      },
+      notifyIndexChange() {
+        for (const cb of this._indexListeners || []) {
+          try {
+            cb();
+          } catch (e) {
+          }
+        }
       }
     };
   }
@@ -4087,6 +4107,7 @@ var require_term_suggest = __commonJS({
     var obsidian = require("obsidian");
     var { EditorSuggest } = obsidian;
     var { t: t2 } = require_i18n();
+    var { inTableCell: inTableCell2 } = require_constants();
     var GlossaryTermSuggest2 = class extends EditorSuggest {
       constructor(app, plugin) {
         super(app);
@@ -4166,7 +4187,7 @@ var require_term_suggest = __commonJS({
           return;
         const editor = ctx.editor;
         const display = item.kind === "form" ? ctx.query : item.canonical;
-        const inTable = this.plugin.inTableCell(editor.getValue(), editor.posToOffset(ctx.start));
+        const inTable = inTableCell2(editor.getValue(), editor.posToOffset(ctx.start));
         const link = this.plugin.wikiLink(item.canonical, display, inTable);
         editor.replaceRange(link, ctx.start, ctx.end);
         editor.setCursor(editor.offsetToPos(editor.posToOffset(ctx.start) + link.length));
@@ -4393,8 +4414,8 @@ var require_overview_view = __commonJS({
 
 // src/main.js
 var { Plugin, Notice, TFile, TFolder, debounce } = require("obsidian");
-var { DEFAULT_SETTINGS, splitLines, sanitizeFolder } = require_constants();
-var BUILTIN_LANGUAGES = require_builtin_languages();
+var { DEFAULT_SETTINGS, splitLines, sanitizeFolder, inTableCell } = require_constants();
+var { BUILTIN_LANGUAGES } = require_builtin_languages();
 var { validateLanguage } = require_language_api();
 var { GlossaryLinkerSettingTab } = require_settings_tab();
 var matcher = require_matcher();
@@ -4758,26 +4779,10 @@ var GlossaryLinkerPlugin = class extends Plugin {
       return `[[${canonical}]]`;
     return inTable ? `[[${canonical}\\|${display}]]` : `[[${canonical}|${display}]]`;
   }
-  inTableCell(text, pos) {
-    const lines = text.split("\n");
-    const lineIdx = (text.slice(0, pos).match(/\n/g) || []).length;
-    if (!lines[lineIdx] || !lines[lineIdx].includes("|"))
-      return false;
-    const isDelimiter = (l) => l.includes("|") && l.includes("-") && /^[\s|:-]+$/.test(l);
-    let top = lineIdx, bot = lineIdx;
-    while (top > 0 && lines[top - 1].trim() !== "")
-      top--;
-    while (bot < lines.length - 1 && lines[bot + 1].trim() !== "")
-      bot++;
-    for (let i = top; i <= bot; i++)
-      if (isDelimiter(lines[i]))
-        return true;
-    return false;
-  }
   // Replace each match (sorted, non-overlapping) with a wikilink, right to left.
   applyLinks(text, matches) {
     const sorted = matches.slice().sort((a, b) => a.start - b.start);
-    const links = sorted.map((m) => this.wikiLink(m.canonical, m.display, this.inTableCell(text, m.start)));
+    const links = sorted.map((m) => this.wikiLink(m.canonical, m.display, inTableCell(text, m.start)));
     let out = text;
     for (let j = sorted.length - 1; j >= 0; j--) {
       out = out.slice(0, sorted[j].start) + links[j] + out.slice(sorted[j].end);

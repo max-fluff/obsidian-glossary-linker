@@ -3,6 +3,7 @@
 const obsidian = require('obsidian');
 const { EditorSuggest } = obsidian;
 const { t } = require('./i18n');
+const { inTableCell } = require('./constants');
 
 // Inline autocomplete: while typing in an in-scope note, offer to insert a
 // [[link]] to a glossary term. Two kinds of candidate:
@@ -87,7 +88,7 @@ class GlossaryTermSuggest extends EditorSuggest {
     const editor = ctx.editor;
     // 'form' keeps the typed wording as the visible text; 'prefix' completes to the title.
     const display = item.kind === 'form' ? ctx.query : item.canonical;
-    const inTable = this.plugin.inTableCell(editor.getValue(), editor.posToOffset(ctx.start));
+    const inTable = inTableCell(editor.getValue(), editor.posToOffset(ctx.start));
     const link = this.plugin.wikiLink(item.canonical, display, inTable);
     editor.replaceRange(link, ctx.start, ctx.end);
     editor.setCursor(editor.offsetToPos(editor.posToOffset(ctx.start) + link.length));

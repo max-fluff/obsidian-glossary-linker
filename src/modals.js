@@ -2,11 +2,12 @@
 
 const { Modal } = require('obsidian');
 const { t } = require('./i18n');
+const { inTableCell } = require('./constants');
 
 // files: [{ file, original, matches: [{ start, end, display, canonical, alts }], label? }].
 // Ambiguous matches (alts present) are resolved once per surface word in a top panel
 // (the choice applies to every occurrence everywhere); "skip" leaves them as text.
-// plugin supplies applyLinks / wikiLink / inTableCell. onApply receives
+// plugin supplies applyLinks / wikiLink. onApply receives
 // [{ file, label, original, newText, count }].
 const SKIP = ' skip';
 
@@ -53,7 +54,7 @@ class MaterializePreviewModal extends Modal {
       contentEl.createDiv({ cls: 'glossary-preview-file', text: fc.file ? fc.file.path : (fc.label || t('label.selection')) });
       const table = contentEl.createEl('table', { cls: 'glossary-preview-table' });
       fc.matches.slice(0, 50).forEach((m) => {
-        const inTable = this.plugin.inTableCell(fc.original, m.start);
+        const inTable = inTableCell(fc.original, m.start);
         const tr = table.createEl('tr');
         tr.createEl('td', { text: m.display });
         tr.createEl('td', { text: '→' });

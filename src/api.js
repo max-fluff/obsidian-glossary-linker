@@ -132,4 +132,10 @@ module.exports = {
     this._indexListeners.add(cb);
     return () => this._indexListeners.delete(cb);
   },
+
+  notifyIndexChange() {
+    for (const cb of this._indexListeners || []) {
+      try { cb(); } catch (e) { /* subscriber threw */ }
+    }
+  },
 };

@@ -79,8 +79,7 @@ module.exports = {
     }
     this.index = { byKey, termCount: canonicals.size };
     this.terms = terms;
-    // Guarded: rebuildIndex also runs during onload, before the listener set exists.
-    if (this._indexListeners) for (const cb of this._indexListeners) { try { cb(); } catch (e) { /* subscriber threw */ } }
+    this.notifyIndexChange();
   },
 
   // Canonicals of every term whose form matches `text`, optionally excluding one.
