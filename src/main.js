@@ -87,6 +87,10 @@ class GlossaryLinkerPlugin extends Plugin {
         menu.addItem((i) => i.setTitle(t('menu.createTerm')).setIcon('file-plus')
           .onClick(() => this.createTermFromSelection(editor, false)));
       }
+      if (this.settings.menuAddAbbreviation && hasSel && !link) {
+        menu.addItem((i) => i.setTitle(t('menu.addAbbreviation')).setIcon('text-cursor-input')
+          .onClick(() => this.addAbbreviationFromSelection(sel)));
+      }
       if (this.settings.menuExclude && hasSel && !link) {
         this.addExclusionMenuItem(menu, 'excludeWords', sel, 'Glossary: ');
       }
@@ -203,6 +207,11 @@ class GlossaryLinkerPlugin extends Plugin {
       name: t('cmd.rebuildIndex'),
       callback: () => { this.rebuildIndex(); new Notice(t('notice.indexRebuilt')); },
     });
+    this.addCommand({
+      id: 'add-abbreviation',
+      name: t('cmd.addAbbreviation'),
+      callback: () => this.addAbbreviation(),
+    });
 
     this.addSettingTab(new GlossaryLinkerSettingTab(this.app, this));
   }
@@ -289,6 +298,7 @@ class GlossaryLinkerPlugin extends Plugin {
 
   isGlossaryPath(path) {
     const p = this.settings.glossaryFolder.replace(/\/+$/, '');
+    if (!p) return true; // empty folder setting = whole vault is the glossary
     return path === `${p}.md` || path.startsWith(`${p}/`);
   }
 

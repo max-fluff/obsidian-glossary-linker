@@ -1,6 +1,6 @@
 'use strict';
 
-const { Modal } = require('obsidian');
+const { Modal, FuzzySuggestModal } = require('obsidian');
 const { t } = require('./i18n');
 const { inTableCell } = require('./constants');
 
@@ -220,4 +220,49 @@ class ChooseTermModal extends Modal {
   onClose() { this.contentEl.empty(); }
 }
 
-module.exports = { MaterializePreviewModal, HarvestPreviewModal, ChooseTermModal, UnlinkPreviewModal };
+// Fuzzy-pick a glossary term to attach an abbreviation to. items: this.plugin.terms.
+class TermPickerModal extends FuzzySuggestModal {
+  constructor(app, terms, onChoose) {
+    super(app);
+    this.terms = terms;
+    this.onChoose = onChoose;
+    this.setPlaceholder(t('modal.abbrev.pickTerm'));
+  }
+
+  getItems() { return this.terms; }
+  getItemText(item) { return item.canonical; }
+  onChooseItem(item) { this.onChoose(item); }
+}
+
+// Free-text entry for the abbreviation itself (e.g. "ЦНС" for "Центральная нервная система").
+class AbbreviationTextModal extends Modal {
+  constructor(app, termName, onSubmit) {
+    super(app);
+    this.termName = termName;
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl('h3', { text: t('modal.abbrev.title', { term: this.termName }) });
+    contentEl.createEl('p', { cls: 'glossary-section-desc', text: t('modal.abbrev.body') });
+    const input = contentEl.createEl('input', { type: 'text', cls: 'glossary-abbrev-input' });
+    input.style.width = '100%';
+    const submit = () => {
+      const v = input.value.trim();
+      if (v) { this.onSubmit(v); this.close(); }
+    };
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+    const buttons = contentEl.createDiv({ cls: 'glossary-preview-buttons' });
+    buttons.createEl('button', { text: t('btn.write'), cls: 'mod-cta' }).onclick = submit;
+    buttons.createEl('button', { text: t('btn.cancel') }).onclick = () => this.close();
+    input.focus();
+  }
+
+  onClose() { this.contentEl.empty(); }
+}
+
+module.exports = {
+  MaterializePreviewModal, HarvestPreviewModal, ChooseTermModal, UnlinkPreviewModal,
+  TermPickerModal, AbbreviationTextModal,
+};

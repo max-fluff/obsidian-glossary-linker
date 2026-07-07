@@ -252,6 +252,11 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
       .addToggle((c) => c.setValue(s.menuCreateTerm).onChange(async (v) => { s.menuCreateTerm = v; await save(false); }));
 
     new Setting(containerEl)
+      .setName(t('set.menuAddAbbreviation.name'))
+      .setDesc(t('set.menuAddAbbreviation.desc'))
+      .addToggle((c) => c.setValue(s.menuAddAbbreviation).onChange(async (v) => { s.menuAddAbbreviation = v; await save(false); }));
+
+    new Setting(containerEl)
       .setName(t('set.menuUnlink.name'))
       .setDesc(t('set.menuUnlink.desc'))
       .addToggle((c) => c.setValue(s.menuUnlink).onChange(async (v) => { s.menuUnlink = v; await save(false); }));

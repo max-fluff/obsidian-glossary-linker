@@ -18,6 +18,7 @@ module.exports = {
   'cmd.collectAllNotes': 'Collect aliases from links: all notes',
   'cmd.createTerm': 'Create glossary term from selection',
   'cmd.rebuildIndex': 'Rebuild glossary index',
+  'cmd.addAbbreviation': 'Add abbreviation…',
 
   'ribbon.tooltip': 'Glossary overview',
   'statusBar.aria': '{n} glossary term(s) on this page — click to link them',
@@ -30,6 +31,7 @@ module.exports = {
   // Native context-menu items (brand prefix "Glossary:" kept verbatim)
   'menu.createTermLink': 'Glossary: create term & link',
   'menu.createTerm': 'Glossary: create term',
+  'menu.addAbbreviation': 'Glossary: make this an abbreviation for…',
   'menu.unlinkThisTerm': 'Glossary: unlink this term',
   'menu.collectThisAlias': 'Glossary: collect this alias',
   'menu.collectFromNote': 'Glossary: collect aliases from links (this note)',
@@ -106,7 +108,7 @@ module.exports = {
 
   // Settings — entries
   'set.glossaryFolder.name': 'Glossary folder',
-  'set.glossaryFolder.desc': 'Folder with one note per term (file name = the term title).',
+  'set.glossaryFolder.desc': 'Folder with one note per term (file name = the term title). Leave empty to use the whole vault as the glossary.',
   'set.termTemplate.name': 'Term template',
   'set.termTemplate.desc': 'Note used as the body of new term notes; placeholders like {{title}} and {{date}} are filled in. Empty = blank note.',
   'set.scopeMode.name': 'Link scope',
@@ -183,6 +185,8 @@ module.exports = {
   'set.menuOpen.desc': 'Show "Open glossary note" / "Open in new tab" when right-clicking a highlighted term.',
   'set.menuCreateTerm.name': '"Create term from selection" items',
   'set.menuCreateTerm.desc': 'Show the "Glossary: create term…" actions when right-clicking a plain text selection.',
+  'set.menuAddAbbreviation.name': '"Make this an abbreviation" item',
+  'set.menuAddAbbreviation.desc': 'Show a context-menu item on a plain text selection that attaches it as an abbreviation to a term you pick.',
   'set.menuUnlink.name': '"Unlink term" item',
   'set.menuUnlink.desc': 'Show "Glossary: unlink this term" when right-clicking an existing glossary link.',
   'set.showRibbonIcon.name': 'Ribbon icon',
@@ -209,6 +213,13 @@ module.exports = {
   'modal.unlink.summary': 'Files: {files}, links to remove: {links}',
   'modal.choose.title': 'Choose a term',
   'modal.choose.body': 'This word matches more than one glossary term — pick one:',
+  'modal.abbrev.pickTerm': 'Which term is this an abbreviation for?',
+  'modal.abbrev.title': 'Abbreviation for "{term}"',
+  'modal.abbrev.body': 'E.g. CNS, PNS, URI. Abbreviations are not inflected automatically — type it exactly as it appears.',
+  'notice.noTerms': 'No glossary terms in the vault yet.',
+  'notice.abbrevExists': '"{abbrev}" is already linked to "{term}".',
+  'notice.abbrevAdded': 'Added abbreviation "{abbrev}" → "{term}".',
+  'notice.abbrevAddedCollision': 'Added "{abbrev}" → "{term}", but it already matches: {others}.',
   'btn.apply': 'Apply',
   'btn.cancel': 'Cancel',
   'btn.write': 'Write',
