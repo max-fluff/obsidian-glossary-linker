@@ -373,10 +373,10 @@ Nothing below is required — the plugin runs on its own — but it cooperates w
 
 ## Related plugins
 
-Also by the author — **[Code Linker](https://github.com/max-fluff/obsidian-code-linker)**: autocompletes references to your source code and inserts a deep-link that opens the file at the exact line in your editor (VS Code, JetBrains, …). Desktop-only.
+Also by the author — **[Code Linker](https://community.obsidian.md/plugins/code-linker)**: autocompletes references to your source code and inserts a deep-link that opens the file at the exact line in your editor (VS Code, JetBrains, …). Desktop-only.
 
 <p align="center">
-  <a href="https://github.com/max-fluff/obsidian-code-linker">
+  <a href="https://community.obsidian.md/plugins/code-linker">
     <img src="docs/images/code-linker-banner.svg" alt="Code Linker — autocomplete code references, jump to the exact line" width="480">
   </a>
 </p>
