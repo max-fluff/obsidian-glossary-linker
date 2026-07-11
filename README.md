@@ -119,11 +119,11 @@ Turn on *Autocomplete → Suggest links while typing* and typing in an in-scope 
 
 ### Ambiguous terms
 
-When a word matches more than one glossary term (the same alias lives on two notes), it gets a distinct wavy underline, and hovering shows a tooltip listing every matching term instead of a single, misleading page preview. Acting on it — clicking to open, or *Link to term* / *Open* from the right-click menu — opens a small picker so you choose which term rather than silently following the first. A word that matches a single term acts immediately, as usual.
+When a word matches more than one glossary term (the same alias lives on two notes), it gets a distinct double underline, and hovering shows a tooltip listing every matching term instead of a single, misleading page preview. Acting on it — clicking to open, or *Link to term* / *Open* from the right-click menu — opens a small picker so you choose which term rather than silently following the first. A word that matches a single term acts immediately, as usual.
 
 <p align="center">
-  <img src="docs/images/ambiguous-1.png" alt="A word with a wavy underline and a tooltip listing both matching terms" width="620">
-  <br><sub>A word that fits two terms gets a wavy underline and a tooltip listing them.</sub>
+  <img src="docs/images/ambiguous-1.png" alt="A word with a distinct underline and a tooltip listing both matching terms" width="620">
+  <br><sub>A word that fits two terms gets a distinct underline and a tooltip listing them.</sub>
 </p>
 
 <p align="center">
@@ -238,7 +238,7 @@ You can also manage these lists from the file explorer: right-click a file or fo
 | **Status bar count** | on | show the count of terms on the current note (e.g. `3 terms`) in the status bar; the base count is plain-text (not-yet-linked) mentions; click it to link them |
 | **Count direct links** | on | also count terms already linked directly (`[[Term]]` / `[[Term\|alias]]`), not just plain-text mentions |
 
-The highlight's color, underline style and offset — plus a separate underline for ambiguous terms — are exposed to the [Style Settings](https://github.com/mgmeyers/obsidian-style-settings) plugin under a *Glossary Linker* section, so you can restyle them from a UI. Without Style Settings, or left at default, the highlight follows your theme's link color with a dotted underline.
+The highlight's color and underline style — plus a separate underline for ambiguous terms — are exposed to the [Style Settings](https://github.com/mgmeyers/obsidian-style-settings) plugin under a *Glossary Linker* section, so you can restyle them from a UI. Without Style Settings, or left at default, the highlight follows your theme's link color with a dotted underline.
 
 <p align="center">
   <img src="docs/images/style-settings.png" alt="The Glossary Linker section in the Style Settings plugin" width="680">
@@ -366,7 +366,7 @@ Requires Obsidian 1.4.0 or newer, and works on both desktop and mobile.
 
 Nothing below is required — the plugin runs on its own — but it cooperates with a few others if you have them:
 
-- **[Style Settings](https://github.com/mgmeyers/obsidian-style-settings)** — a UI for the highlight color, underline style and offset, and the ambiguous-term underline.
+- **[Style Settings](https://github.com/mgmeyers/obsidian-style-settings)** — a UI for the highlight color, underline style, and the ambiguous-term underline.
 - **Page Preview** (core plugin) — provides the hover preview on glossary links; the plugin registers as its own *Glossary Linker* source you can toggle independently.
 - **[Dataview](https://github.com/blacksmithgu/obsidian-dataview)** — query the glossary from DataviewJS through the [public API](#public-api) (usage reports, orphan terms, and so on).
 - **Templates** (core) / **[Templater](https://github.com/SilentVoid13/Templater)** — fill the body of newly created term notes (see [Templates for new terms](#templates-for-new-terms)).

@@ -21,54 +21,46 @@ settings:
       - dotted
       - solid
       - dashed
-      - wavy
+      - double
       - none
-  -
-    id: glossary-underline-offset
-    title: Underline offset
-    description: Distance between text and underline.
-    type: variable-number
-    default: 3
-    format: px
   -
     id: glossary-ambiguous-underline-style
     title: Ambiguous-term underline style
     description: Underline for words that match more than one glossary term.
     type: variable-select
-    default: wavy
+    default: double
     options:
-      - wavy
       - double
       - dotted
       - dashed
+      - solid
 
 */
 
 .glossary-link,
 .cm-glossary-link {
   color: var(--glossary-link-color, var(--link-color));
-  text-decoration: underline;
-  text-decoration-style: var(--glossary-underline-style, dotted);
-  text-decoration-color: var(--glossary-link-color, var(--link-color));
-  text-underline-offset: var(--glossary-underline-offset, 3px);
+  text-decoration: none;
+  border-bottom: 1px var(--glossary-underline-style, dotted) var(--glossary-link-color, var(--link-color));
   cursor: pointer;
 }
 
 .glossary-link:hover,
 .cm-glossary-link:hover {
   color: var(--link-color-hover);
-  text-decoration-style: solid;
+  border-bottom-style: solid;
 }
 
-/* Words that match more than one term: distinct underline so the collision is visible. */
 .glossary-ambiguous,
 .cm-glossary-ambiguous {
-  text-decoration-style: var(--glossary-ambiguous-underline-style, wavy);
+  border-bottom-width: 3px;
+  border-bottom-style: var(--glossary-ambiguous-underline-style, double);
 }
 
 .glossary-ambiguous:hover,
 .cm-glossary-ambiguous:hover {
-  text-decoration-style: var(--glossary-ambiguous-underline-style, wavy);
+  border-bottom-width: 3px;
+  border-bottom-style: var(--glossary-ambiguous-underline-style, double);
 }
 
 /* Autocomplete suggestion rows */
