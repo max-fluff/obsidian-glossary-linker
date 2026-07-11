@@ -103,9 +103,9 @@ class GlossaryLinkerPlugin extends Plugin {
         menu.addItem((i) => i.setTitle(t('menu.createTerm')).setIcon('file-plus')
           .onClick(() => this.createTermFromSelection(editor, false)));
       }
-      if (this.settings.menuAddAbbreviation && hasSel && !link) {
-        menu.addItem((i) => i.setTitle(t('menu.addAbbreviation')).setIcon('text-cursor-input')
-          .onClick(() => this.addAbbreviationFromSelection(sel)));
+      if (this.settings.menuAddAlias && hasSel && !link) {
+        menu.addItem((i) => i.setTitle(t('menu.addAlias')).setIcon('text-cursor-input')
+          .onClick(() => this.addAliasFromSelection(sel)));
       }
       if (this.settings.menuExclude && hasSel && !link) {
         this.addExclusionMenuItem(menu, 'excludeWords', sel, 'Glossary: ');
@@ -224,9 +224,9 @@ class GlossaryLinkerPlugin extends Plugin {
       callback: () => { this.rebuildIndex(); new Notice(t('notice.indexRebuilt')); },
     });
     this.addCommand({
-      id: 'add-abbreviation',
-      name: t('cmd.addAbbreviation'),
-      callback: () => this.addAbbreviation(),
+      id: 'add-alias',
+      name: t('cmd.addAlias'),
+      callback: () => this.addAlias(),
     });
 
     this.addSettingTab(new GlossaryLinkerSettingTab(this.app, this));

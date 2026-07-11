@@ -4,7 +4,7 @@ const { Menu, Notice, TFile, moment } = require('obsidian');
 const { splitLines } = require('./constants');
 const {
   MaterializePreviewModal, HarvestPreviewModal, ChooseTermModal, UnlinkPreviewModal,
-  TermPickerModal, AbbreviationTextModal,
+  TermPickerModal, AliasTextModal,
 } = require('./modals');
 const { t, plural } = require('./i18n');
 
@@ -501,49 +501,49 @@ module.exports = {
     new HarvestPreviewModal(this.app, additions, (selected) => this.applyHarvest(selected)).open();
   },
 
-  // Shared write: attach `abbrev` as a plain alias on `term` (from this.terms).
-  // Unlike the stemmer, abbreviations aren't inflected forms of the term — they
-  // only ever match verbatim, so they must be listed explicitly.
-  async writeAbbreviation(term, abbrev) {
+  // Shared write: attach `alias` as a plain alias on `term` (from this.terms).
+  // For forms the stemmer can't derive from the title (abbreviations, synonyms,
+  // alternate spellings), which must be listed explicitly to be matched.
+  async writeAlias(term, alias) {
     const file = this.app.vault.getAbstractFileByPath(term.path);
     if (!(file instanceof TFile)) { new Notice(t('notice.termFileMissing', { term: term.canonical })); return; }
 
-    const already = (this.aliasesOf(file) || []).some((a) => a.toLowerCase() === abbrev.toLowerCase());
-    if (already || abbrev.toLowerCase() === term.canonical.toLowerCase()) {
-      new Notice(t('notice.abbrevExists', { abbrev, term: term.canonical }));
+    const already = (this.aliasesOf(file) || []).some((a) => a.toLowerCase() === alias.toLowerCase());
+    if (already || alias.toLowerCase() === term.canonical.toLowerCase()) {
+      new Notice(t('notice.aliasExists', { alias, term: term.canonical }));
       return;
     }
 
-    const collidesWith = [...this.termsMatchingText(abbrev)].filter((c) => c !== term.canonical);
+    const collidesWith = [...this.termsMatchingText(alias)].filter((c) => c !== term.canonical);
 
     await this.app.fileManager.processFrontMatter(file, (fm) => {
       let list = fm.aliases;
       if (!Array.isArray(list)) list = (typeof list === 'string' && list.trim()) ? [list] : [];
-      list.push(abbrev);
+      list.push(alias);
       fm.aliases = list;
     });
     this.rebuildIndex();
     this.updateStatusBar();
 
     if (collidesWith.length) {
-      new Notice(t('notice.abbrevAddedCollision', { abbrev, term: term.canonical, others: collidesWith.join(', ') }));
+      new Notice(t('notice.aliasAddedCollision', { alias, term: term.canonical, others: collidesWith.join(', ') }));
     } else {
-      new Notice(t('notice.abbrevAdded', { abbrev, term: term.canonical }));
+      new Notice(t('notice.aliasAdded', { alias, term: term.canonical }));
     }
   },
 
-  // Command Palette flow: pick a term, then type the abbreviation.
-  addAbbreviation() {
+  // Command Palette flow: pick a term, then type the alias.
+  addAlias() {
     if (!this.terms || !this.terms.length) { new Notice(t('notice.noTerms')); return; }
     new TermPickerModal(this.app, this.terms, (term) => {
-      new AbbreviationTextModal(this.app, term.canonical, (abbrev) => this.writeAbbreviation(term, abbrev)).open();
+      new AliasTextModal(this.app, term.canonical, (alias) => this.writeAlias(term, alias)).open();
     }).open();
   },
 
-  // Editor context-menu flow: the selection already IS the abbreviation, so only
+  // Editor context-menu flow: the selection already IS the alias, so only
   // the term still needs picking.
-  addAbbreviationFromSelection(abbrev) {
+  addAliasFromSelection(alias) {
     if (!this.terms || !this.terms.length) { new Notice(t('notice.noTerms')); return; }
-    new TermPickerModal(this.app, this.terms, (term) => this.writeAbbreviation(term, abbrev)).open();
+    new TermPickerModal(this.app, this.terms, (term) => this.writeAlias(term, alias)).open();
   },
 };

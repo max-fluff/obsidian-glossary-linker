@@ -220,13 +220,13 @@ class ChooseTermModal extends Modal {
   onClose() { this.contentEl.empty(); }
 }
 
-// Fuzzy-pick a glossary term to attach an abbreviation to. items: this.plugin.terms.
+// Fuzzy-pick a glossary term to attach an alias to. items: this.plugin.terms.
 class TermPickerModal extends FuzzySuggestModal {
   constructor(app, terms, onChoose) {
     super(app);
     this.terms = terms;
     this.onChoose = onChoose;
-    this.setPlaceholder(t('modal.abbrev.pickTerm'));
+    this.setPlaceholder(t('modal.alias.pickTerm'));
   }
 
   getItems() { return this.terms; }
@@ -234,8 +234,8 @@ class TermPickerModal extends FuzzySuggestModal {
   onChooseItem(item) { this.onChoose(item); }
 }
 
-// Free-text entry for the abbreviation itself (e.g. "ЦНС" for "Центральная нервная система").
-class AbbreviationTextModal extends Modal {
+// Free-text entry for the alias itself (e.g. "ЦНС" for "Центральная нервная система").
+class AliasTextModal extends Modal {
   constructor(app, termName, onSubmit) {
     super(app);
     this.termName = termName;
@@ -244,9 +244,9 @@ class AbbreviationTextModal extends Modal {
 
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl('h3', { text: t('modal.abbrev.title', { term: this.termName }) });
-    contentEl.createEl('p', { cls: 'glossary-section-desc', text: t('modal.abbrev.body') });
-    const input = contentEl.createEl('input', { type: 'text', cls: 'glossary-abbrev-input' });
+    contentEl.createEl('h3', { text: t('modal.alias.title', { term: this.termName }) });
+    contentEl.createEl('p', { cls: 'glossary-section-desc', text: t('modal.alias.body') });
+    const input = contentEl.createEl('input', { type: 'text', cls: 'glossary-alias-input' });
     const submit = () => {
       const v = input.value.trim();
       if (v) { this.onSubmit(v); this.close(); }
@@ -263,5 +263,5 @@ class AbbreviationTextModal extends Modal {
 
 module.exports = {
   MaterializePreviewModal, HarvestPreviewModal, ChooseTermModal, UnlinkPreviewModal,
-  TermPickerModal, AbbreviationTextModal,
+  TermPickerModal, AliasTextModal,
 };

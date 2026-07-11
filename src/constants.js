@@ -38,7 +38,7 @@ const DEFAULT_SETTINGS = {
   menuCollect: true,
   menuOpen: true,
   menuCreateTerm: true,
-  menuAddAbbreviation: true,
+  menuAddAlias: true,
   menuExclude: true,
   menuUnlink: true,
 };

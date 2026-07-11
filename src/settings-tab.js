@@ -252,9 +252,9 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
       .addToggle((c) => c.setValue(s.menuCreateTerm).onChange(async (v) => { s.menuCreateTerm = v; await save(false); }));
 
     new Setting(containerEl)
-      .setName(t('set.menuAddAbbreviation.name'))
-      .setDesc(t('set.menuAddAbbreviation.desc'))
-      .addToggle((c) => c.setValue(s.menuAddAbbreviation).onChange(async (v) => { s.menuAddAbbreviation = v; await save(false); }));
+      .setName(t('set.menuAddAlias.name'))
+      .setDesc(t('set.menuAddAlias.desc'))
+      .addToggle((c) => c.setValue(s.menuAddAlias).onChange(async (v) => { s.menuAddAlias = v; await save(false); }));
 
     new Setting(containerEl)
       .setName(t('set.menuUnlink.name'))
@@ -290,14 +290,18 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
     el.empty();
     el.removeClass('glossary-lang-error');
     const path = (this.plugin.settings.glossaryFolder || '').replace(/\/+$/, '');
-    const f = path ? this.app.vault.getAbstractFileByPath(path) : null;
-    const isFolder = f instanceof TFolder;
-    if (!isFolder) {
+    const n = (this.plugin.index && this.plugin.index.termCount) || 0;
+    if (!path) {
+      // Empty folder = whole vault is the glossary, not a missing folder.
+      el.setText(t('set.wholeVaultStatus', { terms: plural('term', n) }));
+      return;
+    }
+    const f = this.app.vault.getAbstractFileByPath(path);
+    if (!(f instanceof TFolder)) {
       el.addClass('glossary-lang-error');
       el.setText(t('set.folderNotFound'));
       return;
     }
-    const n = (this.plugin.index && this.plugin.index.termCount) || 0;
     el.setText(t('set.termsIndexed', { terms: plural('term', n) }));
   }
 }
