@@ -330,10 +330,15 @@ Glossary Linker itself is released under the MIT license — see [`LICENSE`](LIC
 
 The core is written as small CommonJS modules in `src/` and bundled into `main.js` by esbuild. The language modules in `languages/` are bundled in through `src/builtin-languages.js`; adding a language means contributing a module there and rebuilding (see [`languages/README.md`](languages/README.md)). Nothing is loaded or executed at runtime.
 
+Generic code shared with the sibling Code Linker plugin lives in `src/shared/`, a git submodule of [obsidian-linker-shared](https://github.com/max-fluff/obsidian-linker-shared). Clone with `--recurse-submodules` so the build can find it:
+
 ```
+git clone --recurse-submodules https://github.com/max-fluff/obsidian-glossary-linker
 npm install      # once, installs esbuild
 npm run build    # bundle src/ -> main.js
 ```
+
+In an existing clone without the submodule, run `git submodule update --init` first.
 
 `src/` layout:
 
@@ -349,6 +354,7 @@ npm run build    # bundle src/ -> main.js
 - `settings-tab.js` — the settings UI.
 - `folder-suggest.js` — folder autocomplete for the glossary-folder field (feature-detected).
 - `term-suggest.js` — the editor autocomplete (`EditorSuggest`, feature-detected).
+- `shared/` — git submodule shared with Code Linker: markdown helpers, the i18n engine, and the folder-list settings editor. Interface strings live per-plugin in `locales/`.
 
 `main.js` is generated; edit `src/` (or `languages/`) and rebuild rather than editing `main.js` directly. `node_modules/` and `package-lock.json` are git-ignored.
 
