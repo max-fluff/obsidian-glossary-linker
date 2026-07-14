@@ -3,8 +3,8 @@
 const { PluginSettingTab, Setting, Notice, TFolder } = require('obsidian');
 const { sanitizeFolder } = require('./constants');
 const { FolderSuggest, FileSuggest, PathSuggest, folderSuggestAvailable } = require('./folder-suggest');
-const { renderFolderList } = require('./folder-list');
-const { t, plural } = require('./i18n');
+const { renderFolderList } = require('./shared/folder-list');
+const { t, plural } = require('./shared/i18n');
 
 class GlossaryLinkerSettingTab extends PluginSettingTab {
   constructor(app, plugin) { super(app, plugin); this.plugin = plugin; }

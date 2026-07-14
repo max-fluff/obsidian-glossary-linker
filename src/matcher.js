@@ -1,6 +1,6 @@
 'use strict';
 
-const { splitLines } = require('./constants');
+const { splitLines } = require('./shared/markdown');
 
 // Term index + matching engine. Mixed into the plugin prototype.
 module.exports = {

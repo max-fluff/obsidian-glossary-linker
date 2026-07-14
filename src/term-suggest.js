@@ -2,8 +2,8 @@
 
 const obsidian = require('obsidian');
 const { EditorSuggest } = obsidian;
-const { t } = require('./i18n');
-const { inTableCell } = require('./constants');
+const { t } = require('./shared/i18n');
+const { inTableCell } = require('./shared/markdown');
 
 // Inline autocomplete: while typing in an in-scope note, offer to insert a
 // [[link]] to a glossary term. Two kinds of candidate:

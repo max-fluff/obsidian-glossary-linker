@@ -1,7 +1,7 @@
 'use strict';
 
 const { Notice } = require('obsidian');
-const { t } = require('./i18n');
+const { t } = require('./shared/i18n');
 
 // Public API exposed as `app.plugins.plugins['glossary-linker'].api`, so other
 // plugins and DataviewJS can read the glossary index. Mixed into the plugin

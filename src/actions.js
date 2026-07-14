@@ -1,12 +1,12 @@
 'use strict';
 
 const { Menu, Notice, TFile, moment } = require('obsidian');
-const { splitLines } = require('./constants');
+const { splitLines } = require('./shared/markdown');
 const {
   MaterializePreviewModal, HarvestPreviewModal, ChooseTermModal, UnlinkPreviewModal,
   TermPickerModal, AliasTextModal,
 } = require('./modals');
-const { t, plural } = require('./i18n');
+const { t, plural } = require('./shared/i18n');
 
 // Turning terms into links + collecting aliases. Mixed into the plugin prototype.
 module.exports = {

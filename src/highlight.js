@@ -1,7 +1,7 @@
 'use strict';
 
 const { Platform } = require('obsidian');
-const { t } = require('./i18n');
+const { t } = require('./shared/i18n');
 
 // On touch there is no right-click or hover, so a held press stands in for the context
 // menu: it re-dispatches a `contextmenu` event, reusing the existing menu handlers below.

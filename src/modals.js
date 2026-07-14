@@ -1,8 +1,8 @@
 'use strict';
 
 const { Modal, FuzzySuggestModal } = require('obsidian');
-const { t } = require('./i18n');
-const { inTableCell } = require('./constants');
+const { t } = require('./shared/i18n');
+const { inTableCell } = require('./shared/markdown');
 
 // files: [{ file, original, matches: [{ start, end, display, canonical, alts }], label? }].
 // Ambiguous matches (alts present) are resolved once per surface word in a top panel

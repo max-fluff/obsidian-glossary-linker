@@ -43,8 +43,6 @@ const DEFAULT_SETTINGS = {
   menuUnlink: true,
 };
 
-const splitLines = (s) => (s || '').split('\n').map((x) => x.trim()).filter(Boolean);
-
 // Drop blank, "." and ".." segments so a stray "../" can't escape the vault.
 const sanitizeFolder = (s) => (s || '')
   .split('/')
@@ -52,17 +50,4 @@ const sanitizeFolder = (s) => (s || '')
   .filter((x) => x && x !== '.' && x !== '..')
   .join('/');
 
-// Real GFM table only — the surrounding block must hold a delimiter row like "| --- |".
-function inTableCell(text, pos) {
-  const lines = text.split('\n');
-  const lineIdx = (text.slice(0, pos).match(/\n/g) || []).length;
-  if (!lines[lineIdx] || !lines[lineIdx].includes('|')) return false;
-  const isDelimiter = (l) => l.includes('|') && l.includes('-') && /^[\s|:-]+$/.test(l);
-  let top = lineIdx, bot = lineIdx;
-  while (top > 0 && lines[top - 1].trim() !== '') top--;
-  while (bot < lines.length - 1 && lines[bot + 1].trim() !== '') bot++;
-  for (let i = top; i <= bot; i++) if (isDelimiter(lines[i])) return true;
-  return false;
-}
-
-module.exports = { DEFAULT_SETTINGS, splitLines, sanitizeFolder, inTableCell };
+module.exports = { DEFAULT_SETTINGS, sanitizeFolder };

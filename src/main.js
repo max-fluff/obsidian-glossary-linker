@@ -1,7 +1,8 @@
 'use strict';
 
 const { Plugin, Notice, TFile, TFolder, debounce } = require('obsidian');
-const { DEFAULT_SETTINGS, splitLines, sanitizeFolder, inTableCell } = require('./constants');
+const { DEFAULT_SETTINGS, sanitizeFolder } = require('./constants');
+const { splitLines, inTableCell } = require('./shared/markdown');
 const { BUILTIN_LANGUAGES } = require('./builtin-languages');
 const { validateLanguage } = require('./language-api');
 const { GlossaryLinkerSettingTab } = require('./settings-tab');
@@ -11,11 +12,14 @@ const actions = require('./actions');
 const api = require('./api');
 const { GlossaryTermSuggest, suggestAvailable } = require('./term-suggest');
 const { GlossaryOverviewView, OVERVIEW_VIEW_TYPE } = require('./overview-view');
-const { initI18n, t, plural } = require('./i18n');
+const { initI18n, t, plural } = require('./shared/i18n');
 
 class GlossaryLinkerPlugin extends Plugin {
   async onload() {
-    initI18n();
+    initI18n({
+      en: require('./locales/en'), ru: require('./locales/ru'), de: require('./locales/de'),
+      es: require('./locales/es'), fr: require('./locales/fr'), uk: require('./locales/uk'),
+    });
     const loaded = await this.loadData();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded);
     if (loaded) {

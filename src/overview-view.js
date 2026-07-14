@@ -1,7 +1,7 @@
 'use strict';
 
 const { ItemView } = require('obsidian');
-const { t, plural } = require('./i18n');
+const { t, plural } = require('./shared/i18n');
 
 const OVERVIEW_VIEW_TYPE = 'glossary-overview';
 
