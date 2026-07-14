@@ -182,14 +182,15 @@ settings:
 .glossary-section-desc {
   color: var(--text-muted);
   font-size: var(--font-ui-small);
-  margin: -2px 0 14px;
+  margin: 4px 0 14px;
 }
 
-.glossary-lang-row {
+/* Language rows share the folder-row indent below, so both nested lists in the
+   pane line up. */
+.glossary-lang-row.setting-item {
   border-top: none;
-  padding-top: 6px;
-  padding-bottom: 6px;
-  padding-left: 14px;
+  margin-left: 1.5em;
+  padding: 6px 6px 6px 0.75em;
   border-left: 2px solid var(--background-modifier-border);
 }
 
@@ -311,4 +312,42 @@ settings:
 
 .glossary-alias-input {
   width: 100%;
+}
+
+/* Folder-set editor. Each chosen path is a compact indented row (matching the
+   language-row treatment so the pane reads as one list style); a full-width input
+   with autocomplete and an add button sits below the list. */
+.glossary-folder-rows:not(:empty) {
+  margin: 6px 0;
+}
+.glossary-folder-row.setting-item {
+  border-top: none;
+  padding: 4px 6px 4px 0.75em;
+  margin-left: 1.5em;
+  border-left: 2px solid var(--background-modifier-border);
+}
+.glossary-folder-row .setting-item-name {
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  overflow-wrap: anywhere;
+}
+.glossary-folder-add {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0 18px 1.5em;
+}
+.glossary-folder-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.glossary-folder-addbtn {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.glossary-folder-addbtn svg {
+  width: 16px;
+  height: 16px;
 }

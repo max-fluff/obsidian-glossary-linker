@@ -2,7 +2,8 @@
 
 const { PluginSettingTab, Setting, Notice, TFolder } = require('obsidian');
 const { sanitizeFolder } = require('./constants');
-const { FolderSuggest, FileSuggest, folderSuggestAvailable } = require('./folder-suggest');
+const { FolderSuggest, FileSuggest, PathSuggest, folderSuggestAvailable } = require('./folder-suggest');
+const { renderFolderList } = require('./folder-list');
 const { t, plural } = require('./i18n');
 
 class GlossaryLinkerSettingTab extends PluginSettingTab {
@@ -30,9 +31,6 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
         if (folderSuggestAvailable()) new FolderSuggest(this.app, c.inputEl);
       });
 
-    this.folderStatusEl = containerEl.createEl('div', { cls: 'glossary-section-desc' });
-    this.renderFolderStatus();
-
     new Setting(containerEl)
       .setName(t('set.termTemplate.name'))
       .setDesc(t('set.termTemplate.desc'))
@@ -50,17 +48,29 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
         .setValue(s.scopeMode)
         .onChange(async (v) => { s.scopeMode = v; await saveScope(); this.display(); }));
 
+    const folderList = (name, desc, key) => renderFolderList(containerEl, {
+      cls: 'glossary',
+      name,
+      desc,
+      get: () => s[key],
+      set: async (v) => { s[key] = v; await saveScope(); },
+      normalize: sanitizeFolder,
+      attachSuggest: folderSuggestAvailable()
+        ? (inputEl, onPick) => new PathSuggest(this.app, inputEl, onPick)
+        : null,
+      placeholder: t('set.folderList.add'),
+      removeLabel: t('set.folderList.remove'),
+      addLabel: t('set.folderList.addAria'),
+    });
+
     if (s.scopeMode === 'folders') {
-      new Setting(containerEl)
-        .setName(t('set.scopeFolders.name'))
-        .setDesc(t('set.scopeFolders.desc'))
-        .addTextArea((c) => { c.setValue(s.scopeFolders).onChange(async (v) => { s.scopeFolders = v; await saveScope(); }); c.inputEl.rows = 5; });
+      folderList(t('set.scopeFolders.name'), t('set.scopeFolders.desc'), 'scopeFolders');
     }
 
-    new Setting(containerEl)
-      .setName(t('set.excludeFolders.name'))
-      .setDesc(t('set.excludeFolders.desc'))
-      .addTextArea((c) => { c.setValue(s.excludeFolders).onChange(async (v) => { s.excludeFolders = v; await saveScope(); }); c.inputEl.rows = 3; });
+    folderList(t('set.excludeFolders.name'), t('set.excludeFolders.desc'), 'excludeFolders');
+
+    this.folderStatusEl = containerEl.createEl('div', { cls: 'glossary-section-desc' });
+    this.renderFolderStatus();
 
     new Setting(containerEl).setName(t('set.heading.matching')).setHeading();
 
@@ -186,8 +196,7 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
       .setDesc(t('set.suggestSkipAfter.desc'))
       .addText((c) => c.setValue(s.suggestSkipAfter).onChange(async (v) => { s.suggestSkipAfter = v; await save(false); }));
 
-    new Setting(containerEl).setName(t('set.heading.collecting')).setHeading();
-    containerEl.createEl('div', { cls: 'glossary-section-desc', text: t('set.collecting.desc') });
+    new Setting(containerEl).setName(t('set.heading.collecting')).setDesc(t('set.collecting.desc')).setHeading();
 
     new Setting(containerEl)
       .setName(t('set.aliasHarvestMode.name'))

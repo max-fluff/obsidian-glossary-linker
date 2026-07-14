@@ -905,8 +905,95 @@ var require_folder_suggest = __commonJS({
         this.close();
       }
     };
+    var PathSuggest = class extends AbstractInputSuggest {
+      constructor(app, inputEl, onSelect) {
+        super(app, inputEl);
+        this.inputEl = inputEl;
+        this.onSelect = onSelect;
+      }
+      getSuggestions(query) {
+        const q = query.toLowerCase();
+        const isFolder = (f) => f instanceof TFolder2;
+        return this.app.vault.getAllLoadedFiles().filter((f) => f.path && f.path.toLowerCase().includes(q)).sort((a, b) => isFolder(a) === isFolder(b) ? a.path.localeCompare(b.path) : isFolder(a) ? -1 : 1).slice(0, 50);
+      }
+      renderSuggestion(f, el) {
+        el.setText(f.path || "/");
+      }
+      selectSuggestion(f) {
+        if (this.onSelect) {
+          this.onSelect(f.path);
+          this.setValue("");
+          this.close();
+          return;
+        }
+        this.setValue(f.path);
+        this.inputEl.trigger("input");
+        this.close();
+      }
+    };
     var folderSuggestAvailable = () => typeof AbstractInputSuggest === "function";
-    module2.exports = { FolderSuggest, FileSuggest, folderSuggestAvailable };
+    module2.exports = { FolderSuggest, FileSuggest, PathSuggest, folderSuggestAvailable };
+  }
+});
+
+// src/folder-list.js
+var require_folder_list = __commonJS({
+  "src/folder-list.js"(exports2, module2) {
+    "use strict";
+    var { Setting, setIcon } = require("obsidian");
+    function renderFolderList(containerEl, opts) {
+      const cls = opts.cls;
+      const norm = opts.normalize || ((x) => x.trim());
+      const read = () => (opts.get() || "").split("\n").map((x) => x.trim()).filter(Boolean);
+      new Setting(containerEl).setName(opts.name).setDesc(opts.desc);
+      const rowsEl = containerEl.createDiv({ cls: `${cls}-folder-rows` });
+      const addEl = containerEl.createDiv({ cls: `${cls}-folder-add` });
+      const commit = async (next) => {
+        const seen = /* @__PURE__ */ new Set();
+        const clean = [];
+        for (const p of next) {
+          const n = norm(p);
+          if (n && !seen.has(n)) {
+            seen.add(n);
+            clean.push(n);
+          }
+        }
+        await opts.set(clean.join("\n"));
+        draw();
+      };
+      const draw = () => {
+        rowsEl.empty();
+        read().forEach((path, i) => {
+          const row = new Setting(rowsEl).setName(path);
+          row.settingEl.addClass(`${cls}-folder-row`);
+          row.addExtraButton((b) => b.setIcon("x").setTooltip(opts.removeLabel || "").onClick(() => {
+            const next = read();
+            next.splice(i, 1);
+            commit(next);
+          }));
+        });
+      };
+      const input = addEl.createEl("input", { type: "text", cls: `${cls}-folder-input`, attr: { placeholder: opts.placeholder || "" } });
+      const addBtn = addEl.createEl("button", { cls: `${cls}-folder-addbtn`, attr: { "aria-label": opts.addLabel || "" } });
+      setIcon(addBtn, "plus");
+      const add = (raw) => {
+        if (norm(raw))
+          commit([...read(), raw]);
+        input.value = "";
+        input.focus();
+      };
+      if (opts.attachSuggest)
+        opts.attachSuggest(input, add);
+      addBtn.addEventListener("click", () => add(input.value));
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          add(input.value);
+        }
+      });
+      draw();
+    }
+    module2.exports = { renderFolderList };
   }
 });
 
@@ -1017,9 +1104,12 @@ var require_en2 = __commonJS({
       "set.scopeMode.folders": "Listed paths only",
       "set.scopeMode.vault": "Everywhere",
       "set.scopeFolders.name": "Paths to include",
-      "set.scopeFolders.desc": "One path per line \u2014 a file or a folder. Only these (and notes inside listed folders) are in scope.",
+      "set.scopeFolders.desc": "A file or a folder. Only these (and notes inside listed folders) are in scope.",
       "set.excludeFolders.name": "Always-excluded paths",
-      "set.excludeFolders.desc": "One path per line \u2014 a file or a folder, never highlighted, linked or scanned, whatever the mode above is.",
+      "set.excludeFolders.desc": "A file or a folder, never highlighted, linked or scanned, whatever the mode above is.",
+      "set.folderList.add": "Add path\u2026",
+      "set.folderList.remove": "Remove",
+      "set.folderList.addAria": "Add",
       "set.matchMode.name": "Morphology",
       "set.matchMode.desc": "How an inflected word is matched to a term.",
       "set.matchMode.stemmer": "Stemmer (recommended)",
@@ -1263,9 +1353,12 @@ var require_ru2 = __commonJS({
       "set.scopeMode.folders": "\u0422\u043E\u043B\u044C\u043A\u043E \u0443\u043A\u0430\u0437\u0430\u043D\u043D\u044B\u0435 \u043F\u0443\u0442\u0438",
       "set.scopeMode.vault": "\u0412\u0435\u0437\u0434\u0435",
       "set.scopeFolders.name": "\u0412\u043A\u043B\u044E\u0447\u0430\u0435\u043C\u044B\u0435 \u043F\u0443\u0442\u0438",
-      "set.scopeFolders.desc": "\u041F\u043E \u043E\u0434\u043D\u043E\u043C\u0443 \u043F\u0443\u0442\u0438 \u043D\u0430 \u0441\u0442\u0440\u043E\u043A\u0443 \u2014 \u0444\u0430\u0439\u043B \u0438\u043B\u0438 \u043F\u0430\u043F\u043A\u0430. \u0412 \u043E\u0431\u043B\u0430\u0441\u0442\u044C \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u043D\u0438\u044F \u0432\u0445\u043E\u0434\u044F\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u043D\u0438 (\u0438 \u0437\u0430\u043C\u0435\u0442\u043A\u0438 \u0432\u043D\u0443\u0442\u0440\u0438 \u0443\u043A\u0430\u0437\u0430\u043D\u043D\u044B\u0445 \u043F\u0430\u043F\u043E\u043A).",
+      "set.scopeFolders.desc": "\u0424\u0430\u0439\u043B \u0438\u043B\u0438 \u043F\u0430\u043F\u043A\u0430. \u0412 \u043E\u0431\u043B\u0430\u0441\u0442\u044C \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u043D\u0438\u044F \u0432\u0445\u043E\u0434\u044F\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u043D\u0438 (\u0438 \u0437\u0430\u043C\u0435\u0442\u043A\u0438 \u0432\u043D\u0443\u0442\u0440\u0438 \u0443\u043A\u0430\u0437\u0430\u043D\u043D\u044B\u0445 \u043F\u0430\u043F\u043E\u043A).",
       "set.excludeFolders.name": "\u0412\u0441\u0435\u0433\u0434\u0430 \u0438\u0441\u043A\u043B\u044E\u0447\u0451\u043D\u043D\u044B\u0435 \u043F\u0443\u0442\u0438",
-      "set.excludeFolders.desc": "\u041F\u043E \u043E\u0434\u043D\u043E\u043C\u0443 \u043F\u0443\u0442\u0438 \u043D\u0430 \u0441\u0442\u0440\u043E\u043A\u0443 \u2014 \u0444\u0430\u0439\u043B \u0438\u043B\u0438 \u043F\u0430\u043F\u043A\u0430; \u043D\u0438\u043A\u043E\u0433\u0434\u0430 \u043D\u0435 \u043F\u043E\u0434\u0441\u0432\u0435\u0447\u0438\u0432\u0430\u044E\u0442\u0441\u044F, \u043D\u0435 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u0438 \u043D\u0435 \u0441\u043A\u0430\u043D\u0438\u0440\u0443\u044E\u0442\u0441\u044F, \u043D\u0435\u0437\u0430\u0432\u0438\u0441\u0438\u043C\u043E \u043E\u0442 \u0440\u0435\u0436\u0438\u043C\u0430 \u0432\u044B\u0448\u0435.",
+      "set.excludeFolders.desc": "\u0424\u0430\u0439\u043B \u0438\u043B\u0438 \u043F\u0430\u043F\u043A\u0430; \u043D\u0438\u043A\u043E\u0433\u0434\u0430 \u043D\u0435 \u043F\u043E\u0434\u0441\u0432\u0435\u0447\u0438\u0432\u0430\u044E\u0442\u0441\u044F, \u043D\u0435 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u0438 \u043D\u0435 \u0441\u043A\u0430\u043D\u0438\u0440\u0443\u044E\u0442\u0441\u044F, \u043D\u0435\u0437\u0430\u0432\u0438\u0441\u0438\u043C\u043E \u043E\u0442 \u0440\u0435\u0436\u0438\u043C\u0430 \u0432\u044B\u0448\u0435.",
+      "set.folderList.add": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0443\u0442\u044C\u2026",
+      "set.folderList.remove": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C",
+      "set.folderList.addAria": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C",
       "set.matchMode.name": "\u041C\u043E\u0440\u0444\u043E\u043B\u043E\u0433\u0438\u044F",
       "set.matchMode.desc": "\u041A\u0430\u043A \u0441\u043B\u043E\u0432\u043E\u0444\u043E\u0440\u043C\u0430 \u0441\u043E\u043F\u043E\u0441\u0442\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u0441 \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u043C.",
       "set.matchMode.stemmer": "\u0421\u0442\u0435\u043C\u043C\u0435\u0440 (\u0440\u0435\u043A\u043E\u043C\u0435\u043D\u0434\u0443\u0435\u0442\u0441\u044F)",
@@ -1502,9 +1595,9 @@ var require_de2 = __commonJS({
       "set.scopeMode.folders": "Nur aufgef\xFChrte Pfade",
       "set.scopeMode.vault": "\xDCberall",
       "set.scopeFolders.name": "Einzuschlie\xDFende Pfade",
-      "set.scopeFolders.desc": "Ein Pfad pro Zeile \u2014 eine Datei oder ein Ordner. Nur diese (und Notizen in aufgef\xFChrten Ordnern) sind im Bereich.",
+      "set.scopeFolders.desc": "Eine Datei oder ein Ordner. Nur diese (und Notizen in aufgef\xFChrten Ordnern) sind im Bereich.",
       "set.excludeFolders.name": "Immer ausgeschlossene Pfade",
-      "set.excludeFolders.desc": "Ein Pfad pro Zeile \u2014 eine Datei oder ein Ordner, nie hervorgehoben, verlinkt oder gescannt, egal welcher Modus oben gilt.",
+      "set.excludeFolders.desc": "Eine Datei oder ein Ordner, nie hervorgehoben, verlinkt oder gescannt, egal welcher Modus oben gilt.",
       "set.matchMode.name": "Morphologie",
       "set.matchMode.desc": "Wie ein flektiertes Wort einem Begriff zugeordnet wird.",
       "set.matchMode.stemmer": "Stemmer (empfohlen)",
@@ -1730,9 +1823,9 @@ var require_es2 = __commonJS({
       "set.scopeMode.folders": "Solo rutas indicadas",
       "set.scopeMode.vault": "En todas partes",
       "set.scopeFolders.name": "Rutas a incluir",
-      "set.scopeFolders.desc": "Una ruta por l\xEDnea \u2014 un archivo o una carpeta. Solo estas (y las notas dentro de las carpetas indicadas) est\xE1n en el \xE1mbito.",
+      "set.scopeFolders.desc": "Un archivo o una carpeta. Solo estas (y las notas dentro de las carpetas indicadas) est\xE1n en el \xE1mbito.",
       "set.excludeFolders.name": "Rutas siempre excluidas",
-      "set.excludeFolders.desc": "Una ruta por l\xEDnea \u2014 un archivo o una carpeta, nunca se resalta, enlaza ni analiza, sea cual sea el modo de arriba.",
+      "set.excludeFolders.desc": "Un archivo o una carpeta, nunca se resalta, enlaza ni analiza, sea cual sea el modo de arriba.",
       "set.matchMode.name": "Morfolog\xEDa",
       "set.matchMode.desc": "C\xF3mo se asocia una palabra flexionada a un t\xE9rmino.",
       "set.matchMode.stemmer": "Lematizador (recomendado)",
@@ -1958,9 +2051,9 @@ var require_fr2 = __commonJS({
       "set.scopeMode.folders": "Chemins list\xE9s seulement",
       "set.scopeMode.vault": "Partout",
       "set.scopeFolders.name": "Chemins \xE0 inclure",
-      "set.scopeFolders.desc": "Un chemin par ligne \u2014 un fichier ou un dossier. Seuls ceux-ci (et les notes dans les dossiers list\xE9s) sont dans la port\xE9e.",
+      "set.scopeFolders.desc": "Un fichier ou un dossier. Seuls ceux-ci (et les notes dans les dossiers list\xE9s) sont dans la port\xE9e.",
       "set.excludeFolders.name": "Chemins toujours exclus",
-      "set.excludeFolders.desc": "Un chemin par ligne \u2014 un fichier ou un dossier, jamais surlign\xE9, li\xE9 ni analys\xE9, quel que soit le mode ci-dessus.",
+      "set.excludeFolders.desc": "Un fichier ou un dossier, jamais surlign\xE9, li\xE9 ni analys\xE9, quel que soit le mode ci-dessus.",
       "set.matchMode.name": "Morphologie",
       "set.matchMode.desc": "Comment un mot fl\xE9chi est associ\xE9 \xE0 un terme.",
       "set.matchMode.stemmer": "Racinisation (recommand\xE9)",
@@ -2186,9 +2279,9 @@ var require_uk2 = __commonJS({
       "set.scopeMode.folders": "\u041B\u0438\u0448\u0435 \u0432\u043A\u0430\u0437\u0430\u043D\u0456 \u0448\u043B\u044F\u0445\u0438",
       "set.scopeMode.vault": "\u0423\u0441\u044E\u0434\u0438",
       "set.scopeFolders.name": "\u0428\u043B\u044F\u0445\u0438 \u0434\u043B\u044F \u0432\u043A\u043B\u044E\u0447\u0435\u043D\u043D\u044F",
-      "set.scopeFolders.desc": "\u041E\u0434\u0438\u043D \u0448\u043B\u044F\u0445 \u043D\u0430 \u0440\u044F\u0434\u043E\u043A \u2014 \u0444\u0430\u0439\u043B \u0430\u0431\u043E \u0442\u0435\u043A\u0430. \u0414\u043E \u043E\u0431\u043B\u0430\u0441\u0442\u0456 \u0437\u0432\u2019\u044F\u0437\u0443\u0432\u0430\u043D\u043D\u044F \u0432\u0445\u043E\u0434\u044F\u0442\u044C \u043B\u0438\u0448\u0435 \u0432\u043E\u043D\u0438 (\u0456 \u043D\u043E\u0442\u0430\u0442\u043A\u0438 \u0432\u0441\u0435\u0440\u0435\u0434\u0438\u043D\u0456 \u0432\u043A\u0430\u0437\u0430\u043D\u0438\u0445 \u0442\u0435\u043A).",
+      "set.scopeFolders.desc": "\u0424\u0430\u0439\u043B \u0430\u0431\u043E \u0442\u0435\u043A\u0430. \u0414\u043E \u043E\u0431\u043B\u0430\u0441\u0442\u0456 \u0437\u0432\u2019\u044F\u0437\u0443\u0432\u0430\u043D\u043D\u044F \u0432\u0445\u043E\u0434\u044F\u0442\u044C \u043B\u0438\u0448\u0435 \u0432\u043E\u043D\u0438 (\u0456 \u043D\u043E\u0442\u0430\u0442\u043A\u0438 \u0432\u0441\u0435\u0440\u0435\u0434\u0438\u043D\u0456 \u0432\u043A\u0430\u0437\u0430\u043D\u0438\u0445 \u0442\u0435\u043A).",
       "set.excludeFolders.name": "\u0417\u0430\u0432\u0436\u0434\u0438 \u0432\u0438\u043A\u043B\u044E\u0447\u0435\u043D\u0456 \u0448\u043B\u044F\u0445\u0438",
-      "set.excludeFolders.desc": "\u041E\u0434\u0438\u043D \u0448\u043B\u044F\u0445 \u043D\u0430 \u0440\u044F\u0434\u043E\u043A \u2014 \u0444\u0430\u0439\u043B \u0430\u0431\u043E \u0442\u0435\u043A\u0430; \u043D\u0456\u043A\u043E\u043B\u0438 \u043D\u0435 \u043F\u0456\u0434\u0441\u0432\u0456\u0447\u0443\u044E\u0442\u044C\u0441\u044F, \u043D\u0435 \u0437\u0432\u2019\u044F\u0437\u0443\u044E\u0442\u044C\u0441\u044F \u0439 \u043D\u0435 \u0441\u043A\u0430\u043D\u0443\u044E\u0442\u044C\u0441\u044F, \u043D\u0435\u0437\u0430\u043B\u0435\u0436\u043D\u043E \u0432\u0456\u0434 \u0440\u0435\u0436\u0438\u043C\u0443 \u0432\u0438\u0449\u0435.",
+      "set.excludeFolders.desc": "\u0424\u0430\u0439\u043B \u0430\u0431\u043E \u0442\u0435\u043A\u0430; \u043D\u0456\u043A\u043E\u043B\u0438 \u043D\u0435 \u043F\u0456\u0434\u0441\u0432\u0456\u0447\u0443\u044E\u0442\u044C\u0441\u044F, \u043D\u0435 \u0437\u0432\u2019\u044F\u0437\u0443\u044E\u0442\u044C\u0441\u044F \u0439 \u043D\u0435 \u0441\u043A\u0430\u043D\u0443\u044E\u0442\u044C\u0441\u044F, \u043D\u0435\u0437\u0430\u043B\u0435\u0436\u043D\u043E \u0432\u0456\u0434 \u0440\u0435\u0436\u0438\u043C\u0443 \u0432\u0438\u0449\u0435.",
       "set.matchMode.name": "\u041C\u043E\u0440\u0444\u043E\u043B\u043E\u0433\u0456\u044F",
       "set.matchMode.desc": "\u042F\u043A \u0441\u043B\u043E\u0432\u043E\u0444\u043E\u0440\u043C\u0430 \u0437\u0456\u0441\u0442\u0430\u0432\u043B\u044F\u0454\u0442\u044C\u0441\u044F \u0437 \u0442\u0435\u0440\u043C\u0456\u043D\u043E\u043C.",
       "set.matchMode.stemmer": "\u0421\u0442\u0435\u043C\u0435\u0440 (\u0440\u0435\u043A\u043E\u043C\u0435\u043D\u0434\u043E\u0432\u0430\u043D\u043E)",
@@ -2376,7 +2469,8 @@ var require_settings_tab = __commonJS({
     "use strict";
     var { PluginSettingTab, Setting, Notice: Notice2, TFolder: TFolder2 } = require("obsidian");
     var { sanitizeFolder: sanitizeFolder2 } = require_constants();
-    var { FolderSuggest, FileSuggest, folderSuggestAvailable } = require_folder_suggest();
+    var { FolderSuggest, FileSuggest, PathSuggest, folderSuggestAvailable } = require_folder_suggest();
+    var { renderFolderList } = require_folder_list();
     var { t: t2, plural: plural2 } = require_i18n();
     var GlossaryLinkerSettingTab2 = class extends PluginSettingTab {
       constructor(app, plugin) {
@@ -2412,8 +2506,6 @@ var require_settings_tab = __commonJS({
           if (folderSuggestAvailable())
             new FolderSuggest(this.app, c.inputEl);
         });
-        this.folderStatusEl = containerEl.createEl("div", { cls: "glossary-section-desc" });
-        this.renderFolderStatus();
         new Setting(containerEl).setName(t2("set.termTemplate.name")).setDesc(t2("set.termTemplate.desc")).addText((c) => {
           c.setValue(s.termTemplate).onChange(async (v) => {
             s.termTemplate = v.trim();
@@ -2427,22 +2519,27 @@ var require_settings_tab = __commonJS({
           await saveScope();
           this.display();
         }));
-        if (s.scopeMode === "folders") {
-          new Setting(containerEl).setName(t2("set.scopeFolders.name")).setDesc(t2("set.scopeFolders.desc")).addTextArea((c) => {
-            c.setValue(s.scopeFolders).onChange(async (v) => {
-              s.scopeFolders = v;
-              await saveScope();
-            });
-            c.inputEl.rows = 5;
-          });
-        }
-        new Setting(containerEl).setName(t2("set.excludeFolders.name")).setDesc(t2("set.excludeFolders.desc")).addTextArea((c) => {
-          c.setValue(s.excludeFolders).onChange(async (v) => {
-            s.excludeFolders = v;
+        const folderList = (name, desc, key) => renderFolderList(containerEl, {
+          cls: "glossary",
+          name,
+          desc,
+          get: () => s[key],
+          set: async (v) => {
+            s[key] = v;
             await saveScope();
-          });
-          c.inputEl.rows = 3;
+          },
+          normalize: sanitizeFolder2,
+          attachSuggest: folderSuggestAvailable() ? (inputEl, onPick) => new PathSuggest(this.app, inputEl, onPick) : null,
+          placeholder: t2("set.folderList.add"),
+          removeLabel: t2("set.folderList.remove"),
+          addLabel: t2("set.folderList.addAria")
         });
+        if (s.scopeMode === "folders") {
+          folderList(t2("set.scopeFolders.name"), t2("set.scopeFolders.desc"), "scopeFolders");
+        }
+        folderList(t2("set.excludeFolders.name"), t2("set.excludeFolders.desc"), "excludeFolders");
+        this.folderStatusEl = containerEl.createEl("div", { cls: "glossary-section-desc" });
+        this.renderFolderStatus();
         new Setting(containerEl).setName(t2("set.heading.matching")).setHeading();
         new Setting(containerEl).setName(t2("set.matchMode.name")).setDesc(t2("set.matchMode.desc")).addDropdown((d) => d.addOption("stemmer", t2("set.matchMode.stemmer")).addOption("endingStrip", t2("set.matchMode.endingStrip")).addOption("exact", t2("set.matchMode.exact")).setValue(s.matchMode).onChange(async (v) => {
           s.matchMode = v;
@@ -2555,8 +2652,7 @@ var require_settings_tab = __commonJS({
           s.suggestSkipAfter = v;
           await save(false);
         }));
-        new Setting(containerEl).setName(t2("set.heading.collecting")).setHeading();
-        containerEl.createEl("div", { cls: "glossary-section-desc", text: t2("set.collecting.desc") });
+        new Setting(containerEl).setName(t2("set.heading.collecting")).setDesc(t2("set.collecting.desc")).setHeading();
         new Setting(containerEl).setName(t2("set.aliasHarvestMode.name")).setDesc(t2("set.aliasHarvestMode.desc")).addDropdown((d) => d.addOption("lemma", t2("set.aliasHarvestMode.lemma")).addOption("literal", t2("set.aliasHarvestMode.literal")).addOption("both", t2("set.aliasHarvestMode.both")).setValue(s.aliasHarvestMode).onChange(async (v) => {
           s.aliasHarvestMode = v;
           await save(false);
