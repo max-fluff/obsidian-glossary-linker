@@ -11,7 +11,8 @@
   "keywords": ["obsidian", "obsidian-plugin", "glossary", "linker"],
   "private": true,
   "scripts": {
-    "build": "node esbuild.config.mjs"
+    "build": "node esbuild.config.mjs",
+    "plates": "node src/shared/branding/make-plates.mjs"
   },
   "devDependencies": {
     "esbuild": "0.17.19"
