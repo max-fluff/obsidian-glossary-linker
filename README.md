@@ -330,7 +330,7 @@ Glossary Linker itself is released under the MIT license — see [`LICENSE`](LIC
 
 The core is written as small CommonJS modules in `src/` and bundled into `main.js` by esbuild. The language modules in `languages/` are bundled in through `src/builtin-languages.js`; adding a language means contributing a module there and rebuilding (see [`languages/README.md`](languages/README.md)). Nothing is loaded or executed at runtime.
 
-Generic code shared with the sibling Code Linker plugin lives in `src/shared/`, a git submodule of [obsidian-linker-shared](https://github.com/max-fluff/obsidian-linker-shared). Clone with `--recurse-submodules` so the build can find it:
+Generic code shared with the sibling linker plugins lives in `src/shared/`, a git submodule of [obsidian-linker-shared](https://github.com/max-fluff/obsidian-linker-shared). Clone with `--recurse-submodules` so the build can find it:
 
 ```
 git clone --recurse-submodules https://github.com/max-fluff/obsidian-glossary-linker
@@ -354,7 +354,7 @@ In an existing clone without the submodule, run `git submodule update --init` fi
 - `settings-tab.js` — the settings UI.
 - `folder-suggest.js` — folder autocomplete for the glossary-folder field (feature-detected).
 - `term-suggest.js` — the editor autocomplete (`EditorSuggest`, feature-detected).
-- `shared/` — git submodule shared with Code Linker: markdown helpers, the i18n engine, and the folder-list settings editor. Interface strings live per-plugin in `locales/`.
+- `shared/` — git submodule shared with the sibling linker plugins: markdown helpers, the i18n engine, and the folder-list settings editor. Interface strings live per-plugin in `locales/`.
 
 `main.js` is generated; edit `src/` (or `languages/`) and rebuild rather than editing `main.js` directly. `node_modules/` and `package-lock.json` are git-ignored.
 
@@ -379,10 +379,28 @@ Nothing below is required — the plugin runs on its own — but it cooperates w
 
 ## Related plugins
 
-Also by the author — **[Code Linker](https://community.obsidian.md/plugins/code-linker)**: autocompletes references to your source code and inserts a deep-link that opens the file at the exact line in your editor (VS Code, JetBrains, …). Desktop-only.
+Also by the author — the rest of the linker family. Two of them highlight words already in your notes and link them; two autocomplete a name into a deep-link that lands on the exact spot.
+
+**[Heading Linker](https://github.com/max-fluff/obsidian-heading-linker)** — the file-based sibling of this plugin: each heading inside a chosen file is a term, matched in any word form and turned into a link, on the same matching engine. Works on desktop and mobile. Not in the community catalog yet.
+
+<p align="center">
+  <a href="https://github.com/max-fluff/obsidian-heading-linker">
+    <img src="docs/images/heading-linker-banner.svg" alt="Heading Linker — highlight words in any form, link them to headings" width="480">
+  </a>
+</p>
+
+**[Code Linker](https://community.obsidian.md/plugins/code-linker)** — autocompletes references to your source code and inserts a deep-link that opens the file at the exact line in your editor (VS Code, JetBrains, …). Desktop-only.
 
 <p align="center">
   <a href="https://community.obsidian.md/plugins/code-linker">
     <img src="docs/images/code-linker-banner.svg" alt="Code Linker — autocomplete code references, jump to the exact line" width="480">
+  </a>
+</p>
+
+**[Reference Linker](https://github.com/max-fluff/obsidian-reference-linker)** — autocompletes links to external documents (PDF, Office, images) and inserts a deep-link that opens them at the right page in an external viewer. Desktop-only. Not in the community catalog yet.
+
+<p align="center">
+  <a href="https://github.com/max-fluff/obsidian-reference-linker">
+    <img src="docs/images/reference-linker-banner.svg" alt="Reference Linker — autocomplete document references, jump to the exact page" width="480">
   </a>
 </p>

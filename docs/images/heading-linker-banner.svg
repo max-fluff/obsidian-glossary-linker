@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 260" width="960" height="260" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#27243d"/>
+      <stop offset="1" stop-color="#191826"/>
+    </linearGradient>
+    <radialGradient id="scrim" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#191826" stop-opacity="0.92"/>
+      <stop offset="0.6" stop-color="#191826" stop-opacity="0.82"/>
+      <stop offset="1" stop-color="#191826" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="card"><rect x="1" y="1" width="958" height="258" rx="24"/></clipPath>
+  </defs>
+
+  <rect x="1" y="1" width="958" height="258" rx="24" fill="url(#bg)" stroke="#ffffff" stroke-opacity="0.07"/>
+
+  <g clip-path="url(#card)">
+  <g fill="#b6a6e8" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-weight="500">
+    <text x="48" y="50" font-size="24" fill-opacity="0.11">#Heading</text>
+    <text x="252" y="42" font-size="22" fill-opacity="0.09">#Título</text>
+    <text x="430" y="52" font-size="20" fill-opacity="0.08">#Überschrift</text>
+    <text x="560" y="46" font-size="28" fill-opacity="0.12">#Titre</text>
+    <text x="724" y="50" font-size="24" fill-opacity="0.1">#Заголовок</text>
+    <text x="864" y="48" font-size="18" fill-opacity="0.08">#Розділ</text>
+    <text x="60" y="222" font-size="22" fill-opacity="0.1">#Headings</text>
+    <text x="206" y="240" font-size="18" fill-opacity="0.08">#Títulos</text>
+    <text x="338" y="224" font-size="20" fill-opacity="0.09">#Titres</text>
+    <text x="500" y="238" font-size="22" fill-opacity="0.11">#Заголовки</text>
+    <text x="648" y="222" font-size="22" fill-opacity="0.1">#Titre</text>
+    <text x="838" y="236" font-size="20" fill-opacity="0.09">#Título</text>
+  </g>
+  </g>
+
+  <!-- focal scrim so the wordmark stays legible over the cloud -->
+  <ellipse cx="380" cy="128" rx="360" ry="96" fill="url(#scrim)"/>
+
+  <text x="60" y="124" font-size="56" font-weight="700" fill="#f4f4f6">Heading Linker</text>
+  <text x="62" y="176" font-size="23" fill="#c2bfd2">Highlight words in any form, link them to headings.</text>
+
+<g transform="translate(781.16,75.16) scale(1.0968)"><g fill="#fff">
+    <path d="M40.5 19 H48.5 L41.5 67 H33.5 Z"/>
+    <path d="M58.5 19 H66.5 L59.5 67 H51.5 Z"/>
+    <rect x="31" y="31" width="40" height="8"/>
+    <rect x="29" y="47" width="40" height="8"/>
+    <circle cx="31" cy="79" r="2"/>
+    <circle cx="38.6" cy="79" r="2"/>
+    <circle cx="46.2" cy="79" r="2"/>
+    <circle cx="53.8" cy="79" r="2"/>
+    <circle cx="61.4" cy="79" r="2"/>
+    <circle cx="69" cy="79" r="2"/>
+  </g></g>
+</svg>

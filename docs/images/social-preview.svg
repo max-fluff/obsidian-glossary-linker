@@ -23,8 +23,8 @@
     <text x="1110" y="598" font-size="32" fill-opacity="0.08">слово</text>
   </g>
 
-<g transform="translate(414.57,10.57) scale(0.8806)"><rect x="110" y="199" width="292" height="60" fill="#fff"/>
-  <line x1="120" y1="303" x2="392" y2="303" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-dasharray="1 37.85"/></g>
+<g transform="translate(509.79,101.72) scale(0.5086)"><text x="256" y="307" fill="#fff" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="230" letter-spacing="-6" text-anchor="middle">Aa</text>
+  <line x1="106" y1="369" x2="406" y2="369" stroke="#fff" stroke-width="21" stroke-linecap="round" stroke-dasharray="1 41.71"/></g>
 
   <text x="640" y="432" font-size="100" font-weight="700" fill="#f4f4f6" text-anchor="middle">Glossary Linker</text>
   <text x="640" y="496" font-size="36" fill="#c2bfd2" text-anchor="middle">Highlight terms in any word form, then link them.</text>

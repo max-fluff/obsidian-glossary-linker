@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 260" width="960" height="260" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#27243d"/>
+      <stop offset="1" stop-color="#191826"/>
+    </linearGradient>
+    <radialGradient id="scrim" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#191826" stop-opacity="0.92"/>
+      <stop offset="0.6" stop-color="#191826" stop-opacity="0.82"/>
+      <stop offset="1" stop-color="#191826" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="card"><rect x="1" y="1" width="958" height="258" rx="24"/></clipPath>
+  </defs>
+
+  <rect x="1" y="1" width="958" height="258" rx="24" fill="url(#bg)" stroke="#ffffff" stroke-opacity="0.07"/>
+
+  <g clip-path="url(#card)">
+  <g fill="#b6a6e8" font-family="ui-monospace,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-weight="500">
+    <text x="48" y="50" font-size="24" fill-opacity="0.11">.pdf</text>
+    <text x="252" y="42" font-size="22" fill-opacity="0.09">#page=12</text>
+    <text x="430" y="52" font-size="20" fill-opacity="0.08">.docx</text>
+    <text x="560" y="46" font-size="28" fill-opacity="0.12">p. 148</text>
+    <text x="724" y="50" font-size="24" fill-opacity="0.1">.epub</text>
+    <text x="864" y="48" font-size="18" fill-opacity="0.08">.xlsx</text>
+    <text x="60" y="222" font-size="22" fill-opacity="0.1">§ 3.2</text>
+    <text x="206" y="240" font-size="18" fill-opacity="0.08">.png</text>
+    <text x="338" y="224" font-size="20" fill-opacity="0.09">Chapter 7</text>
+    <text x="500" y="238" font-size="22" fill-opacity="0.11">.pptx</text>
+    <text x="648" y="222" font-size="22" fill-opacity="0.1">#page=3</text>
+    <text x="838" y="236" font-size="20" fill-opacity="0.09">.jpg</text>
+  </g>
+  </g>
+
+  <!-- focal scrim so the wordmark stays legible over the cloud -->
+  <ellipse cx="380" cy="128" rx="360" ry="96" fill="url(#scrim)"/>
+
+  <text x="60" y="124" font-size="56" font-weight="700" fill="#f4f4f6">Reference Linker</text>
+  <text x="62" y="176" font-size="23" fill="#c2bfd2">Autocomplete document references, jump to the exact page.</text>
+
+<g transform="translate(758.29,52.29) scale(0.3036)"><g fill="none" stroke="#fff" stroke-linejoin="round">
+    <g stroke-width="24">
+      <path d="M159 156H119v200h40"/>
+      <path d="M353 156h40v200h-40"/>
+    </g>
+    <g stroke-width="26">
+      <path d="M216 187h34l58 58v68a12 12 0 0 1-12 12h-80a12 12 0 0 1-12-12V199a12 12 0 0 1 12-12z"/>
+      <path d="M250 187v46a12 12 0 0 0 12 12h46"/>
+    </g>
+  </g></g>
+</svg>

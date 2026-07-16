@@ -2,12 +2,14 @@
 // headers. Run: npm run plates / npm run banner
 // See src/shared/branding/BRANDING.md for the full field reference.
 
-// The plugin's mark: a white bar with a dashed underline (a highlighted term).
+// The plugin's mark: "Aa" over a dashed underline — one term in two word forms.
+// Coordinates live in the icon's 512 space; the viewBox crops to the mark's bounds.
+// The dash step is (line length - 1) / (dots - 1), so the end dots land on the ends.
 const MARK = {
   kind: 'svg',
-  viewBox: '100 189 312 134',
-  body: `<rect x="110" y="199" width="292" height="60" fill="#fff"/>
-  <line x1="120" y1="303" x2="392" y2="303" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-dasharray="1 37.85"/>`,
+  viewBox: '95 148 322 232',
+  body: `<text x="256" y="307" fill="#fff" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="230" letter-spacing="-6" text-anchor="middle">Aa</text>
+  <line x1="106" y1="369" x2="406" y2="369" stroke="#fff" stroke-width="21" stroke-linecap="round" stroke-dasharray="1 41.71"/>`,
 };
 
 export default {
