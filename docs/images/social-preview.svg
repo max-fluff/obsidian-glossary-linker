@@ -1,41 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#27243d"/>
       <stop offset="1" stop-color="#191826"/>
     </linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#a68cff"/>
-      <stop offset="1" stop-color="#705dcf"/>
-    </linearGradient>
   </defs>
 
   <rect x="0" y="0" width="1280" height="640" fill="url(#bg)"/>
 
-  <!-- "word" in two forms per language, scattered faintly -->
-  <g fill="#b6a6e8" font-weight="500">
-    <text x="80"   y="96"  font-size="40" fill-opacity="0.10">palabras</text>
-    <text x="360"  y="80"  font-size="36" fill-opacity="0.08">Wörter</text>
-    <text x="560"  y="100" font-size="32" fill-opacity="0.07">mots</text>
-    <text x="720"  y="86"  font-size="44" fill-opacity="0.11">words</text>
-    <text x="920"  y="96"  font-size="38" fill-opacity="0.09">слова</text>
-    <text x="1120" y="90"  font-size="30" fill-opacity="0.07">Wort</text>
-
-    <text x="90"   y="586" font-size="36" fill-opacity="0.09">word</text>
-    <text x="300"  y="600" font-size="30" fill-opacity="0.07">mot</text>
-    <text x="470"  y="588" font-size="34" fill-opacity="0.08">palabra</text>
-    <text x="680"  y="600" font-size="38" fill-opacity="0.10">слово</text>
-    <text x="850"  y="586" font-size="36" fill-opacity="0.09">словами</text>
-    <text x="1110" y="598" font-size="32" fill-opacity="0.08">слів</text>
+  <g fill="#b6a6e8" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-weight="500">
+    <text x="80" y="96" font-size="40" fill-opacity="0.1">palabras</text>
+    <text x="360" y="80" font-size="36" fill-opacity="0.08">Wörter</text>
+    <text x="560" y="100" font-size="32" fill-opacity="0.07">words</text>
+    <text x="720" y="86" font-size="44" fill-opacity="0.11">Wort</text>
+    <text x="920" y="96" font-size="38" fill-opacity="0.09">mots</text>
+    <text x="1120" y="90" font-size="30" fill-opacity="0.07">слова</text>
+    <text x="90" y="586" font-size="36" fill-opacity="0.09">word</text>
+    <text x="300" y="600" font-size="30" fill-opacity="0.07">mot</text>
+    <text x="470" y="588" font-size="34" fill-opacity="0.08">palabra</text>
+    <text x="680" y="600" font-size="38" fill-opacity="0.1">слів</text>
+    <text x="850" y="586" font-size="36" fill-opacity="0.09">словами</text>
+    <text x="1110" y="598" font-size="32" fill-opacity="0.08">слово</text>
   </g>
 
-  <!-- logo mark (white) -->
-  <g transform="translate(435.2,25.2) scale(0.8)">
-    <rect x="110" y="199" width="292" height="60" fill="#ffffff"/>
-    <line x1="120" y1="303" x2="392" y2="303" stroke="#ffffff" stroke-width="20" stroke-linecap="round" stroke-dasharray="1 37.85"/>
-  </g>
+<g transform="translate(414.57,10.57) scale(0.8806)"><rect x="110" y="199" width="292" height="60" fill="#fff"/>
+  <line x1="120" y1="303" x2="392" y2="303" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-dasharray="1 37.85"/></g>
 
-  <!-- wordmark + tagline -->
-  <text x="640" y="424" font-size="100" font-weight="700" fill="#f4f4f6" text-anchor="middle">Glossary Linker</text>
-  <text x="640" y="492" font-size="36" fill="#c2bfd2" text-anchor="middle">Highlight terms in any word form, then link them.</text>
+  <text x="640" y="432" font-size="100" font-weight="700" fill="#f4f4f6" text-anchor="middle">Glossary Linker</text>
+  <text x="640" y="496" font-size="36" fill="#c2bfd2" text-anchor="middle">Highlight terms in any word form, then link them.</text>
 </svg>

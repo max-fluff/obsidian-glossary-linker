@@ -1,12 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 260" width="960" height="260" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 260" width="960" height="260" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#27243d"/>
       <stop offset="1" stop-color="#191826"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#a68cff"/>
-      <stop offset="1" stop-color="#705dcf"/>
     </linearGradient>
     <radialGradient id="scrim" cx="0.5" cy="0.5" r="0.5">
       <stop offset="0" stop-color="#191826" stop-opacity="0.92"/>
@@ -18,34 +14,29 @@
 
   <rect x="1" y="1" width="958" height="258" rx="24" fill="url(#bg)" stroke="#ffffff" stroke-opacity="0.07"/>
 
-  <!-- background: "word" in two forms per language (en, es, de, fr, ru, uk) -->
-  <g clip-path="url(#card)" fill="#b6a6e8" font-weight="500">
-    <text x="48"  y="50"  font-size="24" fill-opacity="0.11">palabras</text>
-    <text x="252" y="42"  font-size="22" fill-opacity="0.09">Wörter</text>
-    <text x="430" y="52"  font-size="20" fill-opacity="0.08">mots</text>
-    <text x="560" y="46"  font-size="28" fill-opacity="0.12">words</text>
-    <text x="724" y="50"  font-size="24" fill-opacity="0.10">слова</text>
-    <text x="864" y="48"  font-size="18" fill-opacity="0.08">Wort</text>
-
-    <text x="60"  y="222" font-size="22" fill-opacity="0.10">word</text>
+  <g clip-path="url(#card)">
+  <g fill="#b6a6e8" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-weight="500">
+    <text x="48" y="50" font-size="24" fill-opacity="0.11">palabras</text>
+    <text x="252" y="42" font-size="22" fill-opacity="0.09">Wörter</text>
+    <text x="430" y="52" font-size="20" fill-opacity="0.08">words</text>
+    <text x="560" y="46" font-size="28" fill-opacity="0.12">Wort</text>
+    <text x="724" y="50" font-size="24" fill-opacity="0.1">mots</text>
+    <text x="864" y="48" font-size="18" fill-opacity="0.08">слова</text>
+    <text x="60" y="222" font-size="22" fill-opacity="0.1">word</text>
     <text x="206" y="240" font-size="18" fill-opacity="0.08">mot</text>
     <text x="338" y="224" font-size="20" fill-opacity="0.09">palabra</text>
-    <text x="500" y="238" font-size="22" fill-opacity="0.11">слово</text>
-    <text x="648" y="222" font-size="22" fill-opacity="0.10">словами</text>
-    <text x="838" y="236" font-size="20" fill-opacity="0.09">слів</text>
+    <text x="500" y="238" font-size="22" fill-opacity="0.11">слів</text>
+    <text x="648" y="222" font-size="22" fill-opacity="0.1">словами</text>
+    <text x="838" y="236" font-size="20" fill-opacity="0.09">слово</text>
+  </g>
   </g>
 
   <!-- focal scrim so the wordmark stays legible over the cloud -->
   <ellipse cx="380" cy="128" rx="360" ry="96" fill="url(#scrim)"/>
 
-  <!-- wordmark; "Glossary" carries the plugin's dotted highlight underline -->
   <text x="60" y="124" font-size="56" font-weight="700" fill="#f4f4f6">Glossary Linker</text>
-  <line x1="62" y1="143" x2="314" y2="143" stroke="url(#accent)" stroke-width="4" stroke-linecap="round" stroke-dasharray="1.5 7"/>
-  <text x="62" y="180" font-size="23" fill="#c2bfd2">Highlight terms in any word form, then link them.</text>
+  <text x="62" y="176" font-size="23" fill="#c2bfd2">Highlight terms in any word form, then link them.</text>
 
-  <!-- logo mark (white only, full-height square flush to the right edge) -->
-  <g transform="translate(700,0) scale(0.5078)">
-    <rect x="110" y="199" width="292" height="60" fill="#ffffff"/>
-    <line x1="120" y1="303" x2="392" y2="303" stroke="#ffffff" stroke-width="20" stroke-linecap="round" stroke-dasharray="1 37.85"/>
-  </g>
+<g transform="translate(706.09,0.09) scale(0.5075)"><rect x="110" y="199" width="292" height="60" fill="#fff"/>
+  <line x1="120" y1="303" x2="392" y2="303" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-dasharray="1 37.85"/></g>
 </svg>

@@ -1,11 +1,14 @@
-// Store-plate config for Glossary Linker. Run: npm run plates
+// Branding config for Glossary Linker — drives both the store plates and the vector
+// headers. Run: npm run plates / npm run banner
 // See src/shared/branding/BRANDING.md for the full field reference.
 
 // The plugin's mark: a white bar with a dashed underline (a highlighted term).
-const MARK_SVG = `<svg class="mark-glyph" viewBox="100 189 312 134" xmlns="http://www.w3.org/2000/svg">
-  <rect x="110" y="199" width="292" height="60" fill="#fff"/>
-  <line x1="120" y1="303" x2="392" y2="303" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-dasharray="1 37.85"/>
-</svg>`;
+const MARK = {
+  kind: 'svg',
+  viewBox: '100 189 312 134',
+  body: `<rect x="110" y="199" width="292" height="60" fill="#fff"/>
+  <line x1="120" y1="303" x2="392" y2="303" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-dasharray="1 37.85"/>`,
+};
 
 export default {
   imagesDir: 'docs/images',
@@ -13,7 +16,6 @@ export default {
 
   brand: {
     gradient: ['#27243d', '#191826'],
-    accent: '#a68cff',
     tokenColor: '#b6a6e8',
     tokenMono: false,
     // "word" in two forms across the plugin's languages (en, es, de, fr, ru, uk).
@@ -21,8 +23,9 @@ export default {
       'palabras', 'Wörter', 'words', 'Wort', 'mots', 'слова', 'word',
       'mot', 'palabra', 'слів', 'словами', 'слово', 'palabra', 'Wörter',
     ],
-    mark: { kind: 'svg', svg: MARK_SVG },
-    wordmark: { text: 'Glossary Linker', underline: 'Glossary' },
+    mark: MARK,
+    wordmark: { text: 'Glossary Linker' },
+    tagline: 'Highlight terms in any word form, then link them.',
   },
 
   plates: [
