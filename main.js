@@ -34,6 +34,9 @@ var require_constants = __commonJS({
       excludeTerms: "",
       excludeWords: "",
       linkFirstOnly: false,
+      // Who wins a word both linkers match. Read by the other side through the api, so both
+      // reach the same verdict; a whole note is broader than a heading anchor, hence lower.
+      linkPrecedence: 10,
       linkSuggest: false,
       // offer [[link]] autocomplete while typing
       suggestMinChars: 3,
@@ -1155,6 +1158,207 @@ var require_i18n = __commonJS({
   }
 });
 
+// src/shared/discover.js
+var require_discover = __commonJS({
+  "src/shared/discover.js"(exports2, module2) {
+    "use strict";
+    var LINKER_API = 1;
+    function discoverLinkers(app, opts) {
+      const minVersion = opts && opts.minVersion || LINKER_API;
+      const found = [];
+      const plugins = app && app.plugins && app.plugins.plugins;
+      if (!plugins)
+        return found;
+      for (const id of Object.keys(plugins)) {
+        const plugin = plugins[id];
+        const provider = plugin && plugin.api && plugin.api.linker;
+        if (!provider || typeof provider.id !== "string")
+          continue;
+        if (!(provider.apiVersion >= minVersion))
+          continue;
+        found.push(provider);
+      }
+      return found;
+    }
+    function outranks(a, b) {
+      if (a.precedence !== b.precedence)
+        return (a.precedence || 0) > (b.precedence || 0);
+      return String(a.id) < String(b.id);
+    }
+    function foreignRanges(app, self, text) {
+      const ranges = [];
+      for (const peer of discoverLinkers(app)) {
+        if (peer.id === self.id || !outranks(peer, self))
+          continue;
+        if (typeof peer.matches !== "function")
+          continue;
+        let matches;
+        try {
+          matches = peer.matches(text) || [];
+        } catch (e) {
+          matches = [];
+        }
+        for (const m of matches) {
+          if (m && typeof m.start === "number" && typeof m.end === "number")
+            ranges.push([m.start, m.end]);
+        }
+      }
+      return ranges.sort((a, b) => a[0] - b[0]);
+    }
+    function overlaps(ranges, s, e) {
+      for (const [rs, re] of ranges) {
+        if (rs >= e)
+          break;
+        if (re > s)
+          return true;
+      }
+      return false;
+    }
+    function ownedMatches(app, self, text, matches) {
+      if (!matches.length)
+        return matches;
+      const foreign = foreignRanges(app, self, text);
+      if (!foreign.length)
+        return matches;
+      return matches.filter((m) => !overlaps(foreign, m.start, m.end));
+    }
+    function yieldedCandidates(app, self, text) {
+      const out = [];
+      for (const peer of discoverLinkers(app)) {
+        if (peer.id === self.id || outranks(peer, self))
+          continue;
+        if (typeof peer.matches !== "function")
+          continue;
+        let matches;
+        try {
+          matches = peer.matches(text) || [];
+        } catch (e) {
+          matches = [];
+        }
+        for (const m of matches) {
+          if (!m || typeof m.start !== "number" || typeof m.end !== "number")
+            continue;
+          out.push({
+            start: m.start,
+            end: m.end,
+            label: m.label || m.target || "",
+            target: m.target,
+            // The peer's id travels with the candidate so it can survive a round trip through a
+            // DOM attribute — the editor decoration carries candidates as data, and the opener
+            // is looked up again at click time.
+            id: peer.id,
+            source: peer.displayName || peer.id,
+            open: (sourcePath, newTab) => {
+              if (typeof peer.open === "function")
+                peer.open(m.target, sourcePath, newTab);
+            }
+          });
+        }
+      }
+      return out;
+    }
+    function candidatesFor(candidates, s, e) {
+      return candidates.filter((c) => c.start < e && c.end > s);
+    }
+    function peersOffering(app, self, kind, text) {
+      const out = [];
+      for (const peer of discoverLinkers(app)) {
+        if (peer.id === self.id || typeof peer.offers !== "function")
+          continue;
+        let yes;
+        try {
+          yes = peer.offers(kind, text);
+        } catch (e) {
+          yes = false;
+        }
+        if (yes)
+          out.push(peer);
+      }
+      return out;
+    }
+    function siblingLinkers(app, self) {
+      return discoverLinkers(app).filter((p) => p.id !== self.id);
+    }
+    module2.exports = { LINKER_API, discoverLinkers, outranks, foreignRanges, overlaps, ownedMatches, yieldedCandidates, candidatesFor, peersOffering, siblingLinkers };
+  }
+});
+
+// src/shared/precedence.js
+var require_precedence = __commonJS({
+  "src/shared/precedence.js"(exports2, module2) {
+    "use strict";
+    var { discoverLinkers, outranks, siblingLinkers } = require_discover();
+    var STEP = 10;
+    function rankedLinkers(app) {
+      return discoverLinkers(app).slice().sort((a, b) => {
+        if (outranks(a, b))
+          return -1;
+        if (outranks(b, a))
+          return 1;
+        return 0;
+      });
+    }
+    function precedenceForIndex(app, self, index) {
+      const others = rankedLinkers(app).filter((p) => p.id !== self.id);
+      if (!others.length)
+        return self.precedence || 0;
+      const at = Math.max(0, Math.min(index, others.length));
+      const above = at > 0 ? others[at - 1].precedence || 0 : null;
+      const below = at < others.length ? others[at].precedence || 0 : null;
+      if (above === null)
+        return below + STEP;
+      if (below === null)
+        return above - STEP;
+      return (above + below) / 2;
+    }
+    function currentIndex(app, self) {
+      return rankedLinkers(app).findIndex((p) => p.id === self.id);
+    }
+    function renderPrecedence(containerEl, opts) {
+      const { app, provider, Setting, name, desc, save } = opts;
+      if (!provider || !siblingLinkers(app, provider).length)
+        return;
+      new Setting(containerEl).setName(name).setDesc(desc);
+      const cls = opts.cls || "linker";
+      const list = containerEl.createDiv({ cls: `${cls}-precedence-list` });
+      const draw = () => {
+        list.empty();
+        const ranked = rankedLinkers(app);
+        ranked.forEach((p, i) => {
+          const mine = p.id === provider.id;
+          const row = new Setting(list).setName(`${i + 1}. ${p.displayName || p.id}`);
+          if (!mine) {
+            row.setDesc(opts.otherDesc || "");
+            return;
+          }
+          row.settingEl.addClass(`${cls}-precedence-self`);
+          row.addExtraButton((b) => b.setIcon("arrow-up").setTooltip(opts.upTooltip || "").setDisabled(i === 0).onClick(async () => {
+            await save(precedenceForIndex(app, provider, i - 1));
+            refresh();
+          }));
+          row.addExtraButton((b) => b.setIcon("arrow-down").setTooltip(opts.downTooltip || "").setDisabled(i === ranked.length - 1).onClick(async () => {
+            await save(precedenceForIndex(app, provider, i + 1));
+            refresh();
+          }));
+        });
+      };
+      const refresh = () => {
+        for (const p of siblingLinkers(app, provider)) {
+          if (typeof p.refresh === "function") {
+            try {
+              p.refresh();
+            } catch (e) {
+            }
+          }
+        }
+        draw();
+      };
+      draw();
+    }
+    module2.exports = { STEP, rankedLinkers, precedenceForIndex, currentIndex, renderPrecedence };
+  }
+});
+
 // src/settings-tab.js
 var require_settings_tab = __commonJS({
   "src/settings-tab.js"(exports2, module2) {
@@ -1164,6 +1368,7 @@ var require_settings_tab = __commonJS({
     var { FolderSuggest, FileSuggest, PathSuggest, folderSuggestAvailable } = require_folder_suggest();
     var { renderFolderList } = require_folder_list();
     var { t: t2, plural: plural2 } = require_i18n();
+    var { renderPrecedence: precedenceSetting } = require_precedence();
     var GlossaryLinkerSettingTab2 = class extends PluginSettingTab {
       constructor(app, plugin) {
         super(app, plugin);
@@ -1406,6 +1611,7 @@ var require_settings_tab = __commonJS({
           this.plugin.applyRibbonIcon();
         }));
         new Setting(containerEl).setName(t2("set.heading.maintenance")).setHeading();
+        this.renderPrecedence(containerEl, save);
         new Setting(containerEl).setName(t2("set.rebuild.name")).setDesc(t2("set.rebuild.desc")).addButton((b) => b.setButtonText(t2("set.rebuild.button")).onClick(() => {
           this.plugin.rebuildIndex();
           new Notice2(t2("notice.indexRebuilt"));
@@ -1418,6 +1624,25 @@ var require_settings_tab = __commonJS({
         this.plugin.rebuildIndex();
         this.plugin.rerenderViews();
         this.display();
+      }
+      // Where this plugin sits in the family-wide priority order. Shown only when another linker
+      // is installed — alone there is no order to argue about.
+      renderPrecedence(containerEl, save) {
+        precedenceSetting(containerEl, {
+          app: this.app,
+          provider: this.plugin.api && this.plugin.api.linker,
+          Setting,
+          cls: "glossary",
+          name: t2("set.precedence.name"),
+          desc: t2("set.precedence.desc"),
+          otherDesc: t2("set.precedence.other"),
+          upTooltip: t2("set.precedence.up"),
+          downTooltip: t2("set.precedence.down"),
+          save: async (value) => {
+            this.plugin.settings.linkPrecedence = value;
+            await save(false);
+          }
+        });
       }
       renderFolderStatus() {
         const el = this.folderStatusEl;
@@ -1725,36 +1950,27 @@ var require_matcher = __commonJS({
 var require_highlight = __commonJS({
   "src/highlight.js"(exports2, module2) {
     "use strict";
-    var { Platform } = require("obsidian");
     var { t: t2 } = require_i18n();
-    var LONG_PRESS_MS = 500;
-    var fireContextMenu = (el, x, y) => el.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: x, clientY: y }));
-    function longPressTracker(fire) {
-      let timer = null, x = 0, y = 0, target = null;
-      const cancel = () => {
-        if (timer) {
-          clearTimeout(timer);
-          timer = null;
-        }
-      };
-      return {
-        start(t3, el) {
-          target = el;
-          x = t3.clientX;
-          y = t3.clientY;
-          timer = setTimeout(() => {
-            timer = null;
-            fire(target, x, y);
-          }, LONG_PRESS_MS);
-        },
-        move(t3) {
-          if (timer && (Math.abs(t3.clientX - x) > 10 || Math.abs(t3.clientY - y) > 10))
-            cancel();
-        },
-        cancel
-      };
-    }
+    var { ownedMatches, yieldedCandidates, candidatesFor, discoverLinkers } = require_discover();
     module2.exports = {
+      // Our matches minus the ones a higher-ranked sibling linker also claims. With no sibling
+      // installed this is the list itself and costs nothing; with one, a word both know is
+      // drawn once, by the same plugin in both render modes, rather than by whichever ran
+      // first. See shared/discover.js.
+      ownSpans(text, matches) {
+        const provider = this.api && this.api.linker;
+        if (!provider)
+          return matches;
+        return ownedMatches(this.app, provider, text, matches);
+      },
+      // What the linkers that yielded a span to us would have offered there. Empty in a solo
+      // vault, so the caller pays nothing for asking.
+      yieldedIn(text) {
+        const provider = this.api && this.api.linker;
+        if (!provider)
+          return [];
+        return yieldedCandidates(this.app, provider, text);
+      },
       processReadingMode(el, ctx) {
         if (!this.settings.highlightInReading)
           return;
@@ -1790,9 +2006,10 @@ var require_highlight = __commonJS({
         const text = node.textContent;
         if (!text || text.length < 2)
           return;
-        const matches = this.findMatches(text, currentCanonical, { protect: true });
+        const matches = this.ownSpans(text, this.findMatches(text, currentCanonical, { protect: true }));
         if (!matches.length)
           return;
+        const yielded = this.yieldedIn(text);
         const frag = document.createDocumentFragment();
         let cursor = 0;
         for (const m of matches) {
@@ -1800,17 +2017,24 @@ var require_highlight = __commonJS({
             frag.appendChild(document.createTextNode(text.slice(cursor, m.start)));
           const canonical = m.canonical;
           const display = m.display;
+          const foreign = candidatesFor(yielded, m.start, m.end);
+          const alts = [...m.alts || [], ...foreign];
           const a = document.createElement("a");
           a.textContent = display;
           a.setAttribute("data-glossary-target", canonical);
-          if (m.alts && m.alts.length) {
+          if (alts.length) {
             a.className = "glossary-link glossary-ambiguous";
-            const candidates = [canonical, ...m.alts];
-            a.setAttribute("aria-label", t2("highlight.matches", { terms: candidates.join(", ") }));
+            const candidates = [canonical, ...alts];
+            const names = candidates.map((c) => typeof c === "object" ? c.label : c);
+            a.setAttribute("aria-label", t2("highlight.matches", { terms: names.join(", ") }));
             const pick = (e, newTab) => {
               e.preventDefault();
               e.stopPropagation();
-              this.chooseTerm(candidates, newTab ? t2("menu.openNewTabTitle") : t2("menu.openTitle"), (c) => this.openTerm(c, sourcePath, newTab));
+              this.chooseTerm(
+                candidates.map((c) => typeof c === "object" ? { ...c, open: () => c.open(sourcePath, newTab) } : c),
+                newTab ? t2("menu.openNewTabTitle") : t2("menu.openTitle"),
+                (c) => this.openTerm(c, sourcePath, newTab)
+              );
             };
             a.addEventListener("click", (e) => pick(e, e.ctrlKey || e.metaKey));
             a.addEventListener("auxclick", (e) => {
@@ -1827,26 +2051,6 @@ var require_highlight = __commonJS({
             a.className = "internal-link glossary-link";
             a.href = canonical;
             a.setAttribute("data-href", canonical);
-          }
-          a.addEventListener("contextmenu", (e) => {
-            const file = sourcePath ? this.app.vault.getAbstractFileByPath(sourcePath) : null;
-            const root = a.closest(".markdown-reading-view, .markdown-source-view, .markdown-preview-view") || a.ownerDocument;
-            let occurrence = 0;
-            for (const other of root.querySelectorAll("a.glossary-link")) {
-              if (other === a)
-                break;
-              if (other.getAttribute("data-glossary-target") === canonical && other.textContent === display)
-                occurrence++;
-            }
-            if (this.showLinkMenu(e, canonical, display, file, null, occurrence, m.alts))
-              e.stopPropagation();
-          });
-          if (Platform.isMobile) {
-            const lp = longPressTracker(fireContextMenu);
-            a.addEventListener("touchstart", (e) => lp.start(e.touches[0], a), { passive: true });
-            a.addEventListener("touchmove", (e) => lp.move(e.touches[0]), { passive: true });
-            a.addEventListener("touchend", lp.cancel);
-            a.addEventListener("touchcancel", lp.cancel);
           }
           frag.appendChild(a);
           cursor = m.end;
@@ -1882,10 +2086,18 @@ var require_highlight = __commonJS({
           }
           return m;
         };
-        const markWithAlts = (canonical, alts) => Decoration.mark({
-          class: "cm-glossary-link cm-glossary-ambiguous",
-          attributes: { "data-glossary-target": canonical, "data-glossary-alts": alts.join("\n"), "aria-label": t2("highlight.matches", { terms: [canonical, ...alts].join(", ") }) }
-        });
+        const markWithAlts = (canonical, alts, foreign) => {
+          const names = [canonical, ...alts, ...foreign.map((f) => f.label)];
+          const attributes = {
+            "data-glossary-target": canonical,
+            "data-glossary-alts": alts.join("\n"),
+            "aria-label": t2("highlight.matches", { terms: names.join(", ") })
+          };
+          if (foreign.length) {
+            attributes["data-glossary-foreign"] = JSON.stringify(foreign.map((f) => ({ id: f.id, label: f.label, target: f.target, source: f.source })));
+          }
+          return Decoration.mark({ class: "cm-glossary-link cm-glossary-ambiguous", attributes });
+        };
         const skipNode = (name) => /code|link|url|header|hashtag|frontmatter|comment|tag|escape/i.test(name);
         const buildDeco = (editorView) => {
           const builder = new RangeSetBuilder();
@@ -1896,7 +2108,8 @@ var require_highlight = __commonJS({
           const tree = syntaxTree(editorView.state);
           for (const { from, to } of editorView.visibleRanges) {
             const text = editorView.state.doc.sliceString(from, to);
-            for (const m of plugin.findMatches(text, currentCanonical)) {
+            const yielded = plugin.yieldedIn(text);
+            for (const m of plugin.ownSpans(text, plugin.findMatches(text, currentCanonical))) {
               const start = from + m.start;
               const end = from + m.end;
               let skip = false;
@@ -1904,8 +2117,11 @@ var require_highlight = __commonJS({
                 if (skipNode(n.type.name))
                   skip = true;
               } });
-              if (!skip)
-                builder.add(start, end, m.alts && m.alts.length ? markWithAlts(m.canonical, m.alts) : markFor(m.canonical));
+              if (skip)
+                continue;
+              const alts = m.alts || [];
+              const foreign = candidatesFor(yielded, m.start, m.end);
+              builder.add(start, end, alts.length || foreign.length ? markWithAlts(m.canonical, alts, foreign) : markFor(m.canonical));
             }
           }
           return builder.finish();
@@ -1916,7 +2132,27 @@ var require_highlight = __commonJS({
           const v = el.getAttribute("data-glossary-alts");
           return v ? v.split("\n") : null;
         };
-        const editorLp = longPressTracker(fireContextMenu);
+        const foreignOf = (el, sourcePath, newTab) => {
+          const raw = el.getAttribute("data-glossary-foreign");
+          if (!raw)
+            return [];
+          let parsed;
+          try {
+            parsed = JSON.parse(raw);
+          } catch (err) {
+            return [];
+          }
+          const peers = discoverLinkers(plugin.app);
+          return parsed.map((f) => ({
+            label: f.label,
+            source: f.source,
+            open: () => {
+              const peer = peers.find((p) => p.id === f.id);
+              if (peer && typeof peer.open === "function")
+                peer.open(f.target, sourcePath, newTab);
+            }
+          }));
+        };
         const vp = ViewPlugin.fromClass(
           class {
             constructor(v) {
@@ -1946,46 +2182,33 @@ var require_highlight = __commonJS({
                   return;
                 const file = plugin.app.workspace.getActiveFile();
                 const sourcePath = file ? file.path : "";
-                const alts = altsOf(el);
-                const candidates = alts && alts.length ? [canonicalOf(el), ...alts] : [canonicalOf(el)];
+                const alts = altsOf(el) || [];
+                const pick = (newTab, title) => {
+                  const candidates = [canonicalOf(el), ...alts, ...foreignOf(el, sourcePath, newTab)];
+                  plugin.chooseTerm(candidates, title, (c) => plugin.openTerm(c, sourcePath, newTab));
+                };
                 if (e.button === 1) {
-                  plugin.chooseTerm(candidates, t2("menu.openNewTabTitle"), (c) => plugin.openTerm(c, sourcePath, true));
+                  pick(true, t2("menu.openNewTabTitle"));
                   e.preventDefault();
                   return;
                 }
                 if (e.button !== 0 || !(e.ctrlKey || e.metaKey))
                   return;
-                plugin.chooseTerm(candidates, t2("menu.openTitle"), (c) => plugin.openTerm(c, sourcePath, false));
+                pick(false, t2("menu.openTitle"));
                 e.preventDefault();
               },
               mouseover(e) {
                 const el = targetEl(e);
                 if (!el)
                   return;
-                if (el.hasAttribute("data-glossary-alts"))
+                if (el.hasAttribute("data-glossary-alts") || el.hasAttribute("data-glossary-foreign"))
                   return;
                 const file = plugin.app.workspace.getActiveFile();
                 plugin.hoverTerm(e, el, canonicalOf(el), file ? file.path : "");
-              },
-              contextmenu(e, view2) {
-                const el = targetEl(e);
-                if (!el)
-                  return;
-                const file = plugin.app.workspace.getActiveFile();
-                plugin.showLinkMenu(e, canonicalOf(el), el.textContent, file, view2.posAtDOM(el), void 0, altsOf(el));
-              },
-              touchstart(e) {
-                if (!Platform.isMobile)
-                  return;
-                const el = targetEl(e);
-                if (el)
-                  editorLp.start(e.touches[0], el);
-              },
-              touchmove(e) {
-                editorLp.move(e.touches[0]);
-              },
-              touchend: editorLp.cancel,
-              touchcancel: editorLp.cancel
+              }
+              // No handler for contextmenu: a right-click in the editor already raises Obsidian's
+              // own menu, and everything we offer for the word under the cursor is added there.
+              // One menu, whichever half of the toggle applies.
             }
           }
         );
@@ -2195,10 +2418,14 @@ var require_modals = __commonJS({
         contentEl.createEl("p", { text: t2("modal.choose.body") });
         const list = contentEl.createDiv({ cls: "glossary-choose-list" });
         for (const term of this.opts.terms) {
-          const b = list.createEl("button", { text: term, cls: "glossary-choose-item" });
+          const foreign = term && typeof term === "object";
+          const b = list.createEl("button", { cls: "glossary-choose-item", text: foreign ? term.label : term });
           b.onclick = async () => {
-            await this.opts.onChoose(term);
             this.close();
+            if (foreign)
+              term.open();
+            else
+              await this.opts.onChoose(term);
           };
         }
         contentEl.createDiv({ cls: "glossary-preview-buttons" }).createEl("button", { text: t2("btn.cancel") }).onclick = () => this.close();
@@ -2270,7 +2497,7 @@ var require_modals = __commonJS({
 var require_actions = __commonJS({
   "src/actions.js"(exports2, module2) {
     "use strict";
-    var { Menu, Notice: Notice2, TFile: TFile2, moment } = require("obsidian");
+    var { Notice: Notice2, TFile: TFile2, moment } = require("obsidian");
     var { splitLines: splitLines2 } = require_markdown();
     var {
       MaterializePreviewModal,
@@ -2280,6 +2507,7 @@ var require_actions = __commonJS({
       TermPickerModal,
       AliasTextModal
     } = require_modals();
+    var { candidatesFor } = require_discover();
     var { t: t2, plural: plural2 } = require_i18n();
     module2.exports = {
       // Ambiguous matches keep their `alts` so the preview can let the user pick a term.
@@ -2536,59 +2764,56 @@ var require_actions = __commonJS({
         const fmt = (f, fallback) => m ? m.format(f) : fallback();
         return text.replace(/\{\{\s*title\s*\}\}/g, name).replace(/\{\{\s*selection\s*\}\}/g, sel).replace(/\{\{\s*source\s*\}\}/g, src ? src.basename : "").replace(/\{\{\s*sourcePath\s*\}\}/g, src ? src.path : "").replace(/\{\{\s*date(?::([^}]*))?\s*\}\}/g, (_, f) => fmt((f || "YYYY-MM-DD").trim(), () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10))).replace(/\{\{\s*time(?::([^}]*))?\s*\}\}/g, (_, f) => fmt((f || "HH:mm").trim(), () => (/* @__PURE__ */ new Date()).toTimeString().slice(0, 5)));
       },
+      // The highlighted (not yet linked) match under the cursor, with whatever the other
+      // linkers would offer at the same spot, or null.
+      //
+      // It runs through ownSpans, so on a word several linkers know only the owner finds
+      // anything here — which is what keeps one "Link…" item in the menu instead of one per
+      // plugin. The others stay quiet and their readings ride along as candidates.
+      matchAtCursor(editor) {
+        const head = editor.getCursor("head");
+        const line = editor.getLine(head.line);
+        if (!line)
+          return null;
+        const matches = this.ownSpans(line, this.findMatches(line, this.activeCanonical(), { protect: true }));
+        const hit = matches.find((m) => head.ch >= m.start && head.ch <= m.end);
+        if (!hit)
+          return null;
+        const foreign = candidatesFor(this.yieldedIn(line), hit.start, hit.end);
+        return { match: hit, foreign, line: head.line };
+      },
+      // The match under the cursor as we see it, ownership aside — so null only when this word
+      // means nothing to us at all.
+      //
+      // Used for excluding a word, and only for that. Excluding is a setting of *this* plugin:
+      // it stops us matching the word and says nothing about what the sibling does. Gating it on
+      // ownership hid it exactly where it is most wanted — on a word both linkers match, where
+      // the loser is drawing nothing yet still matches, and the settings tab was the only way
+      // left to tell it to stop.
+      wordAtCursor(editor) {
+        const head = editor.getCursor("head");
+        const line = editor.getLine(head.line);
+        if (!line)
+          return null;
+        const matches = this.findMatches(line, this.activeCanonical(), { protect: true });
+        return matches.find((m) => head.ch >= m.start && head.ch <= m.end) || null;
+      },
+      // Every reading of the match under the cursor: ours, our own same-named alternatives, and
+      // the ones other linkers stood down on. What the menu offers to link or open.
+      cursorCandidates(hit, sourcePath, newTab) {
+        const own = [hit.match.canonical, ...hit.match.alts || []];
+        const foreign = hit.foreign.map((c) => ({ ...c, open: () => c.open(sourcePath, newTab) }));
+        return [...own, ...foreign];
+      },
       chooseTerm(candidates, title, action) {
         const list = (candidates || []).filter(Boolean);
-        if (list.length <= 1)
-          return action(list[0]);
+        if (list.length <= 1) {
+          const only = list[0];
+          if (only && typeof only === "object")
+            return only.open();
+          return action(only);
+        }
         new ChooseTermModal(this.app, { title, terms: list, onChoose: action }).open();
-      },
-      showLinkMenu(evt, canonical, display, file, nearOffset, occurrence, alts) {
-        const sourcePath = file ? file.path : "";
-        const candidates = alts && alts.length ? [canonical, ...alts] : [canonical];
-        const groups = [];
-        if (file && this.settings.menuTurnInto) {
-          const scope = this.settings.linkFirstOnly ? t2("scope.first") : t2("scope.all");
-          groups.push((menu2) => {
-            menu2.addItem((i) => i.setTitle(t2("menu.linkToTerm")).setIcon("link").onClick(() => this.chooseTerm(
-              candidates,
-              t2("menu.linkDisplayTo", { display }),
-              (c) => this.materializeSingle(file, canonical, display, nearOffset, occurrence, c)
-            )));
-            menu2.addItem((i) => i.setTitle(t2("menu.linkScopeThisNote", { scope, display })).setIcon("links-coming-in").onClick(() => this.chooseTerm(
-              candidates,
-              t2("menu.linkScopeTo", { scope, display }),
-              (c) => this.materializeTerm(file, canonical, c)
-            )));
-            menu2.addItem((i) => i.setTitle(t2("menu.linkScopeAllNotes", { scope, display })).setIcon("links-going-out").onClick(() => this.chooseTerm(
-              candidates,
-              t2("menu.linkScopeTo", { scope, display }),
-              (c) => this.materializeTermScope(canonical, c)
-            )));
-          });
-        }
-        if (this.settings.menuExclude) {
-          groups.push((menu2) => {
-            this.addExclusionMenuItem(menu2, "excludeWords", display);
-            this.addExclusionMenuItem(menu2, "excludeTerms", display);
-          });
-        }
-        if (this.settings.menuOpen) {
-          groups.push((menu2) => {
-            menu2.addItem((i) => i.setTitle(t2("menu.openNote")).setIcon("file-text").onClick(() => this.chooseTerm(candidates, t2("menu.openTitle"), (c) => this.openTerm(c, sourcePath, false))));
-            menu2.addItem((i) => i.setTitle(t2("menu.openNewTab")).setIcon("file-plus").onClick(() => this.chooseTerm(candidates, t2("menu.openNewTabTitle"), (c) => this.openTerm(c, sourcePath, true))));
-          });
-        }
-        if (!groups.length)
-          return false;
-        const menu = new Menu();
-        groups.forEach((group, i) => {
-          if (i)
-            menu.addSeparator();
-          group(menu);
-        });
-        evt.preventDefault();
-        menu.showAtMouseEvent(evt);
-        return true;
       },
       isExcluded(listKey, value) {
         const v = value.toLowerCase();
@@ -2901,8 +3126,10 @@ var require_api = __commonJS({
     "use strict";
     var { Notice: Notice2 } = require("obsidian");
     var { t: t2 } = require_i18n();
+    var { LINKER_API } = require_discover();
     module2.exports = {
       buildApi() {
+        const plugin = this;
         return {
           version: this.manifest.version,
           // Every indexed term: { canonical, path, aliases }.
@@ -2919,7 +3146,35 @@ var require_api = __commonJS({
           // Heavy: frequent in-scope words that are not yet terms. Call explicitly.
           collectCandidates: (opts) => this.collectCandidates(opts),
           // Subscribe to index rebuilds; returns an unsubscribe function.
-          onChange: (cb) => this.onIndexChange(cb)
+          onChange: (cb) => this.onIndexChange(cb),
+          // What the sibling linker plugins read: who we are, how we rank when two of us match
+          // the same word, and which spans of a text we claim. See shared/discover.js.
+          linker: {
+            apiVersion: LINKER_API,
+            id: "glossary-linker",
+            displayName: "Glossary Linker",
+            // Which half of the family we are. Prose linkers contest bare words with each other
+            // and never with the sigil pair, so this is what keeps the precedence setting from
+            // offering a choice between two plugins that can't collide.
+            kind: "prose",
+            // Higher wins a contested word. A glossary term points at a whole note, a broader
+            // answer than a heading anchor, so it yields to Heading Linker by default —
+            // adjustable, and read from here by the other side rather than assumed. A getter,
+            // so a change in settings is seen without rebuilding the api object.
+            get precedence() {
+              return plugin.settings.linkPrecedence;
+            },
+            // Spans of `text` we claim, with what each one resolves to. Protected ranges are
+            // skipped, so the answer matches what we would actually decorate. The label and
+            // target let whoever owns the span offer ours as a choice instead of dropping it.
+            matches: (text) => plugin.findMatches(String(text || ""), null, { protect: true }).map((m) => ({ start: m.start, end: m.end, label: m.canonical, target: m.canonical })),
+            // Open one of our targets. Ours to resolve — nobody else should have to know how a
+            // glossary term maps to a note.
+            open: (target, sourcePath, newTab) => plugin.openTerm(target, sourcePath, newTab),
+            // Redraw after the other side changes who ranks higher, so the setting takes effect
+            // in both plugins at once instead of at the next rebuild.
+            refresh: () => plugin.rerenderViews()
+          }
         };
       },
       getTerms() {
@@ -3060,6 +3315,41 @@ var require_term_suggest = __commonJS({
     var { EditorSuggest } = obsidian;
     var { t: t2 } = require_i18n();
     var { inTableCell: inTableCell2 } = require_markdown();
+    function collectSuggestions(plugin, query, ownCanonical) {
+      const qLower = query.toLowerCase();
+      const byCanonical = /* @__PURE__ */ new Map();
+      const seenCand = /* @__PURE__ */ new Set();
+      for (const key of plugin.keysFor(query)) {
+        const bucket = plugin.index.byKey.get(key);
+        if (!bucket)
+          continue;
+        for (const c of bucket) {
+          if (c.wordCount !== 1 || seenCand.has(c) || c.canonical === ownCanonical)
+            continue;
+          seenCand.add(c);
+          if (!byCanonical.has(c.canonical))
+            byCanonical.set(c.canonical, { canonical: c.canonical, matchedForm: c.canonical, kind: "form" });
+        }
+      }
+      for (const t3 of plugin.terms || []) {
+        if (byCanonical.has(t3.canonical) || t3.canonical === ownCanonical)
+          continue;
+        let form = null;
+        if (t3.canonical.toLowerCase().startsWith(qLower))
+          form = t3.canonical;
+        else {
+          const a = t3.aliases.find((al) => al.toLowerCase().startsWith(qLower));
+          if (a)
+            form = a;
+        }
+        if (form)
+          byCanonical.set(t3.canonical, { canonical: t3.canonical, matchedForm: form, kind: "prefix" });
+      }
+      const items = [...byCanonical.values()];
+      const rank = (it) => it.kind === "form" ? 0 : 1;
+      items.sort((a, b) => rank(a) - rank(b) || a.matchedForm.length - b.matchedForm.length || a.canonical.localeCompare(b.canonical));
+      return items.slice(0, 8);
+    }
     var GlossaryTermSuggest2 = class extends EditorSuggest {
       constructor(app, plugin) {
         super(app);
@@ -3086,45 +3376,16 @@ var require_term_suggest = __commonJS({
         const off = editor.posToOffset(cursor);
         if (plugin.isProtectedAt(editor.getValue(), off))
           return null;
+        const items = collectSuggestions(plugin, query, plugin.activeCanonical());
+        if (!items.length)
+          return null;
+        this.cached = { query, items };
         return { start: { line: cursor.line, ch: cursor.ch - query.length }, end: cursor, query };
       }
       getSuggestions(context) {
-        const plugin = this.plugin;
-        const q = context.query;
-        const qLower = q.toLowerCase();
-        const byCanonical = /* @__PURE__ */ new Map();
-        const ownCanonical = plugin.activeCanonical();
-        const seenCand = /* @__PURE__ */ new Set();
-        for (const key of plugin.keysFor(q)) {
-          const bucket = plugin.index.byKey.get(key);
-          if (!bucket)
-            continue;
-          for (const c of bucket) {
-            if (c.wordCount !== 1 || seenCand.has(c) || c.canonical === ownCanonical)
-              continue;
-            seenCand.add(c);
-            if (!byCanonical.has(c.canonical))
-              byCanonical.set(c.canonical, { canonical: c.canonical, matchedForm: c.canonical, kind: "form" });
-          }
-        }
-        for (const t3 of plugin.terms || []) {
-          if (byCanonical.has(t3.canonical) || t3.canonical === ownCanonical)
-            continue;
-          let form = null;
-          if (t3.canonical.toLowerCase().startsWith(qLower))
-            form = t3.canonical;
-          else {
-            const a = t3.aliases.find((al) => al.toLowerCase().startsWith(qLower));
-            if (a)
-              form = a;
-          }
-          if (form)
-            byCanonical.set(t3.canonical, { canonical: t3.canonical, matchedForm: form, kind: "prefix" });
-        }
-        const items = [...byCanonical.values()];
-        const rank = (it) => it.kind === "form" ? 0 : 1;
-        items.sort((a, b) => rank(a) - rank(b) || a.matchedForm.length - b.matchedForm.length || a.canonical.localeCompare(b.canonical));
-        return items.slice(0, 8);
+        if (this.cached && this.cached.query === context.query)
+          return this.cached.items;
+        return collectSuggestions(this.plugin, context.query, this.plugin.activeCanonical());
       }
       renderSuggestion(item, el) {
         el.addClass("glossary-suggestion");
@@ -3150,7 +3411,7 @@ var require_term_suggest = __commonJS({
       }
     };
     var suggestAvailable2 = () => typeof EditorSuggest === "function";
-    module2.exports = { GlossaryTermSuggest: GlossaryTermSuggest2, suggestAvailable: suggestAvailable2 };
+    module2.exports = { GlossaryTermSuggest: GlossaryTermSuggest2, suggestAvailable: suggestAvailable2, collectSuggestions };
   }
 });
 
@@ -3368,6 +3629,91 @@ var require_overview_view = __commonJS({
   }
 });
 
+// src/shared/menu.js
+var require_menu = __commonJS({
+  "src/shared/menu.js"(exports2, module2) {
+    "use strict";
+    var obsidian = require("obsidian");
+    var submenuSupport = null;
+    function supportsSubmenu() {
+      if (submenuSupport !== null)
+        return submenuSupport;
+      submenuSupport = false;
+      try {
+        const probe = new obsidian.Menu();
+        probe.addItem((item) => {
+          submenuSupport = typeof item.setSubmenu === "function";
+        });
+      } catch (e) {
+        submenuSupport = false;
+      }
+      return submenuSupport;
+    }
+    function menuSection2(menu, label, grouped, icon) {
+      if (!grouped)
+        return menu;
+      if (!supportsSubmenu()) {
+        return {
+          addItem(cb) {
+            return menu.addItem((item) => {
+              const setTitle = item.setTitle.bind(item);
+              item.setTitle = (title) => setTitle(`${label}: ${title}`);
+              cb(item);
+            });
+          },
+          addSeparator() {
+            return menu.addSeparator();
+          }
+        };
+      }
+      let sub = null;
+      const ensure = () => {
+        if (!sub) {
+          menu.addItem((item) => {
+            item.setTitle(label);
+            if (icon)
+              item.setIcon(icon);
+            sub = item.setSubmenu();
+          });
+        }
+        return sub;
+      };
+      return {
+        addItem(cb) {
+          return ensure().addItem(cb);
+        },
+        addSeparator() {
+          return sub ? sub.addSeparator() : null;
+        }
+      };
+    }
+    var STORE = "__linkerMenuSections";
+    function sharedSection(menu, key, label, icon) {
+      if (!supportsSubmenu())
+        return menuSection2(menu, label, true);
+      let store = menu[STORE];
+      if (!store) {
+        store = {};
+        try {
+          Object.defineProperty(menu, STORE, { value: store, enumerable: false, configurable: true });
+        } catch (e) {
+          return menuSection2(menu, label, true, icon);
+        }
+      }
+      if (!store[key]) {
+        menu.addItem((item) => {
+          item.setTitle(label);
+          if (icon)
+            item.setIcon(icon);
+          store[key] = item.setSubmenu();
+        });
+      }
+      return store[key];
+    }
+    module2.exports = { menuSection: menuSection2, sharedSection, supportsSubmenu };
+  }
+});
+
 // src/locales/en.js
 var require_en2 = __commonJS({
   "src/locales/en.js"(exports2, module2) {
@@ -3396,21 +3742,29 @@ var require_en2 = __commonJS({
       "menu.createTermLink": "Glossary: create term & link",
       "menu.createTerm": "Glossary: create term",
       "menu.addAlias": "Glossary: make this an alias for\u2026",
-      "menu.unlinkThisTerm": "Glossary: unlink this term",
-      "menu.collectThisAlias": "Glossary: collect this alias",
-      "menu.collectFromNote": "Glossary: collect aliases from links (this note)",
+      // No plugin name on these: they act on the link under the cursor, and a link belongs to
+      // exactly one linker, so there is never a second one of them to tell apart. The name goes
+      // on configuration items instead, where the reader is picking which plugin to change.
+      "menu.unlinkThisTerm": "Unlink this term",
+      "menu.collectThisAlias": "Collect this alias",
+      // Says whose aliases: the heading linker offers its own version on the same note menu,
+      // and the two write to different places.
+      "menu.collectFromNote": "Collect glossary aliases from links",
       "menu.removeFromAlwaysExcluded": "Glossary: remove from always-excluded",
       "menu.addToAlwaysExcluded": "Glossary: add {noun} to always-excluded",
       "menu.removeFromScope": "Glossary: remove {noun} from scope",
       "menu.includeInScope": "Glossary: include {noun} in scope",
-      // Plugin's own link menu
-      "menu.linkToTerm": "Link to term",
+      // Linking a word from Obsidian's own editor menu. The three ways to link differ only in
+      // how far they reach, so they share one entry with the choice inside it. Each reads on its
+      // own — a submenu item is read without its parent in view, so "Here" alone would not say
+      // what it does.
+      "menu.linkThisWord": "Link \u201C{display}\u201D",
+      "menu.linkHere": "Link \u201C{display}\u201D here",
       "menu.linkDisplayTo": 'Link "{display}" to\u2026',
       "menu.linkScopeThisNote": 'Link {scope} "{display}" to term: this note',
       "menu.linkScopeAllNotes": 'Link {scope} "{display}" to term: all notes',
       "menu.linkScopeTo": 'Link {scope} "{display}" to\u2026',
-      "menu.openNote": "Open glossary note",
-      "menu.openNewTab": "Open in new tab",
+      "menu.openThisWord": "Open \u201C{display}\u201D",
       "menu.openTitle": "Open\u2026",
       "menu.openNewTabTitle": "Open in new tab\u2026",
       // Exclusion menu items
@@ -3540,7 +3894,7 @@ var require_en2 = __commonJS({
       "set.menuTurnInto.name": '"Link to term" items',
       "set.menuTurnInto.desc": 'Show the "Link to term" / "Link all \u2026 to term" actions when right-clicking a highlighted term.',
       "set.menuCollect.name": '"Collect aliases" item',
-      "set.menuCollect.desc": 'Show "Collect aliases from links (this note)" in the editor right-click menu.',
+      "set.menuCollect.desc": "Offer to collect a link\u2019s own wording as an alias \u2014 on the link itself, and for a whole note from its right-click menu.",
       "set.menuExclude.name": '"Exclude word / term" items',
       "set.menuExclude.desc": 'Show "Add \u2026 to excluded words / terms" when right-clicking a term, and "Add \u2026 to excluded words" on a selected word.',
       "set.menuOpen.name": '"Open glossary note" items',
@@ -3573,8 +3927,8 @@ var require_en2 = __commonJS({
       "modal.harvest.alreadyPresent": "Already present (skipped): {items}",
       "modal.unlink.title": "Unlink glossary terms \u2014 preview",
       "modal.unlink.summary": "Files: {files}, links to remove: {links}",
-      "modal.choose.title": "Choose a term",
-      "modal.choose.body": "This word matches more than one glossary term \u2014 pick one:",
+      "modal.choose.title": "Which one?",
+      "modal.choose.body": "This word has more than one match \u2014 pick one:",
       "modal.alias.pickTerm": "Which term is this an alias for?",
       "modal.alias.title": 'Alias for "{term}"',
       "modal.alias.body": "A form the stemmer cannot derive from the title: an abbreviation (CNS, PNS), a synonym, or an alternate spelling. Matched verbatim, so type it exactly as it appears.",
@@ -3612,14 +3966,21 @@ var require_en2 = __commonJS({
       "suggest.inflection": "inflection",
       "suggest.alias": "alias: {form}",
       // Highlight tooltip
-      "highlight.matches": "Matches: {terms}",
+      // Neutral on purpose: a duplicate can come from this plugin or from a sibling, and the
+      // reader is picking a destination, not a plugin.
+      "highlight.matches": "Several matches: {terms}",
       // Plural noun phrases
       "plural.term": { one: "{n} term", other: "{n} terms" },
       "plural.use": { one: "{n} use", other: "{n} uses" },
       "plural.note": { one: "{n} note", other: "{n} notes" },
       "plural.link": { one: "{n} link(s)", other: "{n} link(s)" },
       "plural.file": { one: "{n} file(s)", other: "{n} file(s)" },
-      "plural.alias": { one: "{n} alias(es)", other: "{n} alias(es)" }
+      "plural.alias": { one: "{n} alias(es)", other: "{n} alias(es)" },
+      "set.precedence.name": "Priority among linker plugins",
+      "set.precedence.desc": "When two linkers claim the same word or the same link, the one higher in this list wins and the other steps aside. Only this plugin\u2019s own position can be moved from here \u2014 move the others from their own settings.",
+      "set.precedence.other": "Move from that plugin\u2019s own settings",
+      "set.precedence.up": "Move up",
+      "set.precedence.down": "Move down"
     };
   }
 });
@@ -3650,20 +4011,20 @@ var require_ru2 = __commonJS({
       "menu.createTermLink": "Glossary: \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0442\u0435\u0440\u043C\u0438\u043D \u0438 \u0441\u0432\u044F\u0437\u0430\u0442\u044C",
       "menu.createTerm": "Glossary: \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0442\u0435\u0440\u043C\u0438\u043D",
       "menu.addAlias": "Glossary: \u0441\u0434\u0435\u043B\u0430\u0442\u044C \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u043E\u043C \u0442\u0435\u0440\u043C\u0438\u043D\u0430\u2026",
-      "menu.unlinkThisTerm": "Glossary: \u0443\u0431\u0440\u0430\u0442\u044C \u0441\u0441\u044B\u043B\u043A\u0443 \u043D\u0430 \u044D\u0442\u043E\u0442 \u0442\u0435\u0440\u043C\u0438\u043D",
-      "menu.collectThisAlias": "Glossary: \u0441\u043E\u0431\u0440\u0430\u0442\u044C \u044D\u0442\u043E\u0442 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C",
-      "menu.collectFromNote": "Glossary: \u0441\u043E\u0431\u0440\u0430\u0442\u044C \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u044B \u0438\u0437 \u0441\u0441\u044B\u043B\u043E\u043A (\u044D\u0442\u0430 \u0437\u0430\u043C\u0435\u0442\u043A\u0430)",
+      "menu.unlinkThisTerm": "\u0423\u0431\u0440\u0430\u0442\u044C \u0441\u0441\u044B\u043B\u043A\u0443 \u043D\u0430 \u044D\u0442\u043E\u0442 \u0442\u0435\u0440\u043C\u0438\u043D",
+      "menu.collectThisAlias": "\u0421\u043E\u0431\u0440\u0430\u0442\u044C \u044D\u0442\u043E\u0442 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C",
+      "menu.collectFromNote": "\u0421\u043E\u0431\u0440\u0430\u0442\u044C \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u044B \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F \u0438\u0437 \u0441\u0441\u044B\u043B\u043E\u043A",
       "menu.removeFromAlwaysExcluded": "Glossary: \u0443\u0431\u0440\u0430\u0442\u044C \u0438\u0437 \u0432\u0441\u0435\u0433\u0434\u0430 \u0438\u0441\u043A\u043B\u044E\u0447\u0451\u043D\u043D\u044B\u0445",
       "menu.addToAlwaysExcluded": "Glossary: \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C {noun} \u0432\u043E \u0432\u0441\u0435\u0433\u0434\u0430 \u0438\u0441\u043A\u043B\u044E\u0447\u0451\u043D\u043D\u044B\u0435",
       "menu.removeFromScope": "Glossary: \u0443\u0431\u0440\u0430\u0442\u044C {noun} \u0438\u0437 \u043E\u0431\u043B\u0430\u0441\u0442\u0438 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u043D\u0438\u044F",
       "menu.includeInScope": "Glossary: \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u044C {noun} \u0432 \u043E\u0431\u043B\u0430\u0441\u0442\u044C \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u043D\u0438\u044F",
-      "menu.linkToTerm": "\u0421\u0432\u044F\u0437\u0430\u0442\u044C \u0441 \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u043C",
+      "menu.linkThisWord": "\u0421\u0432\u044F\u0437\u0430\u0442\u044C \xAB{display}\xBB",
+      "menu.linkHere": "\u0421\u0432\u044F\u0437\u0430\u0442\u044C \xAB{display}\xBB \u0437\u0434\u0435\u0441\u044C",
       "menu.linkDisplayTo": "\u0421\u0432\u044F\u0437\u0430\u0442\u044C \xAB{display}\xBB \u0441\u2026",
       "menu.linkScopeThisNote": "\u0421\u0432\u044F\u0437\u0430\u0442\u044C {scope} \xAB{display}\xBB \u0441 \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u043C: \u044D\u0442\u0430 \u0437\u0430\u043C\u0435\u0442\u043A\u0430",
       "menu.linkScopeAllNotes": "\u0421\u0432\u044F\u0437\u0430\u0442\u044C {scope} \xAB{display}\xBB \u0441 \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u043C: \u0432\u0441\u0435 \u0437\u0430\u043C\u0435\u0442\u043A\u0438",
       "menu.linkScopeTo": "\u0421\u0432\u044F\u0437\u0430\u0442\u044C {scope} \xAB{display}\xBB \u0441\u2026",
-      "menu.openNote": "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0437\u0430\u043C\u0435\u0442\u043A\u0443 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F",
-      "menu.openNewTab": "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0432 \u043D\u043E\u0432\u043E\u0439 \u0432\u043A\u043B\u0430\u0434\u043A\u0435",
+      "menu.openThisWord": "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \xAB{display}\xBB",
       "menu.openTitle": "\u041E\u0442\u043A\u0440\u044B\u0442\u044C\u2026",
       "menu.openNewTabTitle": "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0432 \u043D\u043E\u0432\u043E\u0439 \u0432\u043A\u043B\u0430\u0434\u043A\u0435\u2026",
       "exclude.words": "\u0438\u0441\u043A\u043B\u044E\u0447\u0451\u043D\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430",
@@ -3789,7 +4150,7 @@ var require_ru2 = __commonJS({
       "set.menuTurnInto.name": "\u041F\u0443\u043D\u043A\u0442\u044B \xAB\u0421\u0432\u044F\u0437\u0430\u0442\u044C \u0441 \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u043C\xBB",
       "set.menuTurnInto.desc": "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0432 \u043A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u043E\u043C \u043C\u0435\u043D\u044E \u0442\u0435\u0440\u043C\u0438\u043D\u0430 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F \xAB\u0421\u0432\u044F\u0437\u0430\u0442\u044C \u0441 \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u043C\xBB / \xAB\u0421\u0432\u044F\u0437\u0430\u0442\u044C \u0432\u0441\u0435 \u2026 \u0441 \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u043C\xBB.",
       "set.menuCollect.name": "\u041F\u0443\u043D\u043A\u0442 \xAB\u0421\u043E\u0431\u0440\u0430\u0442\u044C \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u044B\xBB",
-      "set.menuCollect.desc": "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \xAB\u0421\u043E\u0431\u0440\u0430\u0442\u044C \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u044B \u0438\u0437 \u0441\u0441\u044B\u043B\u043E\u043A (\u044D\u0442\u0430 \u0437\u0430\u043C\u0435\u0442\u043A\u0430)\xBB \u0432 \u043A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u043E\u043C \u043C\u0435\u043D\u044E \u0440\u0435\u0434\u0430\u043A\u0442\u043E\u0440\u0430.",
+      "set.menuCollect.desc": "\u041F\u0440\u0435\u0434\u043B\u0430\u0433\u0430\u0442\u044C \u0441\u043E\u0431\u0440\u0430\u0442\u044C \u0442\u0435\u043A\u0441\u0442 \u0441\u0441\u044B\u043B\u043A\u0438 \u043A\u0430\u043A \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C \u2014 \u043D\u0430 \u0441\u0430\u043C\u043E\u0439 \u0441\u0441\u044B\u043B\u043A\u0435 \u0438 \u0434\u043B\u044F \u0432\u0441\u0435\u0439 \u0437\u0430\u043C\u0435\u0442\u043A\u0438 \u0438\u0437 \u0435\u0451 \u043A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u043E\u0433\u043E \u043C\u0435\u043D\u044E.",
       "set.menuExclude.name": "\u041F\u0443\u043D\u043A\u0442\u044B \xAB\u0418\u0441\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0441\u043B\u043E\u0432\u043E / \u0442\u0435\u0440\u043C\u0438\u043D\xBB",
       "set.menuExclude.desc": "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0432 \u043A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u043E\u043C \u043C\u0435\u043D\u044E \u043F\u0443\u043D\u043A\u0442\u044B \xAB\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u2026 \u0432 \u0438\u0441\u043A\u043B\u044E\u0447\u0451\u043D\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430 / \u0442\u0435\u0440\u043C\u0438\u043D\u044B\xBB.",
       "set.menuOpen.name": "\u041F\u0443\u043D\u043A\u0442\u044B \xAB\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0437\u0430\u043C\u0435\u0442\u043A\u0443 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F\xBB",
@@ -3821,8 +4182,8 @@ var require_ru2 = __commonJS({
       "modal.harvest.alreadyPresent": "\u0423\u0436\u0435 \u0435\u0441\u0442\u044C (\u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E): {items}",
       "modal.unlink.title": "\u0423\u0431\u0440\u0430\u0442\u044C \u0441\u0441\u044B\u043B\u043A\u0438 \u043D\u0430 \u0442\u0435\u0440\u043C\u0438\u043D\u044B \u2014 \u043F\u0440\u0435\u0434\u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440",
       "modal.unlink.summary": "\u0424\u0430\u0439\u043B\u043E\u0432: {files}, \u0441\u0441\u044B\u043B\u043E\u043A \u043A \u0443\u0434\u0430\u043B\u0435\u043D\u0438\u044E: {links}",
-      "modal.choose.title": "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0442\u0435\u0440\u043C\u0438\u043D",
-      "modal.choose.body": "\u042D\u0442\u043E \u0441\u043B\u043E\u0432\u043E \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u0435\u0442 \u0441 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u0438\u043C\u0438 \u0442\u0435\u0440\u043C\u0438\u043D\u0430\u043C\u0438 \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043E\u0434\u0438\u043D:",
+      "modal.choose.title": "\u041A\u0430\u043A\u043E\u0435 \u0438\u0437 \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0439?",
+      "modal.choose.body": "\u0423 \u044D\u0442\u043E\u0433\u043E \u0441\u043B\u043E\u0432\u0430 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0439 \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043E\u0434\u043D\u043E:",
       "modal.alias.pickTerm": "\u041A \u043A\u0430\u043A\u043E\u043C\u0443 \u0442\u0435\u0440\u043C\u0438\u043D\u0443 \u043F\u0440\u0438\u0432\u044F\u0437\u0430\u0442\u044C \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C?",
       "modal.alias.title": "\u041F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C \u0434\u043B\u044F \xAB{term}\xBB",
       "modal.alias.body": "\u0424\u043E\u0440\u043C\u0430, \u043A\u043E\u0442\u043E\u0440\u0443\u044E \u0441\u0442\u0435\u043C\u043C\u0435\u0440 \u043D\u0435 \u0432\u044B\u0432\u0435\u0434\u0435\u0442 \u0438\u0437 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044F: \u0441\u043E\u043A\u0440\u0430\u0449\u0435\u043D\u0438\u0435 (\u0426\u041D\u0421, \u0412\u041D\u0421), \u0441\u0438\u043D\u043E\u043D\u0438\u043C \u0438\u043B\u0438 \u0434\u0440\u0443\u0433\u043E\u0435 \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435. \u0421\u043E\u0432\u043F\u0430\u0434\u0430\u0435\u0442 \u0431\u0443\u043A\u0432\u0430\u043B\u044C\u043D\u043E, \u043F\u043E\u044D\u0442\u043E\u043C\u0443 \u0432\u0432\u043E\u0434\u0438\u0442\u0435 \u043A\u0430\u043A \u0435\u0441\u0442\u044C.",
@@ -3857,13 +4218,18 @@ var require_ru2 = __commonJS({
       "overview.addTerm": "+ \u0442\u0435\u0440\u043C\u0438\u043D",
       "suggest.inflection": "\u0441\u043B\u043E\u0432\u043E\u0444\u043E\u0440\u043C\u0430",
       "suggest.alias": "\u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C: {form}",
-      "highlight.matches": "\u0421\u043E\u0432\u043F\u0430\u0434\u0430\u0435\u0442 \u0441: {terms}",
+      "highlight.matches": "\u041D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0439: {terms}",
       "plural.term": { one: "{n} \u0442\u0435\u0440\u043C\u0438\u043D", few: "{n} \u0442\u0435\u0440\u043C\u0438\u043D\u0430", many: "{n} \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u0432", other: "{n} \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u0432" },
       "plural.use": { one: "{n} \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u0435", few: "{n} \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u044F", many: "{n} \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u0439", other: "{n} \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u0439" },
       "plural.note": { one: "{n} \u0437\u0430\u043C\u0435\u0442\u043A\u0430", few: "{n} \u0437\u0430\u043C\u0435\u0442\u043A\u0438", many: "{n} \u0437\u0430\u043C\u0435\u0442\u043E\u043A", other: "{n} \u0437\u0430\u043C\u0435\u0442\u043E\u043A" },
       "plural.link": { one: "{n} \u0441\u0441\u044B\u043B\u043A\u0430", few: "{n} \u0441\u0441\u044B\u043B\u043A\u0438", many: "{n} \u0441\u0441\u044B\u043B\u043E\u043A", other: "{n} \u0441\u0441\u044B\u043B\u043E\u043A" },
       "plural.file": { one: "{n} \u0444\u0430\u0439\u043B", few: "{n} \u0444\u0430\u0439\u043B\u0430", many: "{n} \u0444\u0430\u0439\u043B\u043E\u0432", other: "{n} \u0444\u0430\u0439\u043B\u043E\u0432" },
-      "plural.alias": { one: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C", few: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u0430", many: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u043E\u0432", other: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u043E\u0432" }
+      "plural.alias": { one: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C", few: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u0430", many: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u043E\u0432", other: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u043E\u0432" },
+      "set.precedence.name": "\u041F\u0440\u0438\u043E\u0440\u0438\u0442\u0435\u0442 \u0441\u0440\u0435\u0434\u0438 \u043F\u043B\u0430\u0433\u0438\u043D\u043E\u0432-\u043B\u0438\u043D\u043A\u0435\u0440\u043E\u0432",
+      "set.precedence.desc": "\u041A\u043E\u0433\u0434\u0430 \u0434\u0432\u0430 \u043B\u0438\u043D\u043A\u0435\u0440\u0430 \u043F\u0440\u0435\u0442\u0435\u043D\u0434\u0443\u044E\u0442 \u043D\u0430 \u043E\u0434\u043D\u043E \u0441\u043B\u043E\u0432\u043E \u0438\u043B\u0438 \u043E\u0434\u043D\u0443 \u0441\u0441\u044B\u043B\u043A\u0443, \u0432\u044B\u0438\u0433\u0440\u044B\u0432\u0430\u0435\u0442 \u0442\u043E\u0442, \u043A\u0442\u043E \u0432\u044B\u0448\u0435 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435, \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0435 \u0443\u0441\u0442\u0443\u043F\u0430\u044E\u0442. \u041E\u0442\u0441\u044E\u0434\u0430 \u043C\u043E\u0436\u043D\u043E \u0434\u0432\u0438\u0433\u0430\u0442\u044C \u0442\u043E\u043B\u044C\u043A\u043E \u044D\u0442\u043E\u0442 \u043F\u043B\u0430\u0433\u0438\u043D \u2014 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0435 \u0438\u0437 \u0438\u0445 \u0441\u043E\u0431\u0441\u0442\u0432\u0435\u043D\u043D\u044B\u0445 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043A.",
+      "set.precedence.other": "\u041F\u0435\u0440\u0435\u043C\u0435\u0441\u0442\u0438\u0442\u044C \u0438\u0437 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043A \u0442\u043E\u0433\u043E \u043F\u043B\u0430\u0433\u0438\u043D\u0430",
+      "set.precedence.up": "\u0412\u044B\u0448\u0435",
+      "set.precedence.down": "\u041D\u0438\u0436\u0435"
     };
   }
 });
@@ -4794,6 +5160,7 @@ var api = require_api();
 var { GlossaryTermSuggest, suggestAvailable } = require_term_suggest();
 var { GlossaryOverviewView, OVERVIEW_VIEW_TYPE } = require_overview_view();
 var { initI18n, t, plural } = require_i18n();
+var { menuSection } = require_menu();
 var GlossaryLinkerPlugin = class extends Plugin {
   async onload() {
     initI18n({
@@ -4826,7 +5193,6 @@ var GlossaryLinkerPlugin = class extends Plugin {
     this._indexListeners = /* @__PURE__ */ new Set();
     await this.loadLanguages();
     this.rebuildIndex();
-    this.api = this.buildApi();
     this.scheduleRebuild = debounce(() => {
       this.rebuildIndex();
       this.rerenderViews();
@@ -4884,30 +5250,69 @@ var GlossaryLinkerPlugin = class extends Plugin {
       const sel = editor.getSelection().trim();
       const hasSel = !!sel && !sel.includes("\n");
       const link = this.glossaryLinkAt(editor);
-      if (this.settings.menuCreateTerm && hasSel && !link) {
-        menu.addItem((i) => i.setTitle(t("menu.createTermLink")).setIcon("plus-circle").onClick(() => this.createTermFromSelection(editor, true)));
-        menu.addItem((i) => i.setTitle(t("menu.createTerm")).setIcon("file-plus").onClick(() => this.createTermFromSelection(editor, false)));
+      const file = this.app.workspace.getActiveFile();
+      const sourcePath = file ? file.path : "";
+      const excludeItems = (value, ...listKeys) => {
+        if (!this.settings.menuExclude)
+          return;
+        for (const key of listKeys)
+          this.addExclusionMenuItem(menu, key, value);
+      };
+      if (link) {
+        if (this.settings.menuUnlink) {
+          menu.addItem((i) => i.setTitle(t("menu.unlinkThisTerm")).setIcon("unlink").onClick(() => this.unlinkLinkAt(editor, link)));
+        }
+        if (this.settings.menuCollect && link.targetFile) {
+          menu.addItem((i) => i.setTitle(t("menu.collectThisAlias")).setIcon("download").onClick(() => this.harvestOneLink(link.targetFile, link.display)));
+        }
+        excludeItems(link.display, "excludeWords", "excludeTerms");
+        return;
       }
-      if (this.settings.menuAddAlias && hasSel && !link) {
-        menu.addItem((i) => i.setTitle(t("menu.addAlias")).setIcon("text-cursor-input").onClick(() => this.addAliasFromSelection(sel)));
+      if (hasSel) {
+        if (this.settings.menuCreateTerm) {
+          menu.addItem((i) => i.setTitle(t("menu.createTermLink")).setIcon("plus-circle").onClick(() => this.createTermFromSelection(editor, true)));
+          menu.addItem((i) => i.setTitle(t("menu.createTerm")).setIcon("file-plus").onClick(() => this.createTermFromSelection(editor, false)));
+        }
+        if (this.settings.menuAddAlias) {
+          menu.addItem((i) => i.setTitle(t("menu.addAlias")).setIcon("text-cursor-input").onClick(() => this.addAliasFromSelection(sel)));
+        }
+        excludeItems(sel, "excludeWords");
+        return;
       }
-      if (this.settings.menuExclude && hasSel && !link) {
-        this.addExclusionMenuItem(menu, "excludeWords", sel, "Glossary: ");
+      const hit = this.matchAtCursor(editor);
+      if (hit) {
+        const display = hit.match.display;
+        const canonical = hit.match.canonical;
+        const candidates = () => this.cursorCandidates(hit, sourcePath, false);
+        if (file && this.settings.menuTurnInto) {
+          const scope = this.settings.linkFirstOnly ? t("scope.first") : t("scope.all");
+          const linkGroup = menuSection(menu, t("menu.linkThisWord", { display }), true, "link");
+          linkGroup.addItem((i) => i.setTitle(t("menu.linkHere", { display })).setIcon("link").onClick(() => this.chooseTerm(
+            candidates(),
+            t("menu.linkDisplayTo", { display }),
+            (c) => this.materializeSingle(file, canonical, display, editor.posToOffset({ line: hit.line, ch: hit.match.start }), 0, c)
+          )));
+          linkGroup.addItem((i) => i.setTitle(t("menu.linkScopeThisNote", { scope, display })).setIcon("links-coming-in").onClick(() => this.chooseTerm(
+            candidates(),
+            t("menu.linkScopeTo", { scope, display }),
+            (c) => this.materializeTerm(file, canonical, c)
+          )));
+          linkGroup.addItem((i) => i.setTitle(t("menu.linkScopeAllNotes", { scope, display })).setIcon("links-going-out").onClick(() => this.chooseTerm(
+            candidates(),
+            t("menu.linkScopeTo", { scope, display }),
+            (c) => this.materializeTermScope(canonical, c)
+          )));
+        }
+        if (this.settings.menuOpen) {
+          menu.addItem((i) => i.setTitle(t("menu.openThisWord", { display })).setIcon("file-text").onClick(() => this.chooseTerm(candidates(), t("menu.openTitle"), (c) => this.openTerm(c, sourcePath, false))));
+        }
+        excludeItems(display, "excludeTerms");
+        return;
       }
-      if (this.settings.menuExclude && link) {
-        this.addExclusionMenuItem(menu, "excludeWords", link.display, "Glossary: ");
-        this.addExclusionMenuItem(menu, "excludeTerms", link.display, "Glossary: ");
-      }
-      if (this.settings.menuUnlink && link) {
-        menu.addItem((i) => i.setTitle(t("menu.unlinkThisTerm")).setIcon("unlink").onClick(() => this.unlinkLinkAt(editor, link)));
-      }
-      if (this.settings.menuCollect && link && link.targetFile) {
-        menu.addItem((i) => i.setTitle(t("menu.collectThisAlias")).setIcon("download").onClick(() => this.harvestOneLink(link.targetFile, link.display)));
-      }
-      if (this.settings.menuCollect) {
-        const file = this.app.workspace.getActiveFile();
-        if (file)
-          menu.addItem((i) => i.setTitle(t("menu.collectFromNote")).setIcon("download").onClick(() => this.harvestFiles([file], false)));
+      const word = this.wordAtCursor(editor);
+      if (word) {
+        excludeItems(word.canonical, "excludeTerms");
+        return;
       }
     }));
     this.registerEvent(this.app.workspace.on("file-menu", (menu, file, source) => {
@@ -4930,6 +5335,9 @@ var GlossaryLinkerPlugin = class extends Plugin {
           item(t("menu.removeFromScope", { noun }), "folder-minus", "scopeFolders", false);
         else
           item(t("menu.includeInScope", { noun }), "folder-plus", "scopeFolders", true);
+      }
+      if (this.settings.menuCollect && !isFolder) {
+        menu.addItem((i) => i.setTitle(t("menu.collectFromNote")).setIcon("download").onClick(() => this.harvestFiles([file], false)));
       }
     }));
     this.app.workspace.registerHoverLinkSource("glossary-linker", { display: "Glossary Linker", defaultMod: true });
@@ -5007,6 +5415,7 @@ var GlossaryLinkerPlugin = class extends Plugin {
       callback: () => this.addAlias()
     });
     this.addSettingTab(new GlossaryLinkerSettingTab(this.app, this));
+    this.api = this.buildApi();
   }
   async saveSettings() {
     await this.saveData(this.settings);

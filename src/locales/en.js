@@ -32,22 +32,30 @@ module.exports = {
   'menu.createTermLink': 'Glossary: create term & link',
   'menu.createTerm': 'Glossary: create term',
   'menu.addAlias': 'Glossary: make this an alias for…',
-  'menu.unlinkThisTerm': 'Glossary: unlink this term',
-  'menu.collectThisAlias': 'Glossary: collect this alias',
-  'menu.collectFromNote': 'Glossary: collect aliases from links (this note)',
+  // No plugin name on these: they act on the link under the cursor, and a link belongs to
+  // exactly one linker, so there is never a second one of them to tell apart. The name goes
+  // on configuration items instead, where the reader is picking which plugin to change.
+  'menu.unlinkThisTerm': 'Unlink this term',
+  'menu.collectThisAlias': 'Collect this alias',
+  // Says whose aliases: the heading linker offers its own version on the same note menu,
+  // and the two write to different places.
+  'menu.collectFromNote': 'Collect glossary aliases from links',
   'menu.removeFromAlwaysExcluded': 'Glossary: remove from always-excluded',
   'menu.addToAlwaysExcluded': 'Glossary: add {noun} to always-excluded',
   'menu.removeFromScope': 'Glossary: remove {noun} from scope',
   'menu.includeInScope': 'Glossary: include {noun} in scope',
 
-  // Plugin's own link menu
-  'menu.linkToTerm': 'Link to term',
+  // Linking a word from Obsidian's own editor menu. The three ways to link differ only in
+  // how far they reach, so they share one entry with the choice inside it. Each reads on its
+  // own — a submenu item is read without its parent in view, so "Here" alone would not say
+  // what it does.
+  'menu.linkThisWord': 'Link “{display}”',
+  'menu.linkHere': 'Link “{display}” here',
   'menu.linkDisplayTo': 'Link "{display}" to…',
   'menu.linkScopeThisNote': 'Link {scope} "{display}" to term: this note',
   'menu.linkScopeAllNotes': 'Link {scope} "{display}" to term: all notes',
   'menu.linkScopeTo': 'Link {scope} "{display}" to…',
-  'menu.openNote': 'Open glossary note',
-  'menu.openNewTab': 'Open in new tab',
+  'menu.openThisWord': 'Open “{display}”',
   'menu.openTitle': 'Open…',
   'menu.openNewTabTitle': 'Open in new tab…',
 
@@ -181,7 +189,7 @@ module.exports = {
   'set.menuTurnInto.name': '"Link to term" items',
   'set.menuTurnInto.desc': 'Show the "Link to term" / "Link all … to term" actions when right-clicking a highlighted term.',
   'set.menuCollect.name': '"Collect aliases" item',
-  'set.menuCollect.desc': 'Show "Collect aliases from links (this note)" in the editor right-click menu.',
+  'set.menuCollect.desc': 'Offer to collect a link’s own wording as an alias — on the link itself, and for a whole note from its right-click menu.',
   'set.menuExclude.name': '"Exclude word / term" items',
   'set.menuExclude.desc': 'Show "Add … to excluded words / terms" when right-clicking a term, and "Add … to excluded words" on a selected word.',
   'set.menuOpen.name': '"Open glossary note" items',
@@ -215,8 +223,8 @@ module.exports = {
   'modal.harvest.alreadyPresent': 'Already present (skipped): {items}',
   'modal.unlink.title': 'Unlink glossary terms — preview',
   'modal.unlink.summary': 'Files: {files}, links to remove: {links}',
-  'modal.choose.title': 'Choose a term',
-  'modal.choose.body': 'This word matches more than one glossary term — pick one:',
+  'modal.choose.title': 'Which one?',
+  'modal.choose.body': 'This word has more than one match — pick one:',
   'modal.alias.pickTerm': 'Which term is this an alias for?',
   'modal.alias.title': 'Alias for "{term}"',
   'modal.alias.body': 'A form the stemmer cannot derive from the title: an abbreviation (CNS, PNS), a synonym, or an alternate spelling. Matched verbatim, so type it exactly as it appears.',
@@ -257,7 +265,9 @@ module.exports = {
   'suggest.alias': 'alias: {form}',
 
   // Highlight tooltip
-  'highlight.matches': 'Matches: {terms}',
+  // Neutral on purpose: a duplicate can come from this plugin or from a sibling, and the
+  // reader is picking a destination, not a plugin.
+  'highlight.matches': 'Several matches: {terms}',
 
   // Plural noun phrases
   'plural.term': { one: '{n} term', other: '{n} terms' },
@@ -266,4 +276,9 @@ module.exports = {
   'plural.link': { one: '{n} link(s)', other: '{n} link(s)' },
   'plural.file': { one: '{n} file(s)', other: '{n} file(s)' },
   'plural.alias': { one: '{n} alias(es)', other: '{n} alias(es)' },
+  'set.precedence.name': 'Priority among linker plugins',
+  'set.precedence.desc': 'When two linkers claim the same word or the same link, the one higher in this list wins and the other steps aside. Only this plugin’s own position can be moved from here — move the others from their own settings.',
+  'set.precedence.other': 'Move from that plugin’s own settings',
+  'set.precedence.up': 'Move up',
+  'set.precedence.down': 'Move down',
 };

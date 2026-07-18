@@ -1,27 +1,28 @@
 'use strict';
 
-const { Platform } = require('obsidian');
 const { t } = require('./shared/i18n');
-
-// On touch there is no right-click or hover, so a held press stands in for the context
-// menu: it re-dispatches a `contextmenu` event, reusing the existing menu handlers below.
-// (If a device already fires `contextmenu` on long-press natively this is redundant —
-// verify on device.) A plain tap is shorter than the timer, so it still opens / edits.
-const LONG_PRESS_MS = 500;
-const fireContextMenu = (el, x, y) => el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: x, clientY: y }));
-
-function longPressTracker(fire) {
-  let timer = null, x = 0, y = 0, target = null;
-  const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
-  return {
-    start(t, el) { target = el; x = t.clientX; y = t.clientY; timer = setTimeout(() => { timer = null; fire(target, x, y); }, LONG_PRESS_MS); },
-    move(t) { if (timer && (Math.abs(t.clientX - x) > 10 || Math.abs(t.clientY - y) > 10)) cancel(); },
-    cancel,
-  };
-}
+const { ownedMatches, yieldedCandidates, candidatesFor, discoverLinkers } = require('./shared/discover');
 
 // Highlighting in Reading view (DOM) and in the editor (CM6). Mixed into the plugin prototype.
 module.exports = {
+  // Our matches minus the ones a higher-ranked sibling linker also claims. With no sibling
+  // installed this is the list itself and costs nothing; with one, a word both know is
+  // drawn once, by the same plugin in both render modes, rather than by whichever ran
+  // first. See shared/discover.js.
+  ownSpans(text, matches) {
+    const provider = this.api && this.api.linker;
+    if (!provider) return matches;
+    return ownedMatches(this.app, provider, text, matches);
+  },
+
+  // What the linkers that yielded a span to us would have offered there. Empty in a solo
+  // vault, so the caller pays nothing for asking.
+  yieldedIn(text) {
+    const provider = this.api && this.api.linker;
+    if (!provider) return [];
+    return yieldedCandidates(this.app, provider, text);
+  },
+
   processReadingMode(el, ctx) {
     if (!this.settings.highlightInReading) return;
     const sourcePath = ctx.sourcePath;
@@ -53,8 +54,10 @@ module.exports = {
     if (!text || text.length < 2) return;
     // protect:true keeps this in step with the materialize path, so the Nth
     // highlighted occurrence here is the Nth occurrence that gets linked.
-    const matches = this.findMatches(text, currentCanonical, { protect: true });
+    const matches = this.ownSpans(text, this.findMatches(text, currentCanonical, { protect: true }));
     if (!matches.length) return;
+    // Collected once for the whole node, not per match.
+    const yielded = this.yieldedIn(text);
 
     const frag = document.createDocumentFragment();
     let cursor = 0;
@@ -62,19 +65,32 @@ module.exports = {
       if (m.start > cursor) frag.appendChild(document.createTextNode(text.slice(cursor, m.start)));
       const canonical = m.canonical;
       const display = m.display;
+      // Another linker's readings of the same word sit alongside our own alternatives: a
+      // word that means two things is ambiguous whether or not one plugin knows both.
+      const foreign = candidatesFor(yielded, m.start, m.end);
+      const alts = [...(m.alts || []), ...foreign];
       const a = document.createElement('a');
       a.textContent = display;
       a.setAttribute('data-glossary-target', canonical); // used for occurrence counting below
-      if (m.alts && m.alts.length) {
+      if (alts.length) {
         // Ambiguous: no data-href, so Obsidian shows no (misleading) single-page
         // preview, just the aria-label tooltip. Click asks which term to open.
         a.className = 'glossary-link glossary-ambiguous';
-        const candidates = [canonical, ...m.alts];
-        a.setAttribute('aria-label', t('highlight.matches', { terms: candidates.join(', ') }));
+        const candidates = [canonical, ...alts];
+        // Just the names. Which plugin answers for which is machinery, not something the
+        // reader is choosing between — they are picking a meaning.
+        const names = candidates.map((c) => (typeof c === 'object' ? c.label : c));
+        a.setAttribute('aria-label', t('highlight.matches', { terms: names.join(', ') }));
         const pick = (e, newTab) => {
           e.preventDefault();
           e.stopPropagation();
-          this.chooseTerm(candidates, newTab ? t('menu.openNewTabTitle') : t('menu.openTitle'), (c) => this.openTerm(c, sourcePath, newTab));
+          // The modal opens a foreign candidate with no arguments, so where and how to open
+          // is bound here, at the click that knows both.
+          this.chooseTerm(
+            candidates.map((c) => (typeof c === 'object' ? { ...c, open: () => c.open(sourcePath, newTab) } : c)),
+            newTab ? t('menu.openNewTabTitle') : t('menu.openTitle'),
+            (c) => this.openTerm(c, sourcePath, newTab)
+          );
         };
         a.addEventListener('click', (e) => pick(e, e.ctrlKey || e.metaKey));
         // Middle-click fires auxclick; suppress the default new-tab nav so it routes
@@ -87,25 +103,10 @@ module.exports = {
         a.href = canonical;
         a.setAttribute('data-href', canonical);
       }
-      a.addEventListener('contextmenu', (e) => {
-        const file = sourcePath ? this.app.vault.getAbstractFileByPath(sourcePath) : null;
-        // Reading-rendered links carry no source offset, so identify the clicked
-        // occurrence by its DOM-order index, which matches findMatches' order.
-        const root = a.closest('.markdown-reading-view, .markdown-source-view, .markdown-preview-view') || a.ownerDocument;
-        let occurrence = 0;
-        for (const other of root.querySelectorAll('a.glossary-link')) {
-          if (other === a) break;
-          if (other.getAttribute('data-glossary-target') === canonical && other.textContent === display) occurrence++;
-        }
-        if (this.showLinkMenu(e, canonical, display, file, null, occurrence, m.alts)) e.stopPropagation();
-      });
-      if (Platform.isMobile) {
-        const lp = longPressTracker(fireContextMenu);
-        a.addEventListener('touchstart', (e) => lp.start(e.touches[0], a), { passive: true });
-        a.addEventListener('touchmove', (e) => lp.move(e.touches[0]), { passive: true });
-        a.addEventListener('touchend', lp.cancel);
-        a.addEventListener('touchcancel', lp.cancel);
-      }
+      // No context menu here on purpose. Reading view is for reading: a click opens (asking
+      // which target when there are several), and everything that edits the note lives in
+      // the editor's own menu. Offering "link this word" here but not its opposite was the
+      // asymmetry that made the two menus feel like different plugins.
       frag.appendChild(a);
       cursor = m.end;
     }
@@ -144,10 +145,20 @@ module.exports = {
     };
     // Collision marks carry a per-match tooltip + alt list, so they are not cached.
     // The tooltip lists every matching term, including the one it resolves to.
-    const markWithAlts = (canonical, alts) => Decoration.mark({
-      class: 'cm-glossary-link cm-glossary-ambiguous',
-      attributes: { 'data-glossary-target': canonical, 'data-glossary-alts': alts.join('\n'), 'aria-label': t('highlight.matches', { terms: [canonical, ...alts].join(', ') }) },
-    });
+    // Another linker's readings ride along as data: a decoration is attributes, not closures,
+    // so the candidate keeps the peer's id and the opener is looked up again on click.
+    const markWithAlts = (canonical, alts, foreign) => {
+      const names = [canonical, ...alts, ...foreign.map((f) => f.label)];
+      const attributes = {
+        'data-glossary-target': canonical,
+        'data-glossary-alts': alts.join('\n'),
+        'aria-label': t('highlight.matches', { terms: names.join(', ') }),
+      };
+      if (foreign.length) {
+        attributes['data-glossary-foreign'] = JSON.stringify(foreign.map((f) => ({ id: f.id, label: f.label, target: f.target, source: f.source })));
+      }
+      return Decoration.mark({ class: 'cm-glossary-link cm-glossary-ambiguous', attributes });
+    };
 
     const skipNode = (name) => /code|link|url|header|hashtag|frontmatter|comment|tag|escape/i.test(name);
 
@@ -159,12 +170,17 @@ module.exports = {
       const tree = syntaxTree(editorView.state);
       for (const { from, to } of editorView.visibleRanges) {
         const text = editorView.state.doc.sliceString(from, to);
-        for (const m of plugin.findMatches(text, currentCanonical)) {
+        // Once per visible range, not per match.
+        const yielded = plugin.yieldedIn(text);
+        for (const m of plugin.ownSpans(text, plugin.findMatches(text, currentCanonical))) {
           const start = from + m.start;
           const end = from + m.end;
           let skip = false;
           tree.iterate({ from: start, to: end, enter: (n) => { if (skipNode(n.type.name)) skip = true; } });
-          if (!skip) builder.add(start, end, m.alts && m.alts.length ? markWithAlts(m.canonical, m.alts) : markFor(m.canonical));
+          if (skip) continue;
+          const alts = m.alts || [];
+          const foreign = candidatesFor(yielded, m.start, m.end);
+          builder.add(start, end, alts.length || foreign.length ? markWithAlts(m.canonical, alts, foreign) : markFor(m.canonical));
         }
       }
       return builder.finish();
@@ -173,7 +189,23 @@ module.exports = {
     const targetEl = (e) => (e.target instanceof HTMLElement ? e.target.closest('.cm-glossary-link') : null);
     const canonicalOf = (el) => el.getAttribute('data-glossary-target');
     const altsOf = (el) => { const v = el.getAttribute('data-glossary-alts'); return v ? v.split('\n') : null; };
-    const editorLp = longPressTracker(fireContextMenu);
+    // Another linker's readings, parked on the decoration as data. The opener is resolved
+    // now rather than then: the plugin may have been disabled since the mark was drawn.
+    const foreignOf = (el, sourcePath, newTab) => {
+      const raw = el.getAttribute('data-glossary-foreign');
+      if (!raw) return [];
+      let parsed;
+      try { parsed = JSON.parse(raw); } catch (err) { return []; }
+      const peers = discoverLinkers(plugin.app);
+      return parsed.map((f) => ({
+        label: f.label,
+        source: f.source,
+        open: () => {
+          const peer = peers.find((p) => p.id === f.id);
+          if (peer && typeof peer.open === 'function') peer.open(f.target, sourcePath, newTab);
+        },
+      }));
+    };
 
     const vp = ViewPlugin.fromClass(
       class {
@@ -197,42 +229,35 @@ module.exports = {
             if (!el) return;
             const file = plugin.app.workspace.getActiveFile();
             const sourcePath = file ? file.path : '';
-            const alts = altsOf(el);
-            const candidates = alts && alts.length ? [canonicalOf(el), ...alts] : [canonicalOf(el)];
+            const alts = altsOf(el) || [];
+            // Same set of readings the reading view offers, so a word behaves the same in
+            // both modes rather than losing half its meanings in the editor.
+            const pick = (newTab, title) => {
+              const candidates = [canonicalOf(el), ...alts, ...foreignOf(el, sourcePath, newTab)];
+              plugin.chooseTerm(candidates, title, (c) => plugin.openTerm(c, sourcePath, newTab));
+            };
             // Like Obsidian's links: middle-click opens a tab, Ctrl/Cmd+click follows.
             // An ambiguous term asks which one to open first.
             if (e.button === 1) {
-              plugin.chooseTerm(candidates, t('menu.openNewTabTitle'), (c) => plugin.openTerm(c, sourcePath, true));
+              pick(true, t('menu.openNewTabTitle'));
               e.preventDefault();
               return;
             }
             if (e.button !== 0 || !(e.ctrlKey || e.metaKey)) return;
-            plugin.chooseTerm(candidates, t('menu.openTitle'), (c) => plugin.openTerm(c, sourcePath, false));
+            pick(false, t('menu.openTitle'));
             e.preventDefault();
           },
           mouseover(e) {
             const el = targetEl(e);
             if (!el) return;
             // Ambiguous: no single page preview — the aria-label tooltip lists the terms.
-            if (el.hasAttribute('data-glossary-alts')) return;
+            if (el.hasAttribute('data-glossary-alts') || el.hasAttribute('data-glossary-foreign')) return;
             const file = plugin.app.workspace.getActiveFile();
             plugin.hoverTerm(e, el, canonicalOf(el), file ? file.path : '');
           },
-          contextmenu(e, view) {
-            const el = targetEl(e);
-            if (!el) return;
-            // Read the term off the clicked decoration; posAtDOM gives its doc offset.
-            const file = plugin.app.workspace.getActiveFile();
-            plugin.showLinkMenu(e, canonicalOf(el), el.textContent, file, view.posAtDOM(el), undefined, altsOf(el));
-          },
-          touchstart(e) {
-            if (!Platform.isMobile) return;
-            const el = targetEl(e);
-            if (el) editorLp.start(e.touches[0], el);
-          },
-          touchmove(e) { editorLp.move(e.touches[0]); },
-          touchend: editorLp.cancel,
-          touchcancel: editorLp.cancel,
+          // No handler for contextmenu: a right-click in the editor already raises Obsidian's
+          // own menu, and everything we offer for the word under the cursor is added there.
+          // One menu, whichever half of the toggle applies.
         },
       }
     );

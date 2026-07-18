@@ -17,6 +17,9 @@ const DEFAULT_SETTINGS = {
   excludeTerms: '',
   excludeWords: '',
   linkFirstOnly: false,
+  // Who wins a word both linkers match. Read by the other side through the api, so both
+  // reach the same verdict; a whole note is broader than a heading anchor, hence lower.
+  linkPrecedence: 10,
   linkSuggest: false, // offer [[link]] autocomplete while typing
   suggestMinChars: 3, // min typed length before autocomplete triggers
   suggestSkipAfter: '@#$^', // yield when the word follows one of these sigils (code-linker @@, tags, math, block refs)

@@ -209,9 +209,18 @@ class ChooseTermModal extends Modal {
     contentEl.createEl('h3', { text: this.opts.title || t('modal.choose.title') });
     contentEl.createEl('p', { text: t('modal.choose.body') });
     const list = contentEl.createDiv({ cls: 'glossary-choose-list' });
+    // A term is either one of ours (a plain canonical, opened by the caller) or one another
+    // linker stood down on, which carries its own label and knows how to open itself. The
+    // list makes no distinction: from the reader's side it is one word with several
+    // meanings, and which plugin answers for each is machinery they aren't choosing between.
     for (const term of this.opts.terms) {
-      const b = list.createEl('button', { text: term, cls: 'glossary-choose-item' });
-      b.onclick = async () => { await this.opts.onChoose(term); this.close(); };
+      const foreign = term && typeof term === 'object';
+      const b = list.createEl('button', { cls: 'glossary-choose-item', text: foreign ? term.label : term });
+      b.onclick = async () => {
+        this.close();
+        if (foreign) term.open();
+        else await this.opts.onChoose(term);
+      };
     }
     contentEl.createDiv({ cls: 'glossary-preview-buttons' })
       .createEl('button', { text: t('btn.cancel') }).onclick = () => this.close();

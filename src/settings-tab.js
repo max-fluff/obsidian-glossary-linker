@@ -5,6 +5,7 @@ const { sanitizeFolder } = require('./constants');
 const { FolderSuggest, FileSuggest, PathSuggest, folderSuggestAvailable } = require('./folder-suggest');
 const { renderFolderList } = require('./shared/folder-list');
 const { t, plural } = require('./shared/i18n');
+const { renderPrecedence: precedenceSetting } = require('./shared/precedence');
 
 class GlossaryLinkerSettingTab extends PluginSettingTab {
   constructor(app, plugin) { super(app, plugin); this.plugin = plugin; }
@@ -279,6 +280,11 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl).setName(t('set.heading.maintenance')).setHeading();
 
+    // First thing in Maintenance, in the same place in all four plugins: it is a
+    // vault-wide arrangement between plugins rather than a knob for this one, and it
+    // renders nothing at all unless another linker is installed.
+    this.renderPrecedence(containerEl, save);
+
     new Setting(containerEl)
       .setName(t('set.rebuild.name'))
       .setDesc(t('set.rebuild.desc'))
@@ -291,6 +297,23 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
     this.plugin.rebuildIndex();
     this.plugin.rerenderViews();
     this.display();
+  }
+
+  // Where this plugin sits in the family-wide priority order. Shown only when another linker
+  // is installed — alone there is no order to argue about.
+  renderPrecedence(containerEl, save) {
+    precedenceSetting(containerEl, {
+      app: this.app,
+      provider: this.plugin.api && this.plugin.api.linker,
+      Setting,
+      cls: 'glossary',
+      name: t('set.precedence.name'),
+      desc: t('set.precedence.desc'),
+      otherDesc: t('set.precedence.other'),
+      upTooltip: t('set.precedence.up'),
+      downTooltip: t('set.precedence.down'),
+      save: async (value) => { this.plugin.settings.linkPrecedence = value; await save(false); },
+    });
   }
 
   renderFolderStatus() {

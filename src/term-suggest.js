@@ -5,6 +5,40 @@ const { EditorSuggest } = obsidian;
 const { t } = require('./shared/i18n');
 const { inTableCell } = require('./shared/markdown');
 
+// The candidates for a typed word, ranked, or an empty list. Kept out of the class and free
+// of editor state: onTrigger needs the answer before it can decide whether to claim the
+// popup, and it is the piece worth testing on its own.
+function collectSuggestions(plugin, query, ownCanonical) {
+  const qLower = query.toLowerCase();
+  const byCanonical = new Map();
+
+  // 'form' matches: typed word is an inflection of a term's first word.
+  const seenCand = new Set();
+  for (const key of plugin.keysFor(query)) {
+    const bucket = plugin.index.byKey.get(key);
+    if (!bucket) continue;
+    for (const c of bucket) {
+      if (c.wordCount !== 1 || seenCand.has(c) || c.canonical === ownCanonical) continue;
+      seenCand.add(c);
+      if (!byCanonical.has(c.canonical)) byCanonical.set(c.canonical, { canonical: c.canonical, matchedForm: c.canonical, kind: 'form' });
+    }
+  }
+
+  // 'prefix' matches: typed text starts a term title or alias.
+  for (const t of plugin.terms || []) {
+    if (byCanonical.has(t.canonical) || t.canonical === ownCanonical) continue;
+    let form = null;
+    if (t.canonical.toLowerCase().startsWith(qLower)) form = t.canonical;
+    else { const a = t.aliases.find((al) => al.toLowerCase().startsWith(qLower)); if (a) form = a; }
+    if (form) byCanonical.set(t.canonical, { canonical: t.canonical, matchedForm: form, kind: 'prefix' });
+  }
+
+  const items = [...byCanonical.values()];
+  const rank = (it) => (it.kind === 'form' ? 0 : 1);
+  items.sort((a, b) => rank(a) - rank(b) || a.matchedForm.length - b.matchedForm.length || a.canonical.localeCompare(b.canonical));
+  return items.slice(0, 8);
+}
+
 // Inline autocomplete: while typing in an in-scope note, offer to insert a
 // [[link]] to a glossary term. Two kinds of candidate:
 //   - 'form'   — the typed word is an inflection of a term (same engine as the
@@ -46,43 +80,22 @@ class GlossaryTermSuggest extends EditorSuggest {
     const off = editor.posToOffset(cursor);
     if (plugin.isProtectedAt(editor.getValue(), off)) return null;
 
+    // Having nothing to offer must not take the popup slot. Obsidian hands the popup to the
+    // first suggester whose onTrigger returns a context and never asks the rest, so claiming
+    // every word would silence a sibling linker that does know this one. The candidates are
+    // built here rather than in getSuggestions so the answer is known before we claim.
+    const items = collectSuggestions(plugin, query, plugin.activeCanonical());
+    if (!items.length) return null;
+    this.cached = { query, items };
+
     return { start: { line: cursor.line, ch: cursor.ch - query.length }, end: cursor, query };
   }
 
   getSuggestions(context) {
-    const plugin = this.plugin;
-    const q = context.query;
-    const qLower = q.toLowerCase();
-    const byCanonical = new Map();
-    // Never suggest linking a term to itself from inside its own note — the
-    // same exclusion the highlighter applies via findMatches(text, activeCanonical()).
-    const ownCanonical = plugin.activeCanonical();
-
-    // 'form' matches: typed word is an inflection of a term's first word.
-    const seenCand = new Set();
-    for (const key of plugin.keysFor(q)) {
-      const bucket = plugin.index.byKey.get(key);
-      if (!bucket) continue;
-      for (const c of bucket) {
-        if (c.wordCount !== 1 || seenCand.has(c) || c.canonical === ownCanonical) continue;
-        seenCand.add(c);
-        if (!byCanonical.has(c.canonical)) byCanonical.set(c.canonical, { canonical: c.canonical, matchedForm: c.canonical, kind: 'form' });
-      }
-    }
-
-    // 'prefix' matches: typed text starts a term title or alias.
-    for (const t of plugin.terms || []) {
-      if (byCanonical.has(t.canonical) || t.canonical === ownCanonical) continue;
-      let form = null;
-      if (t.canonical.toLowerCase().startsWith(qLower)) form = t.canonical;
-      else { const a = t.aliases.find((al) => al.toLowerCase().startsWith(qLower)); if (a) form = a; }
-      if (form) byCanonical.set(t.canonical, { canonical: t.canonical, matchedForm: form, kind: 'prefix' });
-    }
-
-    const items = [...byCanonical.values()];
-    const rank = (it) => (it.kind === 'form' ? 0 : 1);
-    items.sort((a, b) => rank(a) - rank(b) || a.matchedForm.length - b.matchedForm.length || a.canonical.localeCompare(b.canonical));
-    return items.slice(0, 8);
+    // onTrigger already built these to decide whether to trigger at all; recompute only if
+    // something moved on between the two calls.
+    if (this.cached && this.cached.query === context.query) return this.cached.items;
+    return collectSuggestions(this.plugin, context.query, this.plugin.activeCanonical());
   }
 
   renderSuggestion(item, el) {
@@ -109,4 +122,4 @@ class GlossaryTermSuggest extends EditorSuggest {
 
 const suggestAvailable = () => typeof EditorSuggest === 'function';
 
-module.exports = { GlossaryTermSuggest, suggestAvailable };
+module.exports = { GlossaryTermSuggest, suggestAvailable, collectSuggestions };

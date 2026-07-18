@@ -1,11 +1,12 @@
 'use strict';
 
-const { Menu, Notice, TFile, moment } = require('obsidian');
+const { Notice, TFile, moment } = require('obsidian');
 const { splitLines } = require('./shared/markdown');
 const {
   MaterializePreviewModal, HarvestPreviewModal, ChooseTermModal, UnlinkPreviewModal,
   TermPickerModal, AliasTextModal,
 } = require('./modals');
+const { candidatesFor } = require('./shared/discover');
 const { t, plural } = require('./shared/i18n');
 
 // Turning terms into links + collecting aliases. Mixed into the plugin prototype.
@@ -229,55 +230,57 @@ module.exports = {
       .replace(/\{\{\s*time(?::([^}]*))?\s*\}\}/g, (_, f) => fmt((f || 'HH:mm').trim(), () => new Date().toTimeString().slice(0, 5)));
   },
 
-  chooseTerm(candidates, title, action) {
-    const list = (candidates || []).filter(Boolean);
-    if (list.length <= 1) return action(list[0]);
-    new ChooseTermModal(this.app, { title, terms: list, onChoose: action }).open();
+  // The highlighted (not yet linked) match under the cursor, with whatever the other
+  // linkers would offer at the same spot, or null.
+  //
+  // It runs through ownSpans, so on a word several linkers know only the owner finds
+  // anything here — which is what keeps one "Link…" item in the menu instead of one per
+  // plugin. The others stay quiet and their readings ride along as candidates.
+  matchAtCursor(editor) {
+    const head = editor.getCursor('head');
+    const line = editor.getLine(head.line);
+    if (!line) return null;
+    const matches = this.ownSpans(line, this.findMatches(line, this.activeCanonical(), { protect: true }));
+    const hit = matches.find((m) => head.ch >= m.start && head.ch <= m.end);
+    if (!hit) return null;
+    const foreign = candidatesFor(this.yieldedIn(line), hit.start, hit.end);
+    return { match: hit, foreign, line: head.line };
   },
 
-  showLinkMenu(evt, canonical, display, file, nearOffset, occurrence, alts) {
-    const sourcePath = file ? file.path : '';
-    // When a word matches several terms, ambiguous actions resolve via a picker.
-    const candidates = (alts && alts.length) ? [canonical, ...alts] : [canonical];
-    const groups = [];
+  // The match under the cursor as we see it, ownership aside — so null only when this word
+  // means nothing to us at all.
+  //
+  // Used for excluding a word, and only for that. Excluding is a setting of *this* plugin:
+  // it stops us matching the word and says nothing about what the sibling does. Gating it on
+  // ownership hid it exactly where it is most wanted — on a word both linkers match, where
+  // the loser is drawing nothing yet still matches, and the settings tab was the only way
+  // left to tell it to stop.
+  wordAtCursor(editor) {
+    const head = editor.getCursor('head');
+    const line = editor.getLine(head.line);
+    if (!line) return null;
+    const matches = this.findMatches(line, this.activeCanonical(), { protect: true });
+    return matches.find((m) => head.ch >= m.start && head.ch <= m.end) || null;
+  },
 
-    if (file && this.settings.menuTurnInto) {
-      const scope = this.settings.linkFirstOnly ? t('scope.first') : t('scope.all');
-      groups.push((menu) => {
-        menu.addItem((i) => i.setTitle(t('menu.linkToTerm')).setIcon('link')
-          .onClick(() => this.chooseTerm(candidates, t('menu.linkDisplayTo', { display }),
-            (c) => this.materializeSingle(file, canonical, display, nearOffset, occurrence, c))));
-        menu.addItem((i) => i.setTitle(t('menu.linkScopeThisNote', { scope, display })).setIcon('links-coming-in')
-          .onClick(() => this.chooseTerm(candidates, t('menu.linkScopeTo', { scope, display }),
-            (c) => this.materializeTerm(file, canonical, c))));
-        menu.addItem((i) => i.setTitle(t('menu.linkScopeAllNotes', { scope, display })).setIcon('links-going-out')
-          .onClick(() => this.chooseTerm(candidates, t('menu.linkScopeTo', { scope, display }),
-            (c) => this.materializeTermScope(canonical, c))));
-      });
-    }
-    if (this.settings.menuExclude) {
-      groups.push((menu) => {
-        this.addExclusionMenuItem(menu, 'excludeWords', display);
-        // Exclude by the clicked word, not the resolved term: it matches both titles and
-        // aliases, so it drops every term sharing the word without needing to pick one.
-        this.addExclusionMenuItem(menu, 'excludeTerms', display);
-      });
-    }
-    if (this.settings.menuOpen) {
-      groups.push((menu) => {
-        menu.addItem((i) => i.setTitle(t('menu.openNote')).setIcon('file-text')
-          .onClick(() => this.chooseTerm(candidates, t('menu.openTitle'), (c) => this.openTerm(c, sourcePath, false))));
-        menu.addItem((i) => i.setTitle(t('menu.openNewTab')).setIcon('file-plus')
-          .onClick(() => this.chooseTerm(candidates, t('menu.openNewTabTitle'), (c) => this.openTerm(c, sourcePath, true))));
-      });
-    }
+  // Every reading of the match under the cursor: ours, our own same-named alternatives, and
+  // the ones other linkers stood down on. What the menu offers to link or open.
+  cursorCandidates(hit, sourcePath, newTab) {
+    const own = [hit.match.canonical, ...(hit.match.alts || [])];
+    const foreign = hit.foreign.map((c) => ({ ...c, open: () => c.open(sourcePath, newTab) }));
+    return [...own, ...foreign];
+  },
 
-    if (!groups.length) return false;
-    const menu = new Menu();
-    groups.forEach((group, i) => { if (i) menu.addSeparator(); group(menu); });
-    evt.preventDefault();
-    menu.showAtMouseEvent(evt);
-    return true;
+  chooseTerm(candidates, title, action) {
+    const list = (candidates || []).filter(Boolean);
+    // A lone candidate needs no dialog. It can still be another linker's, in which case it
+    // opens itself rather than going through our own resolver.
+    if (list.length <= 1) {
+      const only = list[0];
+      if (only && typeof only === 'object') return only.open();
+      return action(only);
+    }
+    new ChooseTermModal(this.app, { title, terms: list, onChoose: action }).open();
   },
 
   isExcluded(listKey, value) {

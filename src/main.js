@@ -13,6 +13,7 @@ const api = require('./api');
 const { GlossaryTermSuggest, suggestAvailable } = require('./term-suggest');
 const { GlossaryOverviewView, OVERVIEW_VIEW_TYPE } = require('./overview-view');
 const { initI18n, t, plural } = require('./shared/i18n');
+const { menuSection } = require('./shared/menu');
 
 class GlossaryLinkerPlugin extends Plugin {
   async onload() {
@@ -45,7 +46,6 @@ class GlossaryLinkerPlugin extends Plugin {
 
     await this.loadLanguages();
     this.rebuildIndex();
-    this.api = this.buildApi(); // app.plugins.plugins['glossary-linker'].api
     this.scheduleRebuild = debounce(() => { this.rebuildIndex(); this.rerenderViews(); this.updateStatusBar(); }, 600, true);
     this.refreshOverviewDebounced = debounce(() => this.refreshOverview(), 800, true);
 
@@ -101,36 +101,84 @@ class GlossaryLinkerPlugin extends Plugin {
       // regardless of selection; its actions take precedence over the selection ones.
       const link = this.glossaryLinkAt(editor);
 
-      if (this.settings.menuCreateTerm && hasSel && !link) {
-        menu.addItem((i) => i.setTitle(t('menu.createTermLink')).setIcon('plus-circle')
-          .onClick(() => this.createTermFromSelection(editor, true)));
-        menu.addItem((i) => i.setTitle(t('menu.createTerm')).setIcon('file-plus')
-          .onClick(() => this.createTermFromSelection(editor, false)));
+      const file = this.app.workspace.getActiveFile();
+      const sourcePath = file ? file.path : '';
+
+      // Flat, and named for the list it writes to: "excluded words"/"excluded terms" are
+      // already ours and "excluded headings" is already the heading linker's, so the wording
+      // tells them apart on its own. Wrapping one item in a submenu titled with the plugin
+      // name only added a click.
+      const excludeItems = (value, ...listKeys) => {
+        if (!this.settings.menuExclude) return;
+        for (const key of listKeys) this.addExclusionMenuItem(menu, key, value);
+      };
+
+      // On one of our links: unlink, exclude, collect its wording as an alias.
+      if (link) {
+        if (this.settings.menuUnlink) {
+          menu.addItem((i) => i.setTitle(t('menu.unlinkThisTerm')).setIcon('unlink')
+            .onClick(() => this.unlinkLinkAt(editor, link)));
+        }
+        if (this.settings.menuCollect && link.targetFile) {
+          menu.addItem((i) => i.setTitle(t('menu.collectThisAlias')).setIcon('download')
+            .onClick(() => this.harvestOneLink(link.targetFile, link.display)));
+        }
+        excludeItems(link.display, 'excludeWords', 'excludeTerms');
+        return;
       }
-      if (this.settings.menuAddAlias && hasSel && !link) {
-        menu.addItem((i) => i.setTitle(t('menu.addAlias')).setIcon('text-cursor-input')
-          .onClick(() => this.addAliasFromSelection(sel)));
+
+      // On a selection that isn't a link: make a term out of it.
+      if (hasSel) {
+        if (this.settings.menuCreateTerm) {
+          menu.addItem((i) => i.setTitle(t('menu.createTermLink')).setIcon('plus-circle')
+            .onClick(() => this.createTermFromSelection(editor, true)));
+          menu.addItem((i) => i.setTitle(t('menu.createTerm')).setIcon('file-plus')
+            .onClick(() => this.createTermFromSelection(editor, false)));
+        }
+        if (this.settings.menuAddAlias) {
+          menu.addItem((i) => i.setTitle(t('menu.addAlias')).setIcon('text-cursor-input')
+            .onClick(() => this.addAliasFromSelection(sel)));
+        }
+        excludeItems(sel, 'excludeWords');
+        return;
       }
-      if (this.settings.menuExclude && hasSel && !link) {
-        this.addExclusionMenuItem(menu, 'excludeWords', sel, 'Glossary: ');
+
+      // A highlighted word that isn't a link yet: the other half of the same toggle, so it
+      // sits in the same menu rather than in one of our own.
+      const hit = this.matchAtCursor(editor);
+      if (hit) {
+        const display = hit.match.display;
+        const canonical = hit.match.canonical;
+        const candidates = () => this.cursorCandidates(hit, sourcePath, false);
+        if (file && this.settings.menuTurnInto) {
+          // Three ways to link the same word differ only in how far they reach, so they are
+          // one entry with a choice inside rather than three lines competing for attention.
+          const scope = this.settings.linkFirstOnly ? t('scope.first') : t('scope.all');
+          const linkGroup = menuSection(menu, t('menu.linkThisWord', { display }), true, 'link');
+          linkGroup.addItem((i) => i.setTitle(t('menu.linkHere', { display })).setIcon('link')
+            .onClick(() => this.chooseTerm(candidates(), t('menu.linkDisplayTo', { display }),
+              (c) => this.materializeSingle(file, canonical, display, editor.posToOffset({ line: hit.line, ch: hit.match.start }), 0, c))));
+          linkGroup.addItem((i) => i.setTitle(t('menu.linkScopeThisNote', { scope, display })).setIcon('links-coming-in')
+            .onClick(() => this.chooseTerm(candidates(), t('menu.linkScopeTo', { scope, display }),
+              (c) => this.materializeTerm(file, canonical, c))));
+          linkGroup.addItem((i) => i.setTitle(t('menu.linkScopeAllNotes', { scope, display })).setIcon('links-going-out')
+            .onClick(() => this.chooseTerm(candidates(), t('menu.linkScopeTo', { scope, display }),
+              (c) => this.materializeTermScope(canonical, c))));
+        }
+        if (this.settings.menuOpen) {
+          menu.addItem((i) => i.setTitle(t('menu.openThisWord', { display })).setIcon('file-text')
+            .onClick(() => this.chooseTerm(candidates(), t('menu.openTitle'), (c) => this.openTerm(c, sourcePath, false))));
+        }
+        excludeItems(display, 'excludeTerms');
+        return;
       }
-      // On a glossary link: exclude actions target its visible text, plus unlink and collect.
-      if (this.settings.menuExclude && link) {
-        this.addExclusionMenuItem(menu, 'excludeWords', link.display, 'Glossary: ');
-        this.addExclusionMenuItem(menu, 'excludeTerms', link.display, 'Glossary: ');
-      }
-      if (this.settings.menuUnlink && link) {
-        menu.addItem((i) => i.setTitle(t('menu.unlinkThisTerm')).setIcon('unlink')
-          .onClick(() => this.unlinkLinkAt(editor, link)));
-      }
-      if (this.settings.menuCollect && link && link.targetFile) {
-        menu.addItem((i) => i.setTitle(t('menu.collectThisAlias')).setIcon('download')
-          .onClick(() => this.harvestOneLink(link.targetFile, link.display)));
-      }
-      if (this.settings.menuCollect) {
-        const file = this.app.workspace.getActiveFile();
-        if (file) menu.addItem((i) => i.setTitle(t('menu.collectFromNote')).setIcon('download')
-          .onClick(() => this.harvestFiles([file], false)));
+
+      // A word the sibling owns. We draw nothing on it, but we do match it, so the one thing
+      // still worth offering is the setting that makes us stop.
+      const word = this.wordAtCursor(editor);
+      if (word) {
+        excludeItems(word.canonical, 'excludeTerms');
+        return;
       }
     }));
 
@@ -141,6 +189,9 @@ class GlossaryLinkerPlugin extends Plugin {
       if (!isFolder && !(file instanceof TFile && file.extension === 'md')) return;
       const path = file.path;
       const noun = isFolder ? t('noun.folder') : t('noun.file');
+      // Flat. Every one of these titles already begins with "Glossary:", so a submenu named
+      // after the plugin said the same thing twice — and with the common settings it held a
+      // single item, which is a click to reach one line.
       const item = (title, icon, listKey, add) => menu.addItem((i) => i.setTitle(title).setIcon(icon)
         .onClick(() => this.setPathInList(listKey, path, add)));
 
@@ -154,6 +205,15 @@ class GlossaryLinkerPlugin extends Plugin {
         const listed = this.pathListed('scopeFolders', path);
         if (listed) item(t('menu.removeFromScope', { noun }), 'folder-minus', 'scopeFolders', false);
         else item(t('menu.includeInScope', { noun }), 'folder-plus', 'scopeFolders', true);
+      }
+
+      // Harvesting reads the note's links, so it belongs on the note rather than on a spot
+      // in the text — where it had nothing to do with what was under the cursor, and where
+      // both linkers offered it at once. Flat and named for what it collects, so the sibling's
+      // version reads as a different action rather than a duplicate of this one.
+      if (this.settings.menuCollect && !isFolder) {
+        menu.addItem((i) => i.setTitle(t('menu.collectFromNote')).setIcon('download')
+          .onClick(() => this.harvestFiles([file], false)));
       }
     }));
 
@@ -234,6 +294,12 @@ class GlossaryLinkerPlugin extends Plugin {
     });
 
     this.addSettingTab(new GlossaryLinkerSettingTab(this.app, this));
+
+    // Published last, and deliberately so. The api (app.plugins.plugins['glossary-linker'].api)
+    // is how a sibling linker finds us and decides to stand down on a word we both match — so
+    // a load that throws before this point leaves no provider behind, and the sibling keeps
+    // highlighting instead of yielding to a plugin that never came up.
+    this.api = this.buildApi();
   }
 
   async saveSettings() {
