@@ -382,4 +382,34 @@ a.glossary-link.internal-link:hover {
   font-weight: var(--font-semibold);
 }
 
+/* The list of what a word could mean, shown on hover over an ambiguous span. Hovering a
+   row opens Obsidian own page preview for that one target, so this stays a plain list. */
+.glossary-choices {
+  position: fixed;
+  z-index: var(--layer-popover);
+  max-width: 320px;
+  padding: 6px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+}
+.glossary-choices.glossary-hidden {
+  display: none;
+}
+.glossary-choices-title {
+  padding: 2px 8px 6px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.glossary-choices-item {
+  padding: 4px 8px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.glossary-choices-item:hover {
+  background: var(--background-modifier-hover);
+}
+
 /* Glossary Linker 1.3.1 */

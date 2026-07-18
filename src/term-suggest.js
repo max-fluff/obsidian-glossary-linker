@@ -4,6 +4,7 @@ const obsidian = require('obsidian');
 const { EditorSuggest } = obsidian;
 const { t } = require('./shared/i18n');
 const { inTableCell } = require('./shared/markdown');
+const { mergeSuggestions } = require('./shared/prose/suggest');
 
 // The candidates for a typed word, ranked, or an empty list. Kept out of the class and free
 // of editor state: onTrigger needs the answer before it can decide whether to claim the
@@ -37,6 +38,26 @@ function collectSuggestions(plugin, query, ownCanonical) {
   const rank = (it) => (it.kind === 'form' ? 0 : 1);
   items.sort((a, b) => rank(a) - rank(b) || a.matchedForm.length - b.matchedForm.length || a.canonical.localeCompare(b.canonical));
   return items.slice(0, 8);
+}
+
+// The line under a candidate's name in the popup. Shared by our own rendering and by the
+// shape we hand a sibling linker, so a term reads the same whoever's popup it lands in.
+function noteFor(item) {
+  if (item.kind === 'form') return t('suggest.inflection');
+  if (item.matchedForm !== item.canonical) return t('suggest.alias', { form: item.matchedForm });
+  return '';
+}
+
+// Our candidates in the shape a sibling linker consumes: no internals, and `display` says
+// what the inserted link should read — null meaning "keep whatever the reader typed", which
+// is what a 'form' match is for.
+function suggestionsFor(plugin, query) {
+  return collectSuggestions(plugin, query, plugin.activeCanonical()).map((it) => ({
+    label: it.canonical,
+    note: noteFor(it),
+    target: it.canonical,
+    display: it.kind === 'form' ? null : it.canonical,
+  }));
 }
 
 // Inline autocomplete: while typing in an in-scope note, offer to insert a
@@ -84,26 +105,32 @@ class GlossaryTermSuggest extends EditorSuggest {
     // first suggester whose onTrigger returns a context and never asks the rest, so claiming
     // every word would silence a sibling linker that does know this one. The candidates are
     // built here rather than in getSuggestions so the answer is known before we claim.
-    const items = collectSuggestions(plugin, query, plugin.activeCanonical());
+    const items = this.merged(query);
     if (!items.length) return null;
     this.cached = { query, items };
 
     return { start: { line: cursor.line, ch: cursor.ch - query.length }, end: cursor, query };
   }
 
+  // Our candidates plus every sibling linker's, in one list. See shared/prose/suggest.js.
+  merged(query) {
+    return mergeSuggestions(this.plugin, query, collectSuggestions(this.plugin, query, this.plugin.activeCanonical()));
+  }
+
   getSuggestions(context) {
     // onTrigger already built these to decide whether to trigger at all; recompute only if
     // something moved on between the two calls.
     if (this.cached && this.cached.query === context.query) return this.cached.items;
-    return collectSuggestions(this.plugin, context.query, this.plugin.activeCanonical());
+    return this.merged(context.query);
   }
 
   renderSuggestion(item, el) {
     el.addClass('glossary-suggestion');
-    el.createSpan({ cls: 'glossary-suggestion-title', text: item.canonical });
-    let note = '';
-    if (item.kind === 'form') note = t('suggest.inflection');
-    else if (item.matchedForm !== item.canonical) note = t('suggest.alias', { form: item.matchedForm });
+    // A sibling's candidate is drawn exactly like our own. The reader is choosing a
+    // destination, not a plugin — the same reason the collision modal carries no plugin
+    // names either.
+    el.createSpan({ cls: 'glossary-suggestion-title', text: item.insert ? item.label : item.canonical });
+    const note = item.insert ? item.note : noteFor(item);
     if (note) el.createSpan({ cls: 'glossary-suggestion-note', text: note });
   }
 
@@ -111,10 +138,14 @@ class GlossaryTermSuggest extends EditorSuggest {
     const ctx = this.context;
     if (!ctx) return;
     const editor = ctx.editor;
-    // 'form' keeps the typed wording as the visible text; 'prefix' completes to the title.
-    const display = item.kind === 'form' ? ctx.query : item.canonical;
     const inTable = inTableCell(editor.getValue(), editor.posToOffset(ctx.start));
-    const link = this.plugin.wikiLink(item.canonical, display, inTable);
+    // A sibling's candidate is written by the sibling: only it knows whether its target is
+    // a term title, a File#Heading or something else again.
+    // 'form' keeps the typed wording as the visible text; 'prefix' completes to the title.
+    const link = item.insert
+      ? item.insert(item.display == null ? ctx.query : item.display, inTable)
+      : this.plugin.wikiLink(item.canonical, item.kind === 'form' ? ctx.query : item.canonical, inTable);
+    if (!link) return;
     editor.replaceRange(link, ctx.start, ctx.end);
     editor.setCursor(editor.offsetToPos(editor.posToOffset(ctx.start) + link.length));
   }
@@ -122,4 +153,4 @@ class GlossaryTermSuggest extends EditorSuggest {
 
 const suggestAvailable = () => typeof EditorSuggest === 'function';
 
-module.exports = { GlossaryTermSuggest, suggestAvailable, collectSuggestions };
+module.exports = { GlossaryTermSuggest, suggestAvailable, collectSuggestions, suggestionsFor };

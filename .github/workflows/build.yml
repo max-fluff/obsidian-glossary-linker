@@ -24,9 +24,11 @@ jobs:
       - run: npm test
       - run: npm run build
 
-      - name: Verify main.js is in sync with src/
+      # styles.css is generated too — the build stamps the version into it — so checking
+      # main.js alone would let a stale stylesheet ship unnoticed.
+      - name: Verify the built files are in sync with src/
         run: |
-          if ! git diff --exit-code -- main.js; then
-            echo "::error::main.js is out of date. Run 'npm run build' and commit the result."
+          if ! git diff --exit-code -- main.js styles.css; then
+            echo "::error::main.js or styles.css is out of date. Run 'npm run build' and commit the result."
             exit 1
           fi

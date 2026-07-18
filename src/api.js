@@ -3,6 +3,7 @@
 const { Notice } = require('obsidian');
 const { t } = require('./shared/i18n');
 const { LINKER_API } = require('./shared/discover');
+const { suggestionsFor } = require('./term-suggest');
 
 // Public API exposed as `app.plugins.plugins['glossary-linker'].api`, so other
 // plugins and DataviewJS can read the glossary index. Mixed into the plugin
@@ -58,6 +59,16 @@ module.exports = {
         // Open one of our targets. Ours to resolve — nobody else should have to know how a
         // glossary term maps to a note.
         open: (target, sourcePath, newTab) => plugin.openTerm(target, sourcePath, newTab),
+        // Show our own preview of one of our targets, anchored to someone else's element.
+        // Used by the duplicate list, which lists candidates from every linker but must let
+        // each one preview its own.
+        hover: (target, event, targetEl, sourcePath, hoverParent) =>
+          plugin.hoverTerm(event, targetEl, target, sourcePath, hoverParent),
+        // What we would autocomplete for a typed word, for the linker that owns the popup.
+        // The note is the line the reader sees under the name, already localised by us.
+        suggest: (query) => suggestionsFor(plugin, String(query || '')),
+        // Our link text for a target. The popup's owner writes it but never composes it.
+        linkFor: (target, display, inTable) => plugin.wikiLink(target, display, inTable),
         // Redraw after the other side changes who ranks higher, so the setting takes effect
         // in both plugins at once instead of at the next rebuild.
         refresh: () => plugin.rerenderViews(),

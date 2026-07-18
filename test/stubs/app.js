@@ -43,7 +43,10 @@ const stub = {
   Plugin: class { constructor(app, manifest) { this.app = app; this.manifest = manifest || { version: '0.0.0' }; } },
   Notice: class {}, Modal: class { constructor(app) { this.app = app; } },
   SuggestModal: class {}, FuzzySuggestModal: class {}, EditorSuggest: class {},
-  AbstractInputSuggest: class {}, PopoverSuggest: class {}, ItemView: class {}, WorkspaceLeaf: class {}, Component: class {},
+  AbstractInputSuggest: class {}, PopoverSuggest: class {}, ItemView: class {}, WorkspaceLeaf: class {},
+  // load/unload are the part that matters: a hover popover's lifetime is tied to the
+  // component that asked for it, so unloading one closes what it opened.
+  Component: class { load() { this.loaded = true; } unload() { this.loaded = false; } },
   PluginSettingTab: class { constructor(app, plugin) { this.app = app; this.plugin = plugin; } },
   Setting: class { constructor() { return chainable(); } },
   MarkdownView: class {}, TFile: class {}, TFolder: class {}, Menu: class { constructor() { return menuLike(); } },
@@ -55,7 +58,9 @@ const stub = {
 stub.Plugin.prototype.addStatusBarItem = () => elLike();
 stub.Plugin.prototype.addRibbonIcon = () => elLike();
 stub.Plugin.prototype.registerEvent = noop;
-stub.Plugin.prototype.registerDomEvent = noop;
+// Recorded, not dropped: the modifier-key path into the hover popover lives here and
+// nothing else in a test can reach it.
+stub.Plugin.prototype.registerDomEvent = function (target, name, fn) { domHandlers.set(name, fn); };
 stub.Plugin.prototype.registerMarkdownPostProcessor = noop;
 stub.Plugin.prototype.registerMarkdownCodeBlockProcessor = noop;
 stub.Plugin.prototype.registerInterval = noop;
@@ -90,10 +95,13 @@ function installStubs() {
 // Handlers the plugin registers, kept so a test can fire one. Without this the menu-building
 // code — the part most often changed and most often broken — is never actually run.
 const handlers = new Map();
+// The same, for document-level listeners registered through registerDomEvent.
+const domHandlers = new Map();
 
 const app = {
   plugins: { plugins: {} },
   handlers,
+  domHandlers,
   workspace: {
     on: (name, fn) => { handlers.set(name, fn); return {}; },
     getActiveFile: () => null,

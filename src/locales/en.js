@@ -261,13 +261,13 @@ module.exports = {
   'overview.addTerm': '+ term',
 
   // Autocomplete suggestions
-  'suggest.inflection': 'inflection',
-  'suggest.alias': 'alias: {form}',
+  // The line under a name in the autocomplete popup. Kept to a fragment, not a sentence:
+  // it sits under the term it describes, and the heading linker's candidates share the same
+  // popup, so the two have to read as one list.
+  'suggest.inflection': 'word form',
+  'suggest.alias': 'as “{form}”',
 
   // Highlight tooltip
-  // Neutral on purpose: a duplicate can come from this plugin or from a sibling, and the
-  // reader is picking a destination, not a plugin.
-  'highlight.matches': 'Several matches: {terms}',
 
   // Plural noun phrases
   'plural.term': { one: '{n} term', other: '{n} terms' },
@@ -277,8 +277,8 @@ module.exports = {
   'plural.file': { one: '{n} file(s)', other: '{n} file(s)' },
   'plural.alias': { one: '{n} alias(es)', other: '{n} alias(es)' },
   'set.precedence.name': 'Priority among linker plugins',
-  'set.precedence.desc': 'When two linkers claim the same word or the same link, the one higher in this list wins and the other steps aside. Only this plugin’s own position can be moved from here — move the others from their own settings.',
-  'set.precedence.other': 'Move from that plugin’s own settings',
+  'set.precedence.desc': 'A word or link several linkers claim goes to the one highest in this list. You can only move this plugin — move the others from their own settings.',
+  'set.precedence.other': 'Moved from its own settings',
   'set.precedence.up': 'Move up',
   'set.precedence.down': 'Move down',
 };
