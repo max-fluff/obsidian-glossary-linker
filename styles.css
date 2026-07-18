@@ -45,6 +45,17 @@ settings:
   cursor: pointer;
 }
 
+/* Reading view builds the match as a real <a> so hover preview and click behave like any
+   link — and a theme underlines links, which lands a second line under our own. Ours is the
+   one carrying the underline-style setting, so the anchor's own decoration is switched off
+   here, at a specificity a theme's `.markdown-rendered a` rule can't outrank. */
+a.glossary-link,
+a.glossary-link:hover,
+a.glossary-link.internal-link,
+a.glossary-link.internal-link:hover {
+  text-decoration: none;
+}
+
 .glossary-link:hover,
 .cm-glossary-link:hover {
   color: var(--link-color-hover);
@@ -351,3 +362,5 @@ settings:
   width: 16px;
   height: 16px;
 }
+
+/* Glossary Linker 1.3.1 */

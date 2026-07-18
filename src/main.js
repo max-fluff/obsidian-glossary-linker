@@ -3,8 +3,8 @@
 const { Plugin, Notice, TFile, TFolder, debounce } = require('obsidian');
 const { DEFAULT_SETTINGS, sanitizeFolder } = require('./constants');
 const { splitLines, inTableCell } = require('./shared/markdown');
-const { BUILTIN_LANGUAGES } = require('./builtin-languages');
-const { validateLanguage } = require('./language-api');
+const { BUILTIN_LANGUAGES } = require('./shared/morphology/builtin-languages');
+const { validateLanguage } = require('./shared/morphology/language-api');
 const { GlossaryLinkerSettingTab } = require('./settings-tab');
 const matcher = require('./matcher');
 const highlight = require('./highlight');

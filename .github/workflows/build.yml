@@ -1,7 +1,7 @@
 name: Build
 
-# Builds the plugin and verifies the committed main.js matches a fresh build of
-# src/, so a PR (or a push to main) can't land a stale bundle.
+# Runs the tests, builds the plugin, and verifies the committed main.js matches a fresh
+# build of src/, so a PR (or a push to main) can't land a stale bundle.
 
 on:
   push:
@@ -21,6 +21,7 @@ jobs:
           node-version: "20"
 
       - run: npm ci
+      - run: npm test
       - run: npm run build
 
       - name: Verify main.js is in sync with src/

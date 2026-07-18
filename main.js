@@ -1,4 +1,4 @@
-/* Glossary Linker — bundled from src/ by esbuild. Do not edit directly; edit src/ and run "npm run build". */
+/* Glossary Linker 1.3.1 — bundled from src/ by esbuild. Do not edit directly; edit src/ and run "npm run build". */
 "use strict";
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __commonJS = (cb, mod) => function __require() {
@@ -81,6 +81,15 @@ var require_markdown = __commonJS({
     var splitLines2 = (s) => (s || "").split("\n").map((x) => x.trim()).filter(Boolean);
     var LINK_PATTERN = "\\[([^\\]]*)\\]\\(([^)]+)\\)";
     var linkRegex = () => new RegExp(LINK_PATTERN, "g");
+    var LINK_TITLE = /^([\s\S]*?)\s+(?:"([^"]*)"|'([^']*)')$/;
+    function splitTarget(raw) {
+      const s = String(raw == null ? "" : raw).trim();
+      const m = LINK_TITLE.exec(s);
+      if (!m)
+        return { url: s, title: "" };
+      return { url: m[1].trim(), title: m[2] != null ? m[2] : m[3] };
+    }
+    var withTitle = (url, title) => title ? url + ' "' + title + '"' : url;
     var isFenceLine = (line) => {
       const s = line.trimStart();
       return s.startsWith("```") || s.startsWith("~~~");
@@ -144,13 +153,57 @@ var require_markdown = __commonJS({
           return true;
       return false;
     }
-    module2.exports = { splitLines: splitLines2, linkRegex, isFenceLine, inInlineCode, locate, inCode, inLink, isProtected, inTableCell: inTableCell2 };
+    function rewriteLinks(text, fn) {
+      const lines = text.split("\n");
+      let fenced = false, count = 0;
+      for (let i = 0; i < lines.length; i++) {
+        if (isFenceLine(lines[i])) {
+          fenced = !fenced;
+          continue;
+        }
+        if (fenced)
+          continue;
+        lines[i] = lines[i].replace(linkRegex(), (whole, name, target, offset) => {
+          if (inInlineCode(lines[i], offset))
+            return whole;
+          const out = fn(name, target);
+          if (out == null)
+            return whole;
+          count++;
+          return out;
+        });
+      }
+      return { text: lines.join("\n"), count };
+    }
+    function rewriteFences(text, lang, fn) {
+      const lines = text.split("\n");
+      let count = 0;
+      for (let i = 0; i < lines.length; i++) {
+        const open = new RegExp("^\\s*(`{3,}|~{3,})\\s*" + lang + "\\s*$").exec(lines[i]);
+        if (!open)
+          continue;
+        const close = new RegExp("^\\s*" + open[1][0] + "{" + open[1].length + ",}\\s*$");
+        let j = i + 1;
+        while (j < lines.length && !close.test(lines[j]))
+          j++;
+        const body = lines.slice(i + 1, j);
+        const out = fn(body);
+        if (out) {
+          lines.splice(i + 1, body.length, ...out);
+          count++;
+          j = i + 1 + out.length;
+        }
+        i = j;
+      }
+      return { text: lines.join("\n"), count };
+    }
+    module2.exports = { splitLines: splitLines2, linkRegex, splitTarget, withTitle, rewriteLinks, rewriteFences, isFenceLine, inInlineCode, locate, inCode, inLink, isProtected, inTableCell: inTableCell2 };
   }
 });
 
-// languages/ru.js
+// src/shared/morphology/languages/ru.js
 var require_ru = __commonJS({
-  "languages/ru.js"(exports2, module2) {
+  "src/shared/morphology/languages/ru.js"(exports2, module2) {
     "use strict";
     var RVRE = /^(.*?[аеиоуыэюя])(.*)$/;
     var PERFECTIVEGROUND = /((ив|ивши|ившись|ыв|ывши|ывшись)|((?<=[ая])(в|вши|вшись)))$/;
@@ -285,9 +338,9 @@ var require_ru = __commonJS({
   }
 });
 
-// languages/uk.js
+// src/shared/morphology/languages/uk.js
 var require_uk = __commonJS({
-  "languages/uk.js"(exports2, module2) {
+  "src/shared/morphology/languages/uk.js"(exports2, module2) {
     "use strict";
     var ENDINGS = [
       "\u0430\u043C\u0438",
@@ -352,9 +405,9 @@ var require_uk = __commonJS({
   }
 });
 
-// languages/en.js
+// src/shared/morphology/languages/en.js
 var require_en = __commonJS({
-  "languages/en.js"(exports2, module2) {
+  "src/shared/morphology/languages/en.js"(exports2, module2) {
     "use strict";
     var STEP2 = { ational: "ate", tional: "tion", enci: "ence", anci: "ance", izer: "ize", bli: "ble", alli: "al", entli: "ent", eli: "e", ousli: "ous", ization: "ize", ation: "ate", ator: "ate", alism: "al", iveness: "ive", fulness: "ful", ousness: "ous", aliti: "al", iviti: "ive", biliti: "ble", logi: "log" };
     var STEP3 = { icate: "ic", ative: "", alize: "al", iciti: "ic", ical: "ic", ful: "", ness: "" };
@@ -486,9 +539,9 @@ var require_en = __commonJS({
   }
 });
 
-// languages/es.js
+// src/shared/morphology/languages/es.js
 var require_es = __commonJS({
-  "languages/es.js"(exports2, module2) {
+  "src/shared/morphology/languages/es.js"(exports2, module2) {
     "use strict";
     function fold(word) {
       return word.toLowerCase().replace(/[àáâä]/g, "a").replace(/[òóôö]/g, "o").replace(/[èéêë]/g, "e").replace(/[ùúûü]/g, "u").replace(/[ìíîï]/g, "i");
@@ -547,9 +600,9 @@ var require_es = __commonJS({
   }
 });
 
-// languages/de.js
+// src/shared/morphology/languages/de.js
 var require_de = __commonJS({
-  "languages/de.js"(exports2, module2) {
+  "src/shared/morphology/languages/de.js"(exports2, module2) {
     "use strict";
     function fold(word) {
       return word.toLowerCase().replace(/ß/g, "ss").replace(/[äàáâ]/g, "a").replace(/[öòóô]/g, "o").replace(/[ïìíî]/g, "i").replace(/[üùúû]/g, "u");
@@ -621,9 +674,9 @@ var require_de = __commonJS({
   }
 });
 
-// languages/fr.js
+// src/shared/morphology/languages/fr.js
 var require_fr = __commonJS({
-  "languages/fr.js"(exports2, module2) {
+  "src/shared/morphology/languages/fr.js"(exports2, module2) {
     "use strict";
     function endsWith(s, len, suffix) {
       const sl = suffix.length;
@@ -860,9 +913,9 @@ var require_fr = __commonJS({
   }
 });
 
-// src/builtin-languages.js
+// src/shared/morphology/builtin-languages.js
 var require_builtin_languages = __commonJS({
-  "src/builtin-languages.js"(exports2, module2) {
+  "src/shared/morphology/builtin-languages.js"(exports2, module2) {
     "use strict";
     var BUILTIN_LANGUAGES2 = [
       require_ru(),
@@ -876,9 +929,9 @@ var require_builtin_languages = __commonJS({
   }
 });
 
-// src/language-api.js
+// src/shared/morphology/language-api.js
 var require_language_api = __commonJS({
-  "src/language-api.js"(exports2, module2) {
+  "src/shared/morphology/language-api.js"(exports2, module2) {
     "use strict";
     var MATCH_MODES = ["stemmer", "endingStrip", "exact"];
     var ID_PATTERN = /^[a-z][a-z0-9-]*$/;

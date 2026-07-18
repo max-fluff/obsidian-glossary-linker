@@ -12,6 +12,7 @@
   "private": true,
   "scripts": {
     "build": "node esbuild.config.mjs",
+    "test": "node test/run.js",
     "plates": "node src/shared/branding/make-plates.mjs",
     "banner": "node src/shared/branding/make-banner.mjs"
   },

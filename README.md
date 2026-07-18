@@ -167,14 +167,14 @@ Matching is case-insensitive. The visible text keeps the casing from your note, 
 
 ### Adding a language
 
-A language is a small JavaScript module bundled into `main.js` at build time; nothing is loaded or executed at runtime. Adding one means contributing a module and rebuilding, through a pull request (see [Contributing](CONTRIBUTING.md)). The full contract, an annotated template and a step-by-step guide live in [`languages/README.md`](languages/README.md). The short version:
+A language is a small JavaScript module bundled into `main.js` at build time; nothing is loaded or executed at runtime. The modules are shared with the sibling linker plugins, so they live in the [obsidian-linker-shared](https://github.com/max-fluff/obsidian-linker-shared) submodule and a new one benefits every plugin at once. Adding one means contributing a module and rebuilding, through a pull request (see [Contributing](CONTRIBUTING.md)). The full contract, an annotated template and a step-by-step guide live in [`languages/README.md`](src/shared/morphology/languages/README.md). The short version:
 
-1. Copy [`languages/_template.js`](languages/_template.js) to `languages/<id>.js` (e.g. `uk.js`). A module exports `id`, `name`, `match(word)` and `keys(word, mode)`, plus optional `priority` and `lemma(word)`. Reusing a built-in `id` (`ru`/`uk`/`en`/`es`/`de`/`fr`) overrides it.
+1. Copy [`_template.js`](src/shared/morphology/languages/_template.js) to `src/shared/morphology/languages/<id>.js` (e.g. `uk.js`). A module exports `id`, `name`, `match(word)` and `keys(word, mode)`, plus optional `priority` and `lemma(word)`. Reusing a built-in `id` (`ru`/`uk`/`en`/`es`/`de`/`fr`) overrides it.
 2. Implement `match` (claims a word, usually by script) and `keys` (returns the comparison keys for a word in the current mode — `stemmer` / `endingStrip` / `exact`). Two words link when their key sets overlap.
-3. Register the module in [`src/builtin-languages.js`](src/builtin-languages.js) and run `npm run build`.
+3. Register the module in [`builtin-languages.js`](src/shared/morphology/builtin-languages.js) and run `npm run build`.
 4. Restart the plugin. The language shows up under *Matching → Languages*; turn its toggle on.
 
-Every module is validated against the contract on load (`src/language-api.js`). A module that doesn't export an object with a valid `id` / `name` / `match` / `keys` is dropped and listed under *Languages* with a ⚠ marker and the reason, so the index keeps working and a mistake is easy to spot.
+Every module is validated against the contract on load (`src/shared/morphology/language-api.js`). A module that doesn't export an object with a valid `id` / `name` / `match` / `keys` is dropped and listed under *Languages* with a ⚠ marker and the reason, so the index keeps working and a mistake is easy to spot.
 
 ## Commands (command palette, Ctrl+P)
 
@@ -328,7 +328,7 @@ Glossary Linker itself is released under the MIT license — see [`LICENSE`](LIC
 
 ## Development
 
-The core is written as small CommonJS modules in `src/` and bundled into `main.js` by esbuild. The language modules in `languages/` are bundled in through `src/builtin-languages.js`; adding a language means contributing a module there and rebuilding (see [`languages/README.md`](languages/README.md)). Nothing is loaded or executed at runtime.
+The core is written as small CommonJS modules in `src/` and bundled into `main.js` by esbuild. The language modules live in the shared submodule, under `src/shared/morphology/languages/`, and are bundled in through `src/shared/morphology/builtin-languages.js`; adding a language means contributing a module there and rebuilding (see [`languages/README.md`](src/shared/morphology/languages/README.md)). Nothing is loaded or executed at runtime.
 
 Generic code shared with the sibling linker plugins lives in `src/shared/`, a git submodule of [obsidian-linker-shared](https://github.com/max-fluff/obsidian-linker-shared). Clone with `--recurse-submodules` so the build can find it:
 
@@ -344,8 +344,6 @@ In an existing clone without the submodule, run `git submodule update --init` fi
 
 - `main.js` — the `Plugin` class: lifecycle, commands, language loading, scope, small shared helpers; applies the mixins below.
 - `constants.js` — default settings.
-- `builtin-languages.js` — requires the modules in `languages/` so they are bundled into `main.js`.
-- `language-api.js` — the language-module contract and `validateLanguage()`.
 - `matcher.js` — the term index and matching engine (`keysFor`, `tokenizeForm`, `rebuildIndex`, `findMatches`, `termsMatchingText`, protected ranges).
 - `highlight.js` — Reading-view DOM highlighting and the CM6 editor extension.
 - `actions.js` — turning terms into links and collecting aliases.
@@ -354,9 +352,9 @@ In an existing clone without the submodule, run `git submodule update --init` fi
 - `settings-tab.js` — the settings UI.
 - `folder-suggest.js` — folder autocomplete for the glossary-folder field (feature-detected).
 - `term-suggest.js` — the editor autocomplete (`EditorSuggest`, feature-detected).
-- `shared/` — git submodule shared with the sibling linker plugins: markdown helpers, the i18n engine, and the folder-list settings editor. Interface strings live per-plugin in `locales/`.
+- `shared/` — git submodule shared with the sibling linker plugins: markdown helpers, the i18n engine, the folder-list settings editor, and `morphology/` (the language modules, their contract and `validateLanguage()`). Interface strings live per-plugin in `locales/`.
 
-`main.js` is generated; edit `src/` (or `languages/`) and rebuild rather than editing `main.js` directly. `node_modules/` and `package-lock.json` are git-ignored.
+`main.js` is generated; edit `src/` and rebuild rather than editing `main.js` directly. `node_modules/` and `package-lock.json` are git-ignored.
 
 ## Installation
 
