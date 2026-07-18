@@ -7,7 +7,7 @@
 // and the two rules that are ours alone — excluded words, and which spans are off limits.
 // They lean on observable results (what matched, where, which term) rather than internals.
 
-const { describe, it, assert } = require('./harness');
+const { describe, it, assert } = require('../src/shared/testing/harness');
 const matcher = require('../src/matcher');
 const en = require('../src/shared/morphology/languages/en.js');
 
@@ -117,9 +117,8 @@ describe('protected ranges', () => {
   });
 
   it('leaves an Obsidian comment alone', () => {
-    // This one is new, and it is about coexistence rather than tidiness: the heading linker
-    // keeps its aliases in `%% alias: … %%`, so linking inside a comment would rewrite a
-    // sibling's declaration into `%% alias: [[Spawn]] %%` and corrupt it.
+    // The heading linker keeps its aliases in `%% alias: … %%`, so linking inside a comment
+    // would corrupt a sibling's declaration.
     assert.deepStrictEqual(matched('%% alias: spawn %%'), []);
     assert.strictEqual(makePlugin({ notes: [spawn] }).isProtectedAt('%% alias: spawn %%', 12), true);
   });

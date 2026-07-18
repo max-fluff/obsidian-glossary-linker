@@ -36,41 +36,24 @@ module.exports = {
       // Subscribe to index rebuilds; returns an unsubscribe function.
       onChange: (cb) => this.onIndexChange(cb),
 
-      // What the sibling linker plugins read: who we are, how we rank when two of us match
-      // the same word, and which spans of a text we claim. See shared/discover.js.
+      // The provider contract the sibling linkers read (consumed in shared/discover.js).
       linker: {
         apiVersion: LINKER_API,
         id: 'glossary-linker',
         displayName: 'Glossary Linker',
-        // Which half of the family we are. Prose linkers contest bare words with each other
-        // and never with the sigil pair, so this is what keeps the precedence setting from
-        // offering a choice between two plugins that can't collide.
         kind: 'prose',
-        // Higher wins a contested word. A glossary term points at a whole note, a broader
-        // answer than a heading anchor, so it yields to Heading Linker by default —
-        // adjustable, and read from here by the other side rather than assumed. A getter,
-        // so a change in settings is seen without rebuilding the api object.
+        // A getter, so a settings change is seen without rebuilding the api object.
         get precedence() { return plugin.settings.linkPrecedence; },
-        // Spans of `text` we claim, with what each one resolves to. Protected ranges are
-        // skipped, so the answer matches what we would actually decorate. The label and
-        // target let whoever owns the span offer ours as a choice instead of dropping it.
+        // Protected ranges are skipped, so the answer matches what we would decorate.
         matches: (text) => plugin.findMatches(String(text || ''), null, { protect: true })
           .map((m) => ({ start: m.start, end: m.end, label: m.canonical, target: m.canonical })),
-        // Open one of our targets. Ours to resolve — nobody else should have to know how a
-        // glossary term maps to a note.
         open: (target, sourcePath, newTab) => plugin.openTerm(target, sourcePath, newTab),
-        // Show our own preview of one of our targets, anchored to someone else's element.
-        // Used by the duplicate list, which lists candidates from every linker but must let
-        // each one preview its own.
+        // Our own preview of one of our targets, anchored to someone else's element.
         hover: (target, event, targetEl, sourcePath, hoverParent) =>
           plugin.hoverTerm(event, targetEl, target, sourcePath, hoverParent),
-        // What we would autocomplete for a typed word, for the linker that owns the popup.
-        // The note is the line the reader sees under the name, already localised by us.
         suggest: (query) => suggestionsFor(plugin, String(query || '')),
-        // Our link text for a target. The popup's owner writes it but never composes it.
+        // The popup's owner writes our link text but never composes it.
         linkFor: (target, display, inTable) => plugin.wikiLink(target, display, inTable),
-        // Redraw after the other side changes who ranks higher, so the setting takes effect
-        // in both plugins at once instead of at the next rebuild.
         refresh: () => plugin.rerenderViews(),
       },
     };

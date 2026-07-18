@@ -3,14 +3,10 @@
 const { splitLines } = require('./shared/markdown');
 const { createMatcher } = require('./shared/prose/matcher');
 
-// Term index + matching engine. Mixed into the plugin prototype.
-//
-// The scan itself lives in shared/prose/matcher.js — it is the same one the heading linker
-// runs, so a word means the same thing to both. What stays here is what is genuinely ours:
-// a term is a whole note, identified by its title, with aliases from its frontmatter.
+// Term index + matching engine. Mixed into the plugin prototype; the scan itself lives in
+// shared/prose/matcher.js. A term is a whole note, identified by its title, with aliases
+// from its frontmatter.
 const core = createMatcher({
-  // A term is its title, and that is also what a note is checked against so it doesn't link
-  // to itself: for the glossary the two really are the same string.
   idOf: (c) => c.canonical,
   selfIdOf: (c) => c.canonical,
   fieldsOf: (c) => ({ canonical: c.canonical }),

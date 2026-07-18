@@ -1,16 +1,10 @@
 'use strict';
 
-// Merging a sibling linker's autocomplete candidates into our popup.
-//
-// Obsidian gives the popup to the first registered suggester whose onTrigger returns a
-// context and never asks the rest, so a word both linkers know used to show one plugin's
-// answers — and which one depended on load order. Both now build the same complete list.
-//
-// The case worth guarding hardest is the last one here: a sibling's candidate must be
-// written by the sibling. Getting that wrong inserts a syntactically fine link pointing at
-// the wrong place, which no build or type check would notice.
+// Merging a sibling linker's autocomplete candidates into our popup. The case worth
+// guarding hardest is the last one: a sibling's candidate must be written by the sibling —
+// getting that wrong inserts a fine-looking link pointing at the wrong place.
 
-const { describe, it, assert } = require('./harness');
+const { describe, it, assert } = require('../src/shared/testing/harness');
 const { installStubs } = require('./stubs/app');
 
 installStubs();

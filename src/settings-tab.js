@@ -2,7 +2,7 @@
 
 const { PluginSettingTab, Setting, Notice, TFolder } = require('obsidian');
 const { sanitizeFolder } = require('./constants');
-const { FolderSuggest, FileSuggest, PathSuggest, folderSuggestAvailable } = require('./folder-suggest');
+const { FolderSuggest, FileSuggest, PathSuggest, folderSuggestAvailable } = require('./shared/prose/folder-suggest');
 const { renderFolderList } = require('./shared/folder-list');
 const { t, plural } = require('./shared/i18n');
 const { renderPrecedence: precedenceSetting } = require('./shared/precedence');

@@ -1,14 +1,10 @@
 'use strict';
 
-// The reading-view decoration, run for real.
-//
-// The behaviour lives in shared/prose/highlight.js and the names come from this plugin's
-// config, so what can break here is the wiring: a span that ends up with the sibling's class,
-// or an attribute assembled from the wrong prefix. Neither shows up in a build, and the
-// attribute names are template-built, so they cannot be grepped out of the bundle either —
-// the only way to check them is to produce a node and look at it.
+// The reading-view decoration, run for real. The behaviour is shared; the names come from
+// this plugin's config, and the attribute names are template-built — the only way to check
+// them is to produce a node and look at it.
 
-const { describe, it, assert } = require('./harness');
+const { describe, it, assert } = require('../src/shared/testing/harness');
 const path = require('path');
 const { fakeApp, installStubs } = require('./stubs/app');
 

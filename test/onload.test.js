@@ -1,13 +1,9 @@
 'use strict';
 
-// The plugin must survive being constructed and loaded.
-//
-// This exists because it didn't: a helper was deleted while a call to it stayed behind, and
-// the plugin threw in onload and refused to load at all. esbuild bundles an undefined
-// identifier happily, and no other test reaches registerEditingHighlight — so "it builds and
-// the tests pass" said nothing about whether the plugin runs. This runs it.
+// The plugin must survive being constructed and loaded. esbuild happily bundles a call to a
+// deleted helper, so "it builds" says nothing about whether onload runs — this runs it.
 
-const { describe, it, assert } = require('./harness');
+const { describe, it, assert } = require('../src/shared/testing/harness');
 const path = require('path');
 const { fakeApp, installStubs, recordingMenu, fakeEditor, obsidianStub } = require('./stubs/app');
 
@@ -37,7 +33,6 @@ describe('onload', () => {
   });
 
   it('registers the editor highlight without throwing', async () => {
-    // Where the regression actually was: called from onload, and reached by nothing else.
     const plugin = await load();
     plugin.registerEditingHighlight();
   });
@@ -49,9 +44,7 @@ describe('onload', () => {
   });
 
   it('builds the editor menu without throwing', async () => {
-    // The handler itself, not just the registration. Everything the reader sees in the
-    // right-click menu is built in here, and nothing else in the suite runs a line of it —
-    // which is how a call to a deleted helper survived a green test run once already.
+    // The handler itself, not just the registration — nothing else in the suite runs it.
     const plugin = await load();
     const handler = fakeApp.handlers.get('editor-menu');
     assert.ok(handler, 'no editor-menu handler was registered');
@@ -60,8 +53,6 @@ describe('onload', () => {
     assert.ok(Array.isArray(menu.titles()));
   });
   it('offers alias collection on a note, flat and named for what it collects', async () => {
-    // Harvesting moved here from the editor menu, where it had nothing to do with what was
-    // under the cursor and both prose linkers offered it at once.
     const plugin = await load();
     const handler = fakeApp.handlers.get('file-menu');
     assert.ok(handler, 'no file-menu handler was registered');

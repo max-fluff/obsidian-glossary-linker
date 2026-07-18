@@ -5,7 +5,7 @@
 // suggester that claims. Returning candidates for a word we don't know would silence a
 // sibling linker that does.
 
-const { describe, it, assert } = require('./harness');
+const { describe, it, assert } = require('../src/shared/testing/harness');
 const { collectSuggestions } = require('../src/term-suggest');
 
 // The suggester reads only the index and the term list, so a hand-built pair stands in for

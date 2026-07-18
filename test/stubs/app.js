@@ -1,8 +1,7 @@
 'use strict';
 
-// Stubs rich enough to construct a plugin and run onload(), so a load-time failure is
-// caught by the tests instead of by opening Obsidian. Deliberately hollow: it proves the
-// code runs, not that it behaves — behaviour belongs in the focused tests.
+// Stubs rich enough to construct a plugin and run onload(). Deliberately hollow: they prove
+// the code runs, not that it behaves — behaviour belongs in the focused tests.
 
 const Module = require('module');
 const path = require('path');
@@ -44,8 +43,8 @@ const stub = {
   Notice: class {}, Modal: class { constructor(app) { this.app = app; } },
   SuggestModal: class {}, FuzzySuggestModal: class {}, EditorSuggest: class {},
   AbstractInputSuggest: class {}, PopoverSuggest: class {}, ItemView: class {}, WorkspaceLeaf: class {},
-  // load/unload are the part that matters: a hover popover's lifetime is tied to the
-  // component that asked for it, so unloading one closes what it opened.
+  // A hover popover's lifetime is tied to the component that asked for it, so load/unload
+  // are the part that matters here.
   Component: class { load() { this.loaded = true; } unload() { this.loaded = false; } },
   PluginSettingTab: class { constructor(app, plugin) { this.app = app; this.plugin = plugin; } },
   Setting: class { constructor() { return chainable(); } },
@@ -58,8 +57,7 @@ const stub = {
 stub.Plugin.prototype.addStatusBarItem = () => elLike();
 stub.Plugin.prototype.addRibbonIcon = () => elLike();
 stub.Plugin.prototype.registerEvent = noop;
-// Recorded, not dropped: the modifier-key path into the hover popover lives here and
-// nothing else in a test can reach it.
+// Recorded, not dropped, so a test can fire a document-level listener.
 stub.Plugin.prototype.registerDomEvent = function (target, name, fn) { domHandlers.set(name, fn); };
 stub.Plugin.prototype.registerMarkdownPostProcessor = noop;
 stub.Plugin.prototype.registerMarkdownCodeBlockProcessor = noop;
@@ -92,10 +90,8 @@ function installStubs() {
   require.cache.CM_STUB = { id: 'CM_STUB', filename: 'CM_STUB', loaded: true, exports: cm };
 }
 
-// Handlers the plugin registers, kept so a test can fire one. Without this the menu-building
-// code — the part most often changed and most often broken — is never actually run.
+// Handlers the plugin registers, kept so a test can fire one.
 const handlers = new Map();
-// The same, for document-level listeners registered through registerDomEvent.
 const domHandlers = new Map();
 
 const app = {
@@ -105,10 +101,8 @@ const app = {
   workspace: {
     on: (name, fn) => { handlers.set(name, fn); return {}; },
     getActiveFile: () => null,
-    // Deliberately never fires. What is under test is that onload wires itself up without
-    // throwing; the layout-ready callback kicks off a full filesystem index scan, which for
-    // the sigil plugins walks real directories and leaves watchers running, so the test
-    // process would do a lot of unrelated work and then refuse to exit.
+    // Deliberately never fires: the layout-ready callback kicks off a full filesystem index
+    // scan, which walks real directories and leaves watchers that keep the process alive.
     onLayoutReady: noop,
     trigger: noop, iterateAllLeaves: noop, getActiveViewOfType: () => null,
     registerHoverLinkSource: noop, getLeavesOfType: () => [], detachLeavesOfType: noop,
@@ -117,8 +111,7 @@ const app = {
   metadataCache: { on: () => ({}), getFileCache: () => null, getFirstLinkpathDest: () => null },
 };
 
-// A menu that records what was put in it, including inside submenus, so a test can assert on
-// the titles a reader would actually see.
+// A menu that records what was put in it, including inside submenus.
 function recordingMenu() {
   const items = [];
   const make = (prefix) => ({
