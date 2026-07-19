@@ -1,7 +1,7 @@
 'use strict';
 
 const { Notice, TFile, moment } = require('obsidian');
-const { splitLines } = require('./shared/markdown');
+const { splitLines, wordAt } = require('./shared/markdown');
 const {
   MaterializePreviewModal, HarvestPreviewModal, ChooseTermModal, UnlinkPreviewModal,
   TermPickerModal, AliasTextModal,
@@ -263,6 +263,12 @@ module.exports = {
     return matches.find((m) => head.ch >= m.start && head.ch <= m.end) || null;
   },
 
+  // The plain word under the cursor, whether or not the index knows it.
+  rawWordAtCursor(editor) {
+    const head = editor.getCursor('head');
+    return wordAt(editor.getLine(head.line), head.ch);
+  },
+
   // Every reading of the match under the cursor: ours, our own same-named alternatives, and
   // the ones other linkers stood down on. What the menu offers to link or open.
   cursorCandidates(hit, sourcePath, newTab) {
@@ -288,20 +294,21 @@ module.exports = {
     return splitLines(this.settings[listKey]).some((l) => l.toLowerCase() === v);
   },
 
-  // Add or remove exclusion item for `menu`, toggled by current state. A prefix (native menus)
-  // selects the brand-prefixed lower-case wording; without it (the plugin's own menu) the
-  // capitalised wording is used. excludeWords are stored lowercased.
-  addExclusionMenuItem(menu, listKey, value, prefix = '') {
-    const noun = listKey === 'excludeWords' ? t('exclude.words') : t('exclude.terms');
-    if (this.isExcluded(listKey, value)) {
-      menu.addItem((i) => i.setTitle(t(prefix ? 'exclude.removePrefixed' : 'exclude.remove', { value, noun })).setIcon('rotate-ccw')
-        .onClick(() => this.removeFromExclusion(listKey, value)));
-    } else {
-      const icon = listKey === 'excludeWords' ? 'ban' : 'trash-2';
-      const stored = listKey === 'excludeWords' ? value.toLowerCase() : value;
-      menu.addItem((i) => i.setTitle(t(prefix ? 'exclude.addPrefixed' : 'exclude.add', { value, noun })).setIcon(icon)
-        .onClick(() => this.addToExclusion(listKey, stored)));
-    }
+  // Add or remove exclusion item, toggled by current state. Tagged with the verb, so the
+  // builder collects it with whatever else offers to exclude the same word. excludeWords are
+  // stored lowercased.
+  addExclusionMenuItem(menu, listKey, value) {
+    const words = listKey === 'excludeWords';
+    const noun = words ? t('exclude.words') : t('exclude.terms');
+    const excluded = this.isExcluded(listKey, value);
+    const key = excluded ? 'exclude.remove' : 'exclude.add';
+    menu.tagged('exclude', { value }, (i, grouped) => i
+      // Inside the group the parent already names the word, so the title drops it.
+      .setTitle(t(grouped ? key + 'Short' : key, { value, noun }))
+      .setIcon(excluded ? 'rotate-ccw' : (words ? 'ban' : 'trash-2'))
+      .onClick(() => (excluded
+        ? this.removeFromExclusion(listKey, value)
+        : this.addToExclusion(listKey, words ? value.toLowerCase() : value))));
   },
 
   async addToExclusion(listKey, value) {

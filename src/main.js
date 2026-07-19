@@ -14,7 +14,7 @@ const indexEvents = require('./shared/index-events');
 const { GlossaryTermSuggest, suggestAvailable } = require('./term-suggest');
 const { GlossaryOverviewView, OVERVIEW_VIEW_TYPE } = require('./overview-view');
 const { initI18n, withFamily, t, plural } = require('./shared/i18n');
-const { menuSection } = require('./shared/menu');
+const { buildMenu } = require('./shared/menu-verbs');
 const { ChoicePopover } = require('./shared/prose/choices');
 
 class GlossaryLinkerPlugin extends Plugin {
@@ -95,7 +95,7 @@ class GlossaryLinkerPlugin extends Plugin {
       if (active && active.path === file.path) this.updateStatusBarDebounced();
     }));
 
-    this.registerEvent(this.app.workspace.on('editor-menu', (menu, editor) => {
+    this.registerEvent(this.app.workspace.on('editor-menu', (nativeMenu, editor) => buildMenu(this, nativeMenu, (menu) => {
       const sel = editor.getSelection().trim();
       const hasSel = !!sel && !sel.includes('\n');
 
@@ -106,10 +106,6 @@ class GlossaryLinkerPlugin extends Plugin {
       const file = this.app.workspace.getActiveFile();
       const sourcePath = file ? file.path : '';
 
-      // Flat, and named for the list it writes to: "excluded words"/"excluded terms" are
-      // already ours and "excluded headings" is already the heading linker's, so the wording
-      // tells them apart on its own. Wrapping one item in a submenu titled with the plugin
-      // name only added a click.
       const excludeItems = (value, ...listKeys) => {
         if (!this.settings.menuExclude) return;
         for (const key of listKeys) this.addExclusionMenuItem(menu, key, value);
@@ -152,19 +148,22 @@ class GlossaryLinkerPlugin extends Plugin {
         const display = hit.match.display;
         const canonical = hit.match.canonical;
         const candidates = () => this.cursorCandidates(hit, sourcePath, false);
+        // Only our own readings: a link is written by the linker that owns it, so a peer's
+        // meaning here could only open its note, never link the word. The peer has its own item.
+        const ownCandidates = () => [hit.match.canonical, ...(hit.match.alts || [])];
         if (file && this.settings.menuTurnInto) {
           // Three ways to link the same word differ only in how far they reach, so they are
           // one entry with a choice inside rather than three lines competing for attention.
           const scope = this.settings.linkFirstOnly ? t('scope.first') : t('scope.all');
-          const linkGroup = menuSection(menu, t('menu.linkThisWord', { display }), true, 'link');
+          const linkGroup = menu.section(t('menu.linkThisWord', { display }), 'link');
           linkGroup.addItem((i) => i.setTitle(t('menu.linkHere', { display })).setIcon('link')
-            .onClick(() => this.chooseTerm(candidates(), t('menu.linkDisplayTo', { display }),
+            .onClick(() => this.chooseTerm(ownCandidates(), t('menu.linkDisplayTo', { display }),
               (c) => this.materializeSingle(file, canonical, display, editor.posToOffset({ line: hit.line, ch: hit.match.start }), 0, c))));
           linkGroup.addItem((i) => i.setTitle(t('menu.linkScopeThisNote', { scope, display })).setIcon('links-coming-in')
-            .onClick(() => this.chooseTerm(candidates(), t('menu.linkScopeTo', { scope, display }),
+            .onClick(() => this.chooseTerm(ownCandidates(), t('menu.linkScopeTo', { scope, display }),
               (c) => this.materializeTerm(file, canonical, c))));
           linkGroup.addItem((i) => i.setTitle(t('menu.linkScopeAllNotes', { scope, display })).setIcon('links-going-out')
-            .onClick(() => this.chooseTerm(candidates(), t('menu.linkScopeTo', { scope, display }),
+            .onClick(() => this.chooseTerm(ownCandidates(), t('menu.linkScopeTo', { scope, display }),
               (c) => this.materializeTermScope(canonical, c))));
         }
         if (this.settings.menuOpen) {
@@ -182,7 +181,15 @@ class GlossaryLinkerPlugin extends Plugin {
         excludeItems(word.canonical, 'excludeTerms');
         return;
       }
-    }));
+      // Nothing matches — which is also what an already-excluded word looks like, since
+      // exclusion takes it out of the index. Without this the item that put it there has no
+      // counterpart and the reader cannot undo it from the menu at all.
+      const raw = this.rawWordAtCursor(editor);
+      if (raw) {
+        const lists = ['excludeWords', 'excludeTerms'].filter((k) => this.isExcluded(k, raw));
+        if (lists.length) excludeItems(raw, ...lists);
+      }
+    })));
 
     this.registerEvent(this.app.workspace.on('file-menu', (menu, file, source) => {
       // Explorer file/folder actions only — not the menu from right-clicking a link to a note.

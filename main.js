@@ -200,7 +200,23 @@ var require_markdown = __commonJS({
       }
       return { text: lines.join("\n"), count };
     }
-    module2.exports = { splitLines: splitLines2, linkRegex, splitTarget, withTitle, rewriteLinks, rewriteFences, isFenceLine, inInlineCode, locate, inCode, inLink, isProtected, inTableCell: inTableCell2 };
+    function wordAt(line, ch) {
+      const s = String(line == null ? "" : line);
+      if (!s)
+        return "";
+      const isWord = (c) => /[\p{L}\p{Nd}]/u.test(c || "");
+      const at = Math.max(0, Math.min(ch, s.length));
+      if (!isWord(s[at]) && !isWord(s[at - 1]))
+        return "";
+      let start = at;
+      while (start > 0 && isWord(s[start - 1]))
+        start--;
+      let end = at;
+      while (end < s.length && isWord(s[end]))
+        end++;
+      return s.slice(start, end);
+    }
+    module2.exports = { splitLines: splitLines2, linkRegex, splitTarget, withTitle, rewriteLinks, rewriteFences, isFenceLine, inInlineCode, locate, inCode, inLink, isProtected, inTableCell: inTableCell2, wordAt };
   }
 });
 
@@ -1202,7 +1218,37 @@ var require_prose = __commonJS({
       "set.linkSuggest.name": "Suggest links while typing",
       "set.suggestMinChars.desc": "How many characters to type before suggestions appear.",
       "set.suggestSkipAfter.name": "Skip after characters",
-      "set.heading.contextMenu": "Context menu"
+      "set.heading.contextMenu": "Context menu",
+      // The shared submenu the exclusion items collect into, and their wording inside it, where
+      // the parent already names the word.
+      "exclude.group": "Exclude \u201C{value}\u201D",
+      "exclude.addShort": "Add to {noun}",
+      "exclude.removeShort": "Remove from {noun}",
+      "label.selection": "Selection",
+      "modal.leftAsText": "(left as text)",
+      "modal.skipOption": "skip",
+      "modal.materialize.summary": "Reviewing {files} file(s), {replacements} replacement(s).",
+      "modal.unlink.summary": "Reviewing {files} file(s), {links} link(s).",
+      "modal.choose.body": "This word has more than one match.",
+      "notice.noActiveNote": "No active note.",
+      "notice.noSelection": "Nothing selected.",
+      "notice.scopeSkipped": " Skipped {n} note(s) changed since the preview.",
+      "set.editingHighlight.live": "Live",
+      "set.editingHighlight.name": "Highlight in the editor",
+      "set.lang.invalid": "Invalid: {error}",
+      "set.languages.desc": "{enabled} of {total} enabled",
+      "set.matchMode.name": "Match mode",
+      "set.matchMode.exact": "Exact (case-insensitive)",
+      "set.matchMode.endingStrip": "Light ending strip",
+      "set.matchMode.stemmer": "Stemmer (best across forms)",
+      "set.scopeMode.name": "Where to link",
+      "set.scopeMode.vault": "The whole vault",
+      "set.scopeMode.folders": "Only chosen folders",
+      "set.suggestMinChars.name": "Minimum typed length",
+      "set.statusBarIncludeLinks.name": "Count existing links too",
+      "set.folderList.add": "Add path\u2026",
+      "set.folderList.addAria": "Add",
+      "plural.alias": { one: "{n} alias", other: "{n} aliases" }
     };
     var ru = {
       "noun.file": "\u0444\u0430\u0439\u043B",
@@ -1232,7 +1278,35 @@ var require_prose = __commonJS({
       "set.linkSuggest.name": "\u041F\u043E\u0434\u0441\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0441\u0441\u044B\u043B\u043A\u0438 \u043F\u0440\u0438 \u043D\u0430\u0431\u043E\u0440\u0435",
       "set.suggestMinChars.desc": "\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432 \u043D\u0430\u0431\u0440\u0430\u0442\u044C, \u043F\u0440\u0435\u0436\u0434\u0435 \u0447\u0435\u043C \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0438.",
       "set.suggestSkipAfter.name": "\u041F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u0442\u044C \u043F\u043E\u0441\u043B\u0435 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432",
-      "set.heading.contextMenu": "\u041A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u043E\u0435 \u043C\u0435\u043D\u044E"
+      "set.heading.contextMenu": "\u041A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u043E\u0435 \u043C\u0435\u043D\u044E",
+      "exclude.group": "\u0418\u0441\u043A\u043B\u044E\u0447\u0438\u0442\u044C \xAB{value}\xBB",
+      "exclude.addShort": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 {noun}",
+      "exclude.removeShort": "\u0423\u0431\u0440\u0430\u0442\u044C \u0438\u0437 {noun}",
+      "label.selection": "\u0412\u044B\u0434\u0435\u043B\u0435\u043D\u0438\u0435",
+      "modal.leftAsText": "(\u043E\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u043E \u0442\u0435\u043A\u0441\u0442\u043E\u043C)",
+      "modal.skipOption": "\u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C",
+      "modal.materialize.summary": "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430: \u0444\u0430\u0439\u043B\u043E\u0432 \u2014 {files}, \u0437\u0430\u043C\u0435\u043D \u2014 {replacements}.",
+      "modal.unlink.summary": "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430: \u0444\u0430\u0439\u043B\u043E\u0432 \u2014 {files}, \u0441\u0441\u044B\u043B\u043E\u043A \u2014 {links}.",
+      "modal.choose.body": "\u0423 \u044D\u0442\u043E\u0433\u043E \u0441\u043B\u043E\u0432\u0430 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0439.",
+      "notice.noActiveNote": "\u041D\u0435\u0442 \u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0439 \u0437\u0430\u043C\u0435\u0442\u043A\u0438.",
+      "notice.noSelection": "\u041D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u0432\u044B\u0434\u0435\u043B\u0435\u043D\u043E.",
+      "notice.scopeSkipped": " \u041F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E \u0437\u0430\u043C\u0435\u0442\u043E\u043A, \u0438\u0437\u043C\u0435\u043D\u0451\u043D\u043D\u044B\u0445 \u043F\u043E\u0441\u043B\u0435 \u043F\u0440\u0435\u0432\u044C\u044E: {n}.",
+      "set.editingHighlight.live": "\u041D\u0430 \u043B\u0435\u0442\u0443",
+      "set.editingHighlight.name": "\u041F\u043E\u0434\u0441\u0432\u0435\u0442\u043A\u0430 \u0432 \u0440\u0435\u0434\u0430\u043A\u0442\u043E\u0440\u0435",
+      "set.lang.invalid": "\u041E\u0448\u0438\u0431\u043A\u0430: {error}",
+      "set.languages.desc": "\u0412\u043A\u043B\u044E\u0447\u0435\u043D\u043E {enabled} \u0438\u0437 {total}",
+      "set.matchMode.name": "\u0420\u0435\u0436\u0438\u043C \u0441\u043E\u043F\u043E\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u0438\u044F",
+      "set.matchMode.exact": "\u0422\u043E\u0447\u043D\u043E\u0435 (\u0431\u0435\u0437 \u0443\u0447\u0451\u0442\u0430 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430)",
+      "set.matchMode.endingStrip": "\u041B\u0451\u0433\u043A\u043E\u0435 \u043E\u0442\u0441\u0435\u0447\u0435\u043D\u0438\u0435 \u043E\u043A\u043E\u043D\u0447\u0430\u043D\u0438\u0439",
+      "set.matchMode.stemmer": "\u0421\u0442\u0435\u043C\u043C\u0435\u0440 (\u043B\u0443\u0447\u0448\u0435 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u0444\u043E\u0440\u043C)",
+      "set.scopeMode.name": "\u0413\u0434\u0435 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u0442\u044C",
+      "set.scopeMode.vault": "\u0412\u0441\u0451 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435",
+      "set.scopeMode.folders": "\u0422\u043E\u043B\u044C\u043A\u043E \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u0435 \u043F\u0430\u043F\u043A\u0438",
+      "set.suggestMinChars.name": "\u041C\u0438\u043D\u0438\u043C\u0443\u043C \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432",
+      "set.statusBarIncludeLinks.name": "\u0421\u0447\u0438\u0442\u0430\u0442\u044C \u0438 \u0443\u0436\u0435 \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0435",
+      "set.folderList.add": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0443\u0442\u044C\u2026",
+      "set.folderList.addAria": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C",
+      "plural.alias": { one: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C", few: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u0430", many: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u043E\u0432", other: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u043E\u0432" }
     };
     var de = {
       "noun.file": "Datei",
@@ -1259,7 +1333,30 @@ var require_prose = __commonJS({
       "set.linkSuggest.name": "Links w\xE4hrend der Eingabe vorschlagen",
       "set.suggestMinChars.desc": "Wie viele Zeichen einzugeben sind, bevor Vorschl\xE4ge erscheinen.",
       "set.suggestSkipAfter.name": "Nach Zeichen \xFCberspringen",
-      "set.heading.contextMenu": "Kontextmen\xFC"
+      "set.heading.contextMenu": "Kontextmen\xFC",
+      "label.selection": "Auswahl",
+      "modal.leftAsText": "\u2014 als Text belassen \u2014",
+      "modal.skipOption": "(\xFCberspringen \u2014 als Text belassen)",
+      "modal.materialize.summary": "Dateien: {files}, Ersetzungen: {replacements}",
+      "modal.unlink.summary": "Dateien: {files}, zu entfernende Links: {links}",
+      "modal.choose.body": "Dieses Wort passt zu mehr als einem Begriff \u2014 eines w\xE4hlen:",
+      "notice.noActiveNote": "Keine aktive Notiz",
+      "notice.noSelection": "Keine Auswahl",
+      "notice.scopeSkipped": ", {n} \xFCbersprungen (seit der Vorschau ge\xE4ndert)",
+      "set.editingHighlight.live": "Live (w\xE4hrend der Eingabe)",
+      "set.editingHighlight.name": "Beim Bearbeiten hervorheben",
+      "set.lang.invalid": "Ung\xFCltiges Modul: {error}",
+      "set.languages.desc": "Mitgelieferte Morphologie-Module \u2014 {enabled} von {total} aktiviert",
+      "set.matchMode.name": "Morphologie",
+      "set.matchMode.exact": "Exakter Treffer",
+      "set.matchMode.endingStrip": "Endungen abschneiden",
+      "set.matchMode.stemmer": "Stemmer (empfohlen)",
+      "set.scopeMode.name": "Verlinkungsbereich",
+      "set.scopeMode.vault": "\xDCberall",
+      "set.scopeMode.folders": "Nur aufgef\xFChrte Pfade",
+      "set.suggestMinChars.name": "Mindestanzahl Zeichen",
+      "set.statusBarIncludeLinks.name": "Direkte Links z\xE4hlen",
+      "plural.alias": { one: "{n} Alias", other: "{n} Aliasse" }
     };
     var es = {
       "noun.file": "archivo",
@@ -1286,7 +1383,30 @@ var require_prose = __commonJS({
       "set.linkSuggest.name": "Sugerir enlaces al escribir",
       "set.suggestMinChars.desc": "Cu\xE1ntos caracteres escribir antes de que aparezcan las sugerencias.",
       "set.suggestSkipAfter.name": "Omitir tras caracteres",
-      "set.heading.contextMenu": "Men\xFA contextual"
+      "set.heading.contextMenu": "Men\xFA contextual",
+      "label.selection": "selecci\xF3n",
+      "modal.leftAsText": "\u2014 dejado como texto \u2014",
+      "modal.skipOption": "(omitir \u2014 dejar como texto)",
+      "modal.materialize.summary": "Archivos: {files}, reemplazos: {replacements}",
+      "modal.unlink.summary": "Archivos: {files}, enlaces a eliminar: {links}",
+      "modal.choose.body": "Esta palabra coincide con m\xE1s de un t\xE9rmino \u2014 elige uno:",
+      "notice.noActiveNote": "No hay nota activa",
+      "notice.noSelection": "No hay selecci\xF3n",
+      "notice.scopeSkipped": ", {n} omitido(s) (cambiado desde la vista previa)",
+      "set.editingHighlight.live": "En vivo (mientras escribes)",
+      "set.editingHighlight.name": "Resaltar al editar",
+      "set.lang.invalid": "M\xF3dulo no v\xE1lido: {error}",
+      "set.languages.desc": "M\xF3dulos de morfolog\xEDa incluidos \u2014 {enabled} de {total} activados",
+      "set.matchMode.name": "Morfolog\xEDa",
+      "set.matchMode.exact": "Coincidencia exacta",
+      "set.matchMode.endingStrip": "Quitar terminaciones",
+      "set.matchMode.stemmer": "Lematizador (recomendado)",
+      "set.scopeMode.name": "\xC1mbito de enlazado",
+      "set.scopeMode.vault": "En todas partes",
+      "set.scopeMode.folders": "Solo rutas indicadas",
+      "set.suggestMinChars.name": "Caracteres m\xEDnimos",
+      "set.statusBarIncludeLinks.name": "Contar enlaces directos",
+      "plural.alias": { one: "{n} alias", other: "{n} alias" }
     };
     var fr = {
       "noun.file": "fichier",
@@ -1313,7 +1433,30 @@ var require_prose = __commonJS({
       "set.linkSuggest.name": "Sugg\xE9rer des liens pendant la saisie",
       "set.suggestMinChars.desc": "Combien de caract\xE8res saisir avant que les suggestions apparaissent.",
       "set.suggestSkipAfter.name": "Ignorer apr\xE8s caract\xE8res",
-      "set.heading.contextMenu": "Menu contextuel"
+      "set.heading.contextMenu": "Menu contextuel",
+      "label.selection": "s\xE9lection",
+      "modal.leftAsText": "\u2014 laiss\xE9 en texte \u2014",
+      "modal.skipOption": "(ignorer \u2014 laisser en texte)",
+      "modal.materialize.summary": "Fichiers : {files}, remplacements : {replacements}",
+      "modal.unlink.summary": "Fichiers : {files}, liens \xE0 supprimer : {links}",
+      "modal.choose.body": "Ce mot correspond \xE0 plus d\u2019un terme \u2014 choisissez-en un :",
+      "notice.noActiveNote": "Aucune note active",
+      "notice.noSelection": "Aucune s\xE9lection",
+      "notice.scopeSkipped": ", {n} ignor\xE9(s) (modifi\xE9 depuis l\u2019aper\xE7u)",
+      "set.editingHighlight.live": "En direct (pendant la saisie)",
+      "set.editingHighlight.name": "Surligner pendant l\u2019\xE9dition",
+      "set.lang.invalid": "Module non valide : {error}",
+      "set.languages.desc": "Modules de morphologie inclus \u2014 {enabled} sur {total} activ\xE9s",
+      "set.matchMode.name": "Morphologie",
+      "set.matchMode.exact": "Correspondance exacte",
+      "set.matchMode.endingStrip": "Suppression des terminaisons",
+      "set.matchMode.stemmer": "Racinisation (recommand\xE9)",
+      "set.scopeMode.name": "Port\xE9e du liage",
+      "set.scopeMode.vault": "Partout",
+      "set.scopeMode.folders": "Chemins list\xE9s seulement",
+      "set.suggestMinChars.name": "Caract\xE8res minimum",
+      "set.statusBarIncludeLinks.name": "Compter les liens directs",
+      "plural.alias": { one: "{n} alias", other: "{n} alias" }
     };
     var uk = {
       "noun.file": "\u0444\u0430\u0439\u043B",
@@ -1340,7 +1483,30 @@ var require_prose = __commonJS({
       "set.linkSuggest.name": "\u041F\u0440\u043E\u043F\u043E\u043D\u0443\u0432\u0430\u0442\u0438 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F \u043F\u0456\u0434 \u0447\u0430\u0441 \u043D\u0430\u0431\u043E\u0440\u0443",
       "set.suggestMinChars.desc": "\u0421\u043A\u0456\u043B\u044C\u043A\u0438 \u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432 \u043D\u0430\u0431\u0440\u0430\u0442\u0438, \u043F\u0435\u0440\u0448 \u043D\u0456\u0436 \u0437\u2019\u044F\u0432\u043B\u044F\u0442\u044C\u0441\u044F \u043F\u0456\u0434\u043A\u0430\u0437\u043A\u0438.",
       "set.suggestSkipAfter.name": "\u041F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u0442\u0438 \u043F\u0456\u0441\u043B\u044F \u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432",
-      "set.heading.contextMenu": "\u041A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u0435 \u043C\u0435\u043D\u044E"
+      "set.heading.contextMenu": "\u041A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u0435 \u043C\u0435\u043D\u044E",
+      "label.selection": "\u0432\u0438\u0434\u0456\u043B\u0435\u043D\u043D\u044F",
+      "modal.leftAsText": "\u2014 \u0437\u0430\u043B\u0438\u0448\u0435\u043D\u043E \u0442\u0435\u043A\u0441\u0442\u043E\u043C \u2014",
+      "modal.skipOption": "(\u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u0438 \u2014 \u0437\u0430\u043B\u0438\u0448\u0438\u0442\u0438 \u0442\u0435\u043A\u0441\u0442\u043E\u043C)",
+      "modal.materialize.summary": "\u0424\u0430\u0439\u043B\u0456\u0432: {files}, \u0437\u0430\u043C\u0456\u043D: {replacements}",
+      "modal.unlink.summary": "\u0424\u0430\u0439\u043B\u0456\u0432: {files}, \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u044C \u0434\u043E \u0432\u0438\u0434\u0430\u043B\u0435\u043D\u043D\u044F: {links}",
+      "modal.choose.body": "\u0426\u0435 \u0441\u043B\u043E\u0432\u043E \u0437\u0431\u0456\u0433\u0430\u0454\u0442\u044C\u0441\u044F \u0437 \u043A\u0456\u043B\u044C\u043A\u043E\u043C\u0430 \u0442\u0435\u0440\u043C\u0456\u043D\u0430\u043C\u0438 \u2014 \u0432\u0438\u0431\u0435\u0440\u0456\u0442\u044C \u043E\u0434\u0438\u043D:",
+      "notice.noActiveNote": "\u041D\u0435\u043C\u0430\u0454 \u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0457 \u043D\u043E\u0442\u0430\u0442\u043A\u0438",
+      "notice.noSelection": "\u041D\u0435\u043C\u0430\u0454 \u0432\u0438\u0434\u0456\u043B\u0435\u043D\u043D\u044F",
+      "notice.scopeSkipped": ", \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E: {n} (\u0437\u043C\u0456\u043D\u0435\u043D\u043E \u043F\u0456\u0441\u043B\u044F \u043F\u043E\u043F\u0435\u0440\u0435\u0434\u043D\u044C\u043E\u0433\u043E \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434\u0443)",
+      "set.editingHighlight.live": "\u041D\u0430 \u043B\u044C\u043E\u0442\u0443 (\u043F\u0456\u0434 \u0447\u0430\u0441 \u043D\u0430\u0431\u043E\u0440\u0443)",
+      "set.editingHighlight.name": "\u041F\u0456\u0434\u0441\u0432\u0456\u0447\u0443\u0432\u0430\u0442\u0438 \u043F\u0456\u0434 \u0447\u0430\u0441 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F",
+      "set.lang.invalid": "\u041D\u0435\u0434\u043E\u043F\u0443\u0441\u0442\u0438\u043C\u0438\u0439 \u043C\u043E\u0434\u0443\u043B\u044C: {error}",
+      "set.languages.desc": "\u0412\u0431\u0443\u0434\u043E\u0432\u0430\u043D\u0456 \u043C\u043E\u0434\u0443\u043B\u0456 \u043C\u043E\u0440\u0444\u043E\u043B\u043E\u0433\u0456\u0457 \u2014 \u0443\u0432\u0456\u043C\u043A\u043D\u0435\u043D\u043E {enabled} \u0437 {total}",
+      "set.matchMode.name": "\u041C\u043E\u0440\u0444\u043E\u043B\u043E\u0433\u0456\u044F",
+      "set.matchMode.exact": "\u0422\u043E\u0447\u043D\u0438\u0439 \u0437\u0431\u0456\u0433",
+      "set.matchMode.endingStrip": "\u0412\u0456\u0434\u0441\u0456\u043A\u0430\u043D\u043D\u044F \u0437\u0430\u043A\u0456\u043D\u0447\u0435\u043D\u044C",
+      "set.matchMode.stemmer": "\u0421\u0442\u0435\u043C\u0435\u0440 (\u0440\u0435\u043A\u043E\u043C\u0435\u043D\u0434\u043E\u0432\u0430\u043D\u043E)",
+      "set.scopeMode.name": "\u041E\u0431\u043B\u0430\u0441\u0442\u044C \u0437\u0432\u2019\u044F\u0437\u0443\u0432\u0430\u043D\u043D\u044F",
+      "set.scopeMode.vault": "\u0423\u0441\u044E\u0434\u0438",
+      "set.scopeMode.folders": "\u041B\u0438\u0448\u0435 \u0432\u043A\u0430\u0437\u0430\u043D\u0456 \u0448\u043B\u044F\u0445\u0438",
+      "set.suggestMinChars.name": "\u041C\u0456\u043D\u0456\u043C\u0443\u043C \u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432",
+      "set.statusBarIncludeLinks.name": "\u0420\u0430\u0445\u0443\u0432\u0430\u0442\u0438 \u043F\u0440\u044F\u043C\u0456 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F",
+      "plural.alias": { one: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C", few: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0438", many: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0456\u0432", other: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0456\u0432" }
     };
     module2.exports = { en, ru, de, es, fr, uk };
   }
@@ -2994,7 +3160,7 @@ var require_actions = __commonJS({
   "src/actions.js"(exports2, module2) {
     "use strict";
     var { Notice: Notice2, TFile: TFile2, moment } = require("obsidian");
-    var { splitLines: splitLines2 } = require_markdown();
+    var { splitLines: splitLines2, wordAt } = require_markdown();
     var {
       MaterializePreviewModal,
       HarvestPreviewModal,
@@ -3294,6 +3460,11 @@ var require_actions = __commonJS({
         const matches = this.findMatches(line, this.activeCanonical(), { protect: true });
         return matches.find((m) => head.ch >= m.start && head.ch <= m.end) || null;
       },
+      // The plain word under the cursor, whether or not the index knows it.
+      rawWordAtCursor(editor) {
+        const head = editor.getCursor("head");
+        return wordAt(editor.getLine(head.line), head.ch);
+      },
       // Every reading of the match under the cursor: ours, our own same-named alternatives, and
       // the ones other linkers stood down on. What the menu offers to link or open.
       cursorCandidates(hit, sourcePath, newTab) {
@@ -3315,18 +3486,15 @@ var require_actions = __commonJS({
         const v = value.toLowerCase();
         return splitLines2(this.settings[listKey]).some((l) => l.toLowerCase() === v);
       },
-      // Add or remove exclusion item for `menu`, toggled by current state. A prefix (native menus)
-      // selects the brand-prefixed lower-case wording; without it (the plugin's own menu) the
-      // capitalised wording is used. excludeWords are stored lowercased.
-      addExclusionMenuItem(menu, listKey, value, prefix = "") {
-        const noun = listKey === "excludeWords" ? t2("exclude.words") : t2("exclude.terms");
-        if (this.isExcluded(listKey, value)) {
-          menu.addItem((i) => i.setTitle(t2(prefix ? "exclude.removePrefixed" : "exclude.remove", { value, noun })).setIcon("rotate-ccw").onClick(() => this.removeFromExclusion(listKey, value)));
-        } else {
-          const icon = listKey === "excludeWords" ? "ban" : "trash-2";
-          const stored = listKey === "excludeWords" ? value.toLowerCase() : value;
-          menu.addItem((i) => i.setTitle(t2(prefix ? "exclude.addPrefixed" : "exclude.add", { value, noun })).setIcon(icon).onClick(() => this.addToExclusion(listKey, stored)));
-        }
+      // Add or remove exclusion item, toggled by current state. Tagged with the verb, so the
+      // builder collects it with whatever else offers to exclude the same word. excludeWords are
+      // stored lowercased.
+      addExclusionMenuItem(menu, listKey, value) {
+        const words = listKey === "excludeWords";
+        const noun = words ? t2("exclude.words") : t2("exclude.terms");
+        const excluded = this.isExcluded(listKey, value);
+        const key = excluded ? "exclude.remove" : "exclude.add";
+        menu.tagged("exclude", { value }, (i, grouped) => i.setTitle(t2(grouped ? key + "Short" : key, { value, noun })).setIcon(excluded ? "rotate-ccw" : words ? "ban" : "trash-2").onClick(() => excluded ? this.removeFromExclusion(listKey, value) : this.addToExclusion(listKey, words ? value.toLowerCase() : value)));
       },
       async addToExclusion(listKey, value) {
         const lines = splitLines2(this.settings[listKey]);
@@ -3832,6 +4000,9 @@ var require_api = __commonJS({
             suggest: (query) => suggestionsFor(plugin, String(query || "")),
             // The popup's owner writes our link text but never composes it.
             linkFor: (target, display, inTable) => plugin.wikiLink(target, display, inTable),
+            // Whether we would add a menu item of this verb for this text — asked before either
+            // plugin writes one, since the grouping has to be settled first.
+            offers: (kind, text) => kind === "exclude" && !!plugin.settings.menuExclude && (plugin.findMatches(String(text || ""), null).length > 0 || plugin.isExcluded("excludeWords", String(text || "")) || plugin.isExcluded("excludeTerms", String(text || ""))),
             refresh: () => plugin.rerenderViews()
           }
         };
@@ -4211,7 +4382,7 @@ var require_menu = __commonJS({
       }
       return submenuSupport;
     }
-    function menuSection2(menu, label, grouped, icon) {
+    function menuSection(menu, label, grouped, icon) {
       if (!grouped)
         return menu;
       if (!supportsSubmenu()) {
@@ -4252,14 +4423,14 @@ var require_menu = __commonJS({
     var STORE = "__linkerMenuSections";
     function sharedSection(menu, key, label, icon) {
       if (!supportsSubmenu())
-        return menuSection2(menu, label, true);
+        return menuSection(menu, label, true);
       let store = menu[STORE];
       if (!store) {
         store = {};
         try {
           Object.defineProperty(menu, STORE, { value: store, enumerable: false, configurable: true });
         } catch (e) {
-          return menuSection2(menu, label, true, icon);
+          return menuSection(menu, label, true, icon);
         }
       }
       if (!store[key]) {
@@ -4272,7 +4443,131 @@ var require_menu = __commonJS({
       }
       return store[key];
     }
-    module2.exports = { menuSection: menuSection2, sharedSection, supportsSubmenu };
+    module2.exports = { menuSection, sharedSection, supportsSubmenu };
+  }
+});
+
+// src/shared/menu-verbs.js
+var require_menu_verbs = __commonJS({
+  "src/shared/menu-verbs.js"(exports2, module2) {
+    "use strict";
+    var { sharedSection, menuSection } = require_menu();
+    var { peersOffering } = require_discover();
+    var { t: t2 } = require_i18n();
+    var VERBS = {
+      convert: { label: "menu.convert.group", icon: "link" },
+      open: { label: "menu.open.group", icon: "file-search" },
+      exclude: { label: "exclude.group", icon: "ban" }
+    };
+    var MenuBuilder = class {
+      constructor(plugin, menu) {
+        this.plugin = plugin;
+        this.menu = menu;
+        this.entries = [];
+      }
+      // Untagged: written where it stands, exactly as Obsidian's own Menu would.
+      addItem(cb) {
+        this.entries.push({ cb });
+        return this;
+      }
+      addSeparator() {
+        this.entries.push({ separator: true });
+        return this;
+      }
+      // Tagged. `cb(item, grouped)` is told whether it ended up in a submenu, since the wording
+      // differs: inside one, the parent already names the object.
+      tagged(verb, opts, cb) {
+        if (!VERBS[verb])
+          throw new Error("unknown menu verb: " + verb);
+        this.entries.push({ cb, verb, value: opts && opts.value });
+        return this;
+      }
+      // A submenu of this plugin's own — the several ways to link one word, say. Unlike a verb it
+      // is never shared, and it is built even for a single item because the items only read as a
+      // set. Takes items the way a menu does.
+      section(label, icon) {
+        const entry = { section: { label, icon }, children: [] };
+        this.entries.push(entry);
+        const child = {
+          addItem(cb) {
+            entry.children.push({ cb });
+            return child;
+          },
+          addSeparator() {
+            entry.children.push({ separator: true });
+            return child;
+          }
+        };
+        return child;
+      }
+      // Verb -> the object it acts on, for those that earned a submenu. All items of one verb in
+      // one menu act on the same object, so the first one's value names the group.
+      groupedVerbs() {
+        const counts = /* @__PURE__ */ new Map();
+        for (const e of this.entries) {
+          if (!e.verb)
+            continue;
+          const seen = counts.get(e.verb) || { count: 0, value: e.value };
+          seen.count++;
+          counts.set(e.verb, seen);
+        }
+        const provider = this.plugin.api && this.plugin.api.linker;
+        const grouped = /* @__PURE__ */ new Map();
+        for (const [verb, { count, value }] of counts) {
+          const peers = provider ? peersOffering(this.plugin.app, provider, verb, value).length : 0;
+          if (count + peers > 1)
+            grouped.set(verb, value);
+        }
+        return grouped;
+      }
+      // menuSection builds the group on its first item, so an empty one leaves no trace, and it
+      // falls back to prefixed titles where the app has no submenus.
+      writeSection(entry) {
+        if (!entry.children.length)
+          return;
+        const sub = menuSection(this.menu, entry.section.label, true, entry.section.icon);
+        for (const child of entry.children) {
+          if (child.separator)
+            sub.addSeparator();
+          else
+            sub.addItem((item) => child.cb(item, true));
+        }
+      }
+      sectionFor(verb, value) {
+        const spec = VERBS[verb];
+        const label = t2(spec.label, value == null ? void 0 : { value });
+        return sharedSection(this.menu, "linker:" + verb, label, spec.icon);
+      }
+      // Replayed in declaration order, so a verb's submenu appears where its first item would
+      // have. Anything else keeps its place.
+      flush() {
+        const grouped = this.groupedVerbs();
+        const sections = /* @__PURE__ */ new Map();
+        for (const e of this.entries) {
+          if (e.separator) {
+            this.menu.addSeparator();
+            continue;
+          }
+          if (e.section) {
+            this.writeSection(e);
+            continue;
+          }
+          if (!e.verb || !grouped.has(e.verb)) {
+            this.menu.addItem((item) => e.cb(item, false));
+            continue;
+          }
+          if (!sections.has(e.verb))
+            sections.set(e.verb, this.sectionFor(e.verb, grouped.get(e.verb)));
+          sections.get(e.verb).addItem((item) => e.cb(item, true));
+        }
+      }
+    };
+    function buildMenu2(plugin, menu, fn) {
+      const builder = new MenuBuilder(plugin, menu);
+      fn(builder);
+      builder.flush();
+    }
+    module2.exports = { VERBS, MenuBuilder, buildMenu: buildMenu2 };
   }
 });
 
@@ -4542,20 +4837,15 @@ var require_en2 = __commonJS({
       // Exclusion menu items
       "exclude.words": "excluded words",
       "exclude.terms": "excluded terms",
-      "exclude.addPrefixed": 'Glossary: add "{value}" to {noun}',
-      "exclude.removePrefixed": 'Glossary: remove "{value}" from {noun}',
       "exclude.add": 'Add "{value}" to {noun}',
       "exclude.remove": 'Remove "{value}" from {noun}',
       // Notices
       "notice.indexRebuilt": "Glossary Linker: index rebuilt",
       "notice.unlinked": "Glossary Linker: unlinked",
-      "notice.noActiveNote": "No active note",
-      "notice.noSelection": "No selection",
       "notice.noMatches": "Glossary Linker: no matches found",
       "notice.noGlossaryLinks": "Glossary Linker: no glossary links found",
       "notice.noteChanged": "Glossary Linker: note changed since preview, nothing written",
       "notice.scopeWritten": "Glossary Linker: {files}, {links}",
-      "notice.scopeSkipped": ", {n} skipped (changed since preview)",
       "notice.linksCreated": "Glossary Linker: {links} created",
       "notice.linksRemoved": "Glossary Linker: {links} removed",
       "notice.linkCreatedSingle": "Glossary Linker: link created",
@@ -4590,44 +4880,29 @@ var require_en2 = __commonJS({
       "set.glossaryFolder.desc": "Folder with one note per term (file name = the term title). Leave empty to use the whole vault as the glossary.",
       "set.termTemplate.name": "Term template",
       "set.termTemplate.desc": "Note used as the body of new term notes; placeholders like {{title}} and {{date}} are filled in. Empty = blank note.",
-      "set.scopeMode.name": "Link scope",
       "set.scopeMode.desc": "Which notes terms are highlighted and linked in.",
-      "set.scopeMode.folders": "Listed paths only",
-      "set.scopeMode.vault": "Everywhere",
       "set.scopeFolders.name": "Paths to include",
-      "set.scopeFolders.desc": "A file or a folder. Only these (and notes inside listed folders) are in scope.",
-      "set.excludeFolders.name": "Always-excluded paths",
-      "set.excludeFolders.desc": "A file or a folder, never highlighted, linked or scanned, whatever the mode above is.",
-      "set.folderList.add": "Add path\u2026",
+      "set.scopeFolders.desc": "A file or a folder. Only these are linked.",
+      "set.excludeFolders.name": "Always excluded",
+      "set.excludeFolders.desc": "A file or a folder. Never linked, whatever the mode above says.",
       "set.folderList.remove": "Remove",
-      "set.folderList.addAria": "Add",
-      "set.matchMode.name": "Morphology",
       "set.matchMode.desc": "How an inflected word is matched to a term.",
-      "set.matchMode.stemmer": "Stemmer (recommended)",
-      "set.matchMode.endingStrip": "Ending strip",
-      "set.matchMode.exact": "Exact match",
       "set.minTermLength.name": "Minimum term length",
       "set.minTermLength.desc": "Ignore term titles and aliases shorter than this many characters, so single letters do not match everywhere.",
-      "set.languages.desc": "Bundled morphology modules \u2014 {enabled} of {total} enabled",
       "set.languages.invalidSuffix": ", {n} invalid",
-      "set.lang.invalid": "Invalid module: {error}",
       "set.linkFirstOnly.desc": "When turning terms into links, link only the first occurrence of each term on a page.",
       "set.excludeTerms.name": "Excluded terms",
       "set.excludeTerms.desc": "Term titles or aliases, one per line \u2014 drops the whole matching entry from the index.",
       "set.excludeWords.name": "Excluded words",
       "set.excludeWords.desc": "Surface words, one per line, that never trigger a link even if they match a term.",
       "set.highlightInReading.desc": "Underline detected terms as clickable links in Reading view (file unchanged).",
-      "set.editingHighlight.name": "Highlight while editing",
       "set.editingHighlight.desc": "Underline terms in the editor (Live Preview / Source) too.",
       "set.editingHighlight.off": "Off",
-      "set.editingHighlight.live": "Live (as you type)",
       "set.skipHeadings.desc": "Do not highlight or link terms that appear inside Markdown headings.",
       "set.statusBar.desc": "Show how many glossary terms are on the current note in the status bar.",
-      "set.statusBarIncludeLinks.name": "Count direct links",
       "set.statusBarIncludeLinks.desc": "Also count terms already linked directly, not only plain-text mentions.",
       "set.linkSuggest.desc": "As you type in an in-scope note, offer to insert a [[link]] to a matching glossary term (prefix of a title/alias, or an inflected form).",
-      "set.suggestMinChars.name": "Minimum characters",
-      "set.suggestSkipAfter.desc": "Don't suggest when the word follows one of these characters, so other autocompletes (tags, code links, math) keep their slot. Leave empty to disable.",
+      "set.suggestSkipAfter.desc": "Don't suggest when the word follows one of these characters, so other autocompletes keep their slot. Empty disables it.",
       "set.aliasHarvestMode.name": "Alias form",
       "set.aliasHarvestMode.desc": "How collected link text is stored as an alias.",
       "set.aliasHarvestMode.lemma": "Base form",
@@ -4646,7 +4921,7 @@ var require_en2 = __commonJS({
       "set.aliasCollisionWarnings.desc": "When collecting an alias or creating a term, flag wording that already matches a different term (so you can avoid making a word point at two terms).",
       "set.menuTurnInto.name": '"Link to term" items',
       "set.menuTurnInto.desc": 'Show the "Link to term" / "Link all \u2026 to term" actions when right-clicking a highlighted term.',
-      "set.menuCollect.name": '"Collect aliases" item',
+      "set.menuCollect.name": '"Collect aliases" items',
       "set.menuCollect.desc": "Offer to collect a link\u2019s own wording as an alias \u2014 on the link itself, and for a whole note from its right-click menu.",
       "set.menuExclude.name": '"Exclude word / term" items',
       "set.menuExclude.desc": 'Show "Add \u2026 to excluded words / terms" when right-clicking a term, and "Add \u2026 to excluded words" on a selected word.',
@@ -4668,17 +4943,12 @@ var require_en2 = __commonJS({
       "set.wholeVaultStatus": "Whole vault is the glossary \u2014 {terms} indexed.",
       // Modals
       "modal.materialize.title": "Link glossary terms \u2014 preview",
-      "modal.materialize.summary": "Files: {files}, replacements: {replacements}",
       "modal.materialize.ambiguous": "{n} ambiguous word(s) match more than one term \u2014 pick one (applies to every occurrence):",
-      "modal.skipOption": "(skip \u2014 leave as text)",
-      "modal.leftAsText": "\u2014 left as text \u2014",
       "modal.harvest.title": "Collect aliases \u2014 preview",
       "modal.harvest.summary": "Terms: {terms}, new aliases: {aliases}",
       "modal.harvest.alsoMatches": "Also matches: {terms}",
       "modal.harvest.alreadyPresent": "Already present (skipped): {items}",
       "modal.unlink.title": "Unlink glossary terms \u2014 preview",
-      "modal.unlink.summary": "Files: {files}, links to remove: {links}",
-      "modal.choose.body": "This word has more than one match \u2014 pick one:",
       "modal.alias.pickTerm": "Which term is this an alias for?",
       "modal.alias.title": 'Alias for "{term}"',
       "modal.alias.body": "A form the stemmer cannot derive from the title: an abbreviation (CNS, PNS), a synonym, or an alternate spelling. Matched verbatim, so type it exactly as it appears.",
@@ -4688,7 +4958,6 @@ var require_en2 = __commonJS({
       "notice.aliasAddedCollision": 'Added "{alias}" \u2192 "{term}", but it already matches: {others}.',
       "notice.termFileMissing": 'Term note for "{term}" not found \u2014 it may have been moved or deleted.',
       "btn.write": "Write",
-      "label.selection": "selection",
       // Overview panel
       "view.title": "Glossary",
       "overview.rescan": "Rescan",
@@ -4722,8 +4991,7 @@ var require_en2 = __commonJS({
       "plural.use": { one: "{n} use", other: "{n} uses" },
       "plural.note": { one: "{n} note", other: "{n} notes" },
       "plural.link": { one: "{n} link(s)", other: "{n} link(s)" },
-      "plural.file": { one: "{n} file(s)", other: "{n} file(s)" },
-      "plural.alias": { one: "{n} alias(es)", other: "{n} alias(es)" }
+      "plural.file": { one: "{n} file(s)", other: "{n} file(s)" }
     };
   }
 });
@@ -4763,19 +5031,14 @@ var require_ru2 = __commonJS({
       "menu.openNewTabTitle": "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0432 \u043D\u043E\u0432\u043E\u0439 \u0432\u043A\u043B\u0430\u0434\u043A\u0435\u2026",
       "exclude.words": "\u0438\u0441\u043A\u043B\u044E\u0447\u0451\u043D\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430",
       "exclude.terms": "\u0438\u0441\u043A\u043B\u044E\u0447\u0451\u043D\u043D\u044B\u0435 \u0442\u0435\u0440\u043C\u0438\u043D\u044B",
-      "exclude.addPrefixed": "Glossary: \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \xAB{value}\xBB \u0432 \u0441\u043F\u0438\u0441\u043E\u043A ({noun})",
-      "exclude.removePrefixed": "Glossary: \u0443\u0431\u0440\u0430\u0442\u044C \xAB{value}\xBB \u0438\u0437 \u0441\u043F\u0438\u0441\u043A\u0430 ({noun})",
-      "exclude.add": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \xAB{value}\xBB \u0432 \u0441\u043F\u0438\u0441\u043E\u043A ({noun})",
-      "exclude.remove": "\u0423\u0431\u0440\u0430\u0442\u044C \xAB{value}\xBB \u0438\u0437 \u0441\u043F\u0438\u0441\u043A\u0430 ({noun})",
+      "exclude.add": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \xAB{value}\xBB \u0432 {noun}",
+      "exclude.remove": "\u0423\u0431\u0440\u0430\u0442\u044C \xAB{value}\xBB \u0438\u0437 {noun}",
       "notice.indexRebuilt": "Glossary Linker: \u0438\u043D\u0434\u0435\u043A\u0441 \u043F\u0435\u0440\u0435\u0441\u0442\u0440\u043E\u0435\u043D",
       "notice.unlinked": "Glossary Linker: \u0441\u0441\u044B\u043B\u043A\u0430 \u0443\u0431\u0440\u0430\u043D\u0430",
-      "notice.noActiveNote": "\u041D\u0435\u0442 \u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0439 \u0437\u0430\u043C\u0435\u0442\u043A\u0438",
-      "notice.noSelection": "\u041D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u0432\u044B\u0434\u0435\u043B\u0435\u043D\u043E",
       "notice.noMatches": "Glossary Linker: \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0439 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u043E",
       "notice.noGlossaryLinks": "Glossary Linker: \u0441\u0441\u044B\u043B\u043E\u043A \u043D\u0430 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u0439 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u043E",
       "notice.noteChanged": "Glossary Linker: \u0437\u0430\u043C\u0435\u0442\u043A\u0430 \u0438\u0437\u043C\u0435\u043D\u0438\u043B\u0430\u0441\u044C \u043F\u043E\u0441\u043B\u0435 \u043F\u0440\u0435\u0434\u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0430, \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u043E",
       "notice.scopeWritten": "Glossary Linker: {files}, {links}",
-      "notice.scopeSkipped": ", \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E: {n} (\u0438\u0437\u043C\u0435\u043D\u0435\u043D\u043E \u043F\u043E\u0441\u043B\u0435 \u043F\u0440\u0435\u0434\u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0430)",
       "notice.linksCreated": "Glossary Linker: \u0441\u043E\u0437\u0434\u0430\u043D\u043E \u2014 {links}",
       "notice.linksRemoved": "Glossary Linker: \u0443\u0431\u0440\u0430\u043D\u043E \u2014 {links}",
       "notice.linkCreatedSingle": "Glossary Linker: \u0441\u0441\u044B\u043B\u043A\u0430 \u0441\u043E\u0437\u0434\u0430\u043D\u0430",
@@ -4808,44 +5071,29 @@ var require_ru2 = __commonJS({
       "set.glossaryFolder.desc": "\u041F\u0430\u043F\u043A\u0430 \u0441 \u043E\u0434\u043D\u043E\u0439 \u0437\u0430\u043C\u0435\u0442\u043A\u043E\u0439 \u043D\u0430 \u0442\u0435\u0440\u043C\u0438\u043D (\u0438\u043C\u044F \u0444\u0430\u0439\u043B\u0430 = \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u0435\u0440\u043C\u0438\u043D\u0430). \u041E\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u043F\u043E\u043B\u0435 \u043F\u0443\u0441\u0442\u044B\u043C \u2014 \u0438 \u0432\u0441\u0451 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435 \u0441\u0442\u0430\u043D\u0435\u0442 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u0435\u043C.",
       "set.termTemplate.name": "\u0428\u0430\u0431\u043B\u043E\u043D \u0442\u0435\u0440\u043C\u0438\u043D\u0430",
       "set.termTemplate.desc": "\u0417\u0430\u043C\u0435\u0442\u043A\u0430, \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u043C\u0430\u044F \u043A\u0430\u043A \u0442\u0435\u043B\u043E \u043D\u043E\u0432\u044B\u0445 \u0437\u0430\u043C\u0435\u0442\u043E\u043A \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u0432; \u043F\u043B\u0435\u0439\u0441\u0445\u043E\u043B\u0434\u0435\u0440\u044B \u0432\u0440\u043E\u0434\u0435 {{title}} \u0438 {{date}} \u043F\u043E\u0434\u0441\u0442\u0430\u0432\u043B\u044F\u044E\u0442\u0441\u044F. \u041F\u0443\u0441\u0442\u043E = \u043F\u0443\u0441\u0442\u0430\u044F \u0437\u0430\u043C\u0435\u0442\u043A\u0430.",
-      "set.scopeMode.name": "\u041E\u0431\u043B\u0430\u0441\u0442\u044C \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u043D\u0438\u044F",
       "set.scopeMode.desc": "\u0412 \u043A\u0430\u043A\u0438\u0445 \u0437\u0430\u043C\u0435\u0442\u043A\u0430\u0445 \u0442\u0435\u0440\u043C\u0438\u043D\u044B \u043F\u043E\u0434\u0441\u0432\u0435\u0447\u0438\u0432\u0430\u044E\u0442\u0441\u044F \u0438 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u044E\u0442\u0441\u044F.",
-      "set.scopeMode.folders": "\u0422\u043E\u043B\u044C\u043A\u043E \u0443\u043A\u0430\u0437\u0430\u043D\u043D\u044B\u0435 \u043F\u0443\u0442\u0438",
-      "set.scopeMode.vault": "\u0412\u0435\u0437\u0434\u0435",
       "set.scopeFolders.name": "\u0412\u043A\u043B\u044E\u0447\u0430\u0435\u043C\u044B\u0435 \u043F\u0443\u0442\u0438",
-      "set.scopeFolders.desc": "\u0424\u0430\u0439\u043B \u0438\u043B\u0438 \u043F\u0430\u043F\u043A\u0430. \u0412 \u043E\u0431\u043B\u0430\u0441\u0442\u044C \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u043D\u0438\u044F \u0432\u0445\u043E\u0434\u044F\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u043D\u0438 (\u0438 \u0437\u0430\u043C\u0435\u0442\u043A\u0438 \u0432\u043D\u0443\u0442\u0440\u0438 \u0443\u043A\u0430\u0437\u0430\u043D\u043D\u044B\u0445 \u043F\u0430\u043F\u043E\u043A).",
-      "set.excludeFolders.name": "\u0412\u0441\u0435\u0433\u0434\u0430 \u0438\u0441\u043A\u043B\u044E\u0447\u0451\u043D\u043D\u044B\u0435 \u043F\u0443\u0442\u0438",
-      "set.excludeFolders.desc": "\u0424\u0430\u0439\u043B \u0438\u043B\u0438 \u043F\u0430\u043F\u043A\u0430; \u043D\u0438\u043A\u043E\u0433\u0434\u0430 \u043D\u0435 \u043F\u043E\u0434\u0441\u0432\u0435\u0447\u0438\u0432\u0430\u044E\u0442\u0441\u044F, \u043D\u0435 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u0438 \u043D\u0435 \u0441\u043A\u0430\u043D\u0438\u0440\u0443\u044E\u0442\u0441\u044F, \u043D\u0435\u0437\u0430\u0432\u0438\u0441\u0438\u043C\u043E \u043E\u0442 \u0440\u0435\u0436\u0438\u043C\u0430 \u0432\u044B\u0448\u0435.",
-      "set.folderList.add": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0443\u0442\u044C\u2026",
+      "set.scopeFolders.desc": "\u0424\u0430\u0439\u043B \u0438\u043B\u0438 \u043F\u0430\u043F\u043A\u0430. \u0421\u0432\u044F\u0437\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u043D\u0438.",
+      "set.excludeFolders.name": "\u0412\u0441\u0435\u0433\u0434\u0430 \u0438\u0441\u043A\u043B\u044E\u0447\u0430\u0442\u044C",
+      "set.excludeFolders.desc": "\u0424\u0430\u0439\u043B \u0438\u043B\u0438 \u043F\u0430\u043F\u043A\u0430. \u041D\u0435 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u043D\u0438\u043A\u043E\u0433\u0434\u0430, \u043D\u0435\u0437\u0430\u0432\u0438\u0441\u0438\u043C\u043E \u043E\u0442 \u0440\u0435\u0436\u0438\u043C\u0430 \u0432\u044B\u0448\u0435.",
       "set.folderList.remove": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C",
-      "set.folderList.addAria": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C",
-      "set.matchMode.name": "\u041C\u043E\u0440\u0444\u043E\u043B\u043E\u0433\u0438\u044F",
       "set.matchMode.desc": "\u041A\u0430\u043A \u0441\u043B\u043E\u0432\u043E\u0444\u043E\u0440\u043C\u0430 \u0441\u043E\u043F\u043E\u0441\u0442\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u0441 \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u043C.",
-      "set.matchMode.stemmer": "\u0421\u0442\u0435\u043C\u043C\u0435\u0440 (\u0440\u0435\u043A\u043E\u043C\u0435\u043D\u0434\u0443\u0435\u0442\u0441\u044F)",
-      "set.matchMode.endingStrip": "\u041E\u0442\u0441\u0435\u0447\u0435\u043D\u0438\u0435 \u043E\u043A\u043E\u043D\u0447\u0430\u043D\u0438\u0439",
-      "set.matchMode.exact": "\u0422\u043E\u0447\u043D\u043E\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0435",
       "set.minTermLength.name": "\u041C\u0438\u043D\u0438\u043C\u0430\u043B\u044C\u043D\u0430\u044F \u0434\u043B\u0438\u043D\u0430 \u0442\u0435\u0440\u043C\u0438\u043D\u0430",
       "set.minTermLength.desc": "\u0418\u0433\u043D\u043E\u0440\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044F \u0438 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u044B \u043A\u043E\u0440\u043E\u0447\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u043D\u043E\u0433\u043E \u0447\u0438\u0441\u043B\u0430 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432, \u0447\u0442\u043E\u0431\u044B \u043E\u0434\u0438\u043D\u043E\u0447\u043D\u044B\u0435 \u0431\u0443\u043A\u0432\u044B \u043D\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u043B\u0438 \u043F\u043E\u0432\u0441\u044E\u0434\u0443.",
-      "set.languages.desc": "\u0412\u0441\u0442\u0440\u043E\u0435\u043D\u043D\u044B\u0435 \u043C\u043E\u0434\u0443\u043B\u0438 \u043C\u043E\u0440\u0444\u043E\u043B\u043E\u0433\u0438\u0438 \u2014 \u0432\u043A\u043B\u044E\u0447\u0435\u043D\u043E {enabled} \u0438\u0437 {total}",
-      "set.languages.invalidSuffix": ", \u0441 \u043E\u0448\u0438\u0431\u043A\u0430\u043C\u0438: {n}",
-      "set.lang.invalid": "\u041D\u0435\u0434\u043E\u043F\u0443\u0441\u0442\u0438\u043C\u044B\u0439 \u043C\u043E\u0434\u0443\u043B\u044C: {error}",
+      "set.languages.invalidSuffix": ", {n} \u0441 \u043E\u0448\u0438\u0431\u043A\u043E\u0439",
       "set.linkFirstOnly.desc": "\u041F\u0440\u0438 \u043F\u0440\u0435\u0432\u0440\u0430\u0449\u0435\u043D\u0438\u0438 \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u0432 \u0432 \u0441\u0441\u044B\u043B\u043A\u0438 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u0442\u044C \u0442\u043E\u043B\u044C\u043A\u043E \u043F\u0435\u0440\u0432\u043E\u0435 \u0432\u0445\u043E\u0436\u0434\u0435\u043D\u0438\u0435 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0442\u0435\u0440\u043C\u0438\u043D\u0430 \u043D\u0430 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0435.",
       "set.excludeTerms.name": "\u0418\u0441\u043A\u043B\u044E\u0447\u0451\u043D\u043D\u044B\u0435 \u0442\u0435\u0440\u043C\u0438\u043D\u044B",
       "set.excludeTerms.desc": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u044F \u0438\u043B\u0438 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u044B \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u0432, \u043F\u043E \u043E\u0434\u043D\u043E\u043C\u0443 \u043D\u0430 \u0441\u0442\u0440\u043E\u043A\u0443 \u2014 \u0443\u0431\u0438\u0440\u0430\u044E\u0442 \u0432\u0441\u044E \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u044E\u0449\u0443\u044E \u0437\u0430\u043F\u0438\u0441\u044C \u0438\u0437 \u0438\u043D\u0434\u0435\u043A\u0441\u0430.",
       "set.excludeWords.name": "\u0418\u0441\u043A\u043B\u044E\u0447\u0451\u043D\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430",
       "set.excludeWords.desc": "\u0421\u043B\u043E\u0432\u0430 \u0432 \u0442\u0435\u043A\u0441\u0442\u0435, \u043F\u043E \u043E\u0434\u043D\u043E\u043C\u0443 \u043D\u0430 \u0441\u0442\u0440\u043E\u043A\u0443, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u043D\u0438\u043A\u043E\u0433\u0434\u0430 \u043D\u0435 \u0434\u0430\u044E\u0442 \u0441\u0441\u044B\u043B\u043A\u0443, \u0434\u0430\u0436\u0435 \u0435\u0441\u043B\u0438 \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u044E\u0442 \u0441 \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u043C.",
       "set.highlightInReading.desc": "\u041F\u043E\u0434\u0447\u0451\u0440\u043A\u0438\u0432\u0430\u0442\u044C \u043D\u0430\u0439\u0434\u0435\u043D\u043D\u044B\u0435 \u0442\u0435\u0440\u043C\u0438\u043D\u044B \u043A\u0430\u043A \u043A\u043B\u0438\u043A\u0430\u0431\u0435\u043B\u044C\u043D\u044B\u0435 \u0441\u0441\u044B\u043B\u043A\u0438 \u0432 \u0440\u0435\u0436\u0438\u043C\u0435 \u0447\u0442\u0435\u043D\u0438\u044F (\u0444\u0430\u0439\u043B \u043D\u0435 \u043C\u0435\u043D\u044F\u0435\u0442\u0441\u044F).",
-      "set.editingHighlight.name": "\u041F\u043E\u0434\u0441\u0432\u0435\u0442\u043A\u0430 \u043F\u0440\u0438 \u0440\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u0438",
       "set.editingHighlight.desc": "\u041F\u043E\u0434\u0447\u0451\u0440\u043A\u0438\u0432\u0430\u0442\u044C \u0442\u0435\u0440\u043C\u0438\u043D\u044B \u0438 \u0432 \u0440\u0435\u0434\u0430\u043A\u0442\u043E\u0440\u0435 (Live Preview / Source).",
-      "set.editingHighlight.off": "\u0412\u044B\u043A\u043B.",
-      "set.editingHighlight.live": "\u041D\u0430 \u043B\u0435\u0442\u0443 (\u043F\u043E \u043C\u0435\u0440\u0435 \u043D\u0430\u0431\u043E\u0440\u0430)",
+      "set.editingHighlight.off": "\u0412\u044B\u043A\u043B",
       "set.skipHeadings.desc": "\u041D\u0435 \u043F\u043E\u0434\u0441\u0432\u0435\u0447\u0438\u0432\u0430\u0442\u044C \u0438 \u043D\u0435 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u0442\u044C \u0442\u0435\u0440\u043C\u0438\u043D\u044B \u0432\u043D\u0443\u0442\u0440\u0438 Markdown-\u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043A\u043E\u0432.",
       "set.statusBar.desc": "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0432 \u0441\u0442\u0440\u043E\u043A\u0435 \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u044F, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u0432 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F \u0432 \u0442\u0435\u043A\u0443\u0449\u0435\u0439 \u0437\u0430\u043C\u0435\u0442\u043A\u0435.",
-      "set.statusBarIncludeLinks.name": "\u0421\u0447\u0438\u0442\u0430\u0442\u044C \u043F\u0440\u044F\u043C\u044B\u0435 \u0441\u0441\u044B\u043B\u043A\u0438",
       "set.statusBarIncludeLinks.desc": "\u0422\u0430\u043A\u0436\u0435 \u0441\u0447\u0438\u0442\u0430\u0442\u044C \u0443\u0436\u0435 \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0435 \u0442\u0435\u0440\u043C\u0438\u043D\u044B, \u043D\u0435 \u0442\u043E\u043B\u044C\u043A\u043E \u0443\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F \u0432 \u0442\u0435\u043A\u0441\u0442\u0435.",
       "set.linkSuggest.desc": "\u041F\u043E \u043C\u0435\u0440\u0435 \u043D\u0430\u0431\u043E\u0440\u0430 \u0432 \u0437\u0430\u043C\u0435\u0442\u043A\u0435 \u0438\u0437 \u043E\u0431\u043B\u0430\u0441\u0442\u0438 \u043F\u0440\u0435\u0434\u043B\u0430\u0433\u0430\u0442\u044C \u0432\u0441\u0442\u0430\u0432\u0438\u0442\u044C [[\u0441\u0441\u044B\u043B\u043A\u0443]] \u043D\u0430 \u043F\u043E\u0434\u0445\u043E\u0434\u044F\u0449\u0438\u0439 \u0442\u0435\u0440\u043C\u0438\u043D \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F (\u043F\u043E \u043D\u0430\u0447\u0430\u043B\u0443 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044F/\u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u0430 \u0438\u043B\u0438 \u043F\u043E \u0441\u043B\u043E\u0432\u043E\u0444\u043E\u0440\u043C\u0435).",
-      "set.suggestMinChars.name": "\u041C\u0438\u043D\u0438\u043C\u0443\u043C \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432",
-      "set.suggestSkipAfter.desc": "\u041D\u0435 \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C, \u0435\u0441\u043B\u0438 \u0441\u043B\u043E\u0432\u043E \u0438\u0434\u0451\u0442 \u0441\u0440\u0430\u0437\u0443 \u043F\u043E\u0441\u043B\u0435 \u043E\u0434\u043D\u043E\u0433\u043E \u0438\u0437 \u044D\u0442\u0438\u0445 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432 \u2014 \u0447\u0442\u043E\u0431\u044B \u0434\u0440\u0443\u0433\u0438\u0435 \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0438 (\u0442\u0435\u0433\u0438, \u0441\u0441\u044B\u043B\u043A\u0438 \u043D\u0430 \u043A\u043E\u0434, \u0444\u043E\u0440\u043C\u0443\u043B\u044B) \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u043B\u0438 \u0441\u0432\u043E\u0439 \u0441\u043B\u043E\u0442. \u041F\u0443\u0441\u0442\u043E \u2014 \u043E\u0442\u043A\u043B\u044E\u0447\u0438\u0442\u044C.",
+      "set.suggestSkipAfter.desc": "\u041D\u0435 \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C, \u0435\u0441\u043B\u0438 \u0441\u043B\u043E\u0432\u043E \u0438\u0434\u0451\u0442 \u043F\u043E\u0441\u043B\u0435 \u043E\u0434\u043D\u043E\u0433\u043E \u0438\u0437 \u044D\u0442\u0438\u0445 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432, \u2014 \u0447\u0442\u043E\u0431\u044B \u0434\u0440\u0443\u0433\u0438\u0435 \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u043B\u0438 \u0441\u0432\u043E\u0439 \u0441\u043B\u043E\u0442. \u041F\u0443\u0441\u0442\u043E \u2014 \u043E\u0442\u043A\u043B\u044E\u0447\u0438\u0442\u044C.",
       "set.aliasHarvestMode.name": "\u0424\u043E\u0440\u043C\u0430 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u0430",
       "set.aliasHarvestMode.desc": "\u041A\u0430\u043A \u0441\u043E\u0431\u0440\u0430\u043D\u043D\u044B\u0439 \u0442\u0435\u043A\u0441\u0442 \u0441\u0441\u044B\u043B\u043A\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u0435\u0442\u0441\u044F \u043A\u0430\u043A \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C.",
       "set.aliasHarvestMode.lemma": "\u041D\u0430\u0447\u0430\u043B\u044C\u043D\u0430\u044F \u0444\u043E\u0440\u043C\u0430",
@@ -4864,7 +5112,7 @@ var require_ru2 = __commonJS({
       "set.aliasCollisionWarnings.desc": "\u041F\u0440\u0438 \u0441\u0431\u043E\u0440\u0435 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u0430 \u0438\u043B\u0438 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u0438 \u0442\u0435\u0440\u043C\u0438\u043D\u0430 \u043E\u0442\u043C\u0435\u0447\u0430\u0442\u044C \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435, \u043A\u043E\u0442\u043E\u0440\u043E\u0435 \u0443\u0436\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0434\u0440\u0443\u0433\u043E\u043C\u0443 \u0442\u0435\u0440\u043C\u0438\u043D\u0443 (\u0447\u0442\u043E\u0431\u044B \u0441\u043B\u043E\u0432\u043E \u043D\u0435 \u0443\u043A\u0430\u0437\u044B\u0432\u0430\u043B\u043E \u043D\u0430 \u0434\u0432\u0430 \u0442\u0435\u0440\u043C\u0438\u043D\u0430).",
       "set.menuTurnInto.name": "\u041F\u0443\u043D\u043A\u0442\u044B \xAB\u0421\u0432\u044F\u0437\u0430\u0442\u044C \u0441 \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u043C\xBB",
       "set.menuTurnInto.desc": "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0432 \u043A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u043E\u043C \u043C\u0435\u043D\u044E \u0442\u0435\u0440\u043C\u0438\u043D\u0430 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F \xAB\u0421\u0432\u044F\u0437\u0430\u0442\u044C \u0441 \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u043C\xBB / \xAB\u0421\u0432\u044F\u0437\u0430\u0442\u044C \u0432\u0441\u0435 \u2026 \u0441 \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u043C\xBB.",
-      "set.menuCollect.name": "\u041F\u0443\u043D\u043A\u0442 \xAB\u0421\u043E\u0431\u0440\u0430\u0442\u044C \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u044B\xBB",
+      "set.menuCollect.name": "\u041F\u0443\u043D\u043A\u0442\u044B \xAB\u0421\u043E\u0431\u0440\u0430\u0442\u044C \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u044B\xBB",
       "set.menuCollect.desc": "\u041F\u0440\u0435\u0434\u043B\u0430\u0433\u0430\u0442\u044C \u0441\u043E\u0431\u0440\u0430\u0442\u044C \u0442\u0435\u043A\u0441\u0442 \u0441\u0441\u044B\u043B\u043A\u0438 \u043A\u0430\u043A \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C \u2014 \u043D\u0430 \u0441\u0430\u043C\u043E\u0439 \u0441\u0441\u044B\u043B\u043A\u0435 \u0438 \u0434\u043B\u044F \u0432\u0441\u0435\u0439 \u0437\u0430\u043C\u0435\u0442\u043A\u0438 \u0438\u0437 \u0435\u0451 \u043A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u043E\u0433\u043E \u043C\u0435\u043D\u044E.",
       "set.menuExclude.name": "\u041F\u0443\u043D\u043A\u0442\u044B \xAB\u0418\u0441\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0441\u043B\u043E\u0432\u043E / \u0442\u0435\u0440\u043C\u0438\u043D\xBB",
       "set.menuExclude.desc": "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0432 \u043A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u043E\u043C \u043C\u0435\u043D\u044E \u043F\u0443\u043D\u043A\u0442\u044B \xAB\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u2026 \u0432 \u0438\u0441\u043A\u043B\u044E\u0447\u0451\u043D\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430 / \u0442\u0435\u0440\u043C\u0438\u043D\u044B\xBB.",
@@ -4885,17 +5133,12 @@ var require_ru2 = __commonJS({
       "set.termsIndexed": "\u041F\u0440\u043E\u0438\u043D\u0434\u0435\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u043D\u043E: {terms}.",
       "set.wholeVaultStatus": "\u0413\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u0439 \u2014 \u0432\u0441\u0451 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435. \u041F\u0440\u043E\u0438\u043D\u0434\u0435\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u043D\u043E: {terms}.",
       "modal.materialize.title": "\u0421\u0432\u044F\u0437\u0430\u0442\u044C \u0442\u0435\u0440\u043C\u0438\u043D\u044B \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F \u2014 \u043F\u0440\u0435\u0434\u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440",
-      "modal.materialize.summary": "\u0424\u0430\u0439\u043B\u043E\u0432: {files}, \u0437\u0430\u043C\u0435\u043D: {replacements}",
       "modal.materialize.ambiguous": "\u041D\u0435\u043E\u0434\u043D\u043E\u0437\u043D\u0430\u0447\u043D\u044B\u0445 \u0441\u043B\u043E\u0432, \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u044E\u0449\u0438\u0445 \u0441 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u0438\u043C\u0438 \u0442\u0435\u0440\u043C\u0438\u043D\u0430\u043C\u0438: {n} \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043E\u0434\u043D\u043E (\u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0435\u0442\u0441\u044F \u043A\u043E \u0432\u0441\u0435\u043C \u0432\u0445\u043E\u0436\u0434\u0435\u043D\u0438\u044F\u043C):",
-      "modal.skipOption": "(\u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C \u2014 \u043E\u0441\u0442\u0430\u0432\u0438\u0442\u044C \u0442\u0435\u043A\u0441\u0442\u043E\u043C)",
-      "modal.leftAsText": "\u2014 \u043E\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u043E \u0442\u0435\u043A\u0441\u0442\u043E\u043C \u2014",
       "modal.harvest.title": "\u0421\u043E\u0431\u0440\u0430\u0442\u044C \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u044B \u2014 \u043F\u0440\u0435\u0434\u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440",
       "modal.harvest.summary": "\u0422\u0435\u0440\u043C\u0438\u043D\u043E\u0432: {terms}, \u043D\u043E\u0432\u044B\u0445 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u043E\u0432: {aliases}",
       "modal.harvest.alsoMatches": "\u0422\u0430\u043A\u0436\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u0435\u0442 \u0441: {terms}",
       "modal.harvest.alreadyPresent": "\u0423\u0436\u0435 \u0435\u0441\u0442\u044C (\u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E): {items}",
       "modal.unlink.title": "\u0423\u0431\u0440\u0430\u0442\u044C \u0441\u0441\u044B\u043B\u043A\u0438 \u043D\u0430 \u0442\u0435\u0440\u043C\u0438\u043D\u044B \u2014 \u043F\u0440\u0435\u0434\u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440",
-      "modal.unlink.summary": "\u0424\u0430\u0439\u043B\u043E\u0432: {files}, \u0441\u0441\u044B\u043B\u043E\u043A \u043A \u0443\u0434\u0430\u043B\u0435\u043D\u0438\u044E: {links}",
-      "modal.choose.body": "\u0423 \u044D\u0442\u043E\u0433\u043E \u0441\u043B\u043E\u0432\u0430 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0439 \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043E\u0434\u043D\u043E:",
       "modal.alias.pickTerm": "\u041A \u043A\u0430\u043A\u043E\u043C\u0443 \u0442\u0435\u0440\u043C\u0438\u043D\u0443 \u043F\u0440\u0438\u0432\u044F\u0437\u0430\u0442\u044C \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C?",
       "modal.alias.title": "\u041F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C \u0434\u043B\u044F \xAB{term}\xBB",
       "modal.alias.body": "\u0424\u043E\u0440\u043C\u0430, \u043A\u043E\u0442\u043E\u0440\u0443\u044E \u0441\u0442\u0435\u043C\u043C\u0435\u0440 \u043D\u0435 \u0432\u044B\u0432\u0435\u0434\u0435\u0442 \u0438\u0437 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044F: \u0441\u043E\u043A\u0440\u0430\u0449\u0435\u043D\u0438\u0435 (\u0426\u041D\u0421, \u0412\u041D\u0421), \u0441\u0438\u043D\u043E\u043D\u0438\u043C \u0438\u043B\u0438 \u0434\u0440\u0443\u0433\u043E\u0435 \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435. \u0421\u043E\u0432\u043F\u0430\u0434\u0430\u0435\u0442 \u0431\u0443\u043A\u0432\u0430\u043B\u044C\u043D\u043E, \u043F\u043E\u044D\u0442\u043E\u043C\u0443 \u0432\u0432\u043E\u0434\u0438\u0442\u0435 \u043A\u0430\u043A \u0435\u0441\u0442\u044C.",
@@ -4905,7 +5148,6 @@ var require_ru2 = __commonJS({
       "notice.aliasAddedCollision": "\u0414\u043E\u0431\u0430\u0432\u043B\u0435\u043D \xAB{alias}\xBB \u2192 \xAB{term}\xBB, \u043D\u043E \u043E\u043D \u0443\u0436\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u0435\u0442 \u0441: {others}.",
       "notice.termFileMissing": "\u0417\u0430\u043C\u0435\u0442\u043A\u0430 \u0442\u0435\u0440\u043C\u0438\u043D\u0430 \xAB{term}\xBB \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u2014 \u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E, \u0435\u0451 \u043F\u0435\u0440\u0435\u043C\u0435\u0441\u0442\u0438\u043B\u0438 \u0438\u043B\u0438 \u0443\u0434\u0430\u043B\u0438\u043B\u0438.",
       "btn.write": "\u0417\u0430\u043F\u0438\u0441\u0430\u0442\u044C",
-      "label.selection": "\u0432\u044B\u0434\u0435\u043B\u0435\u043D\u0438\u0435",
       "view.title": "\u0413\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u0439",
       "overview.rescan": "\u041F\u0435\u0440\u0435\u0441\u043A\u0430\u043D\u0438\u0440\u043E\u0432\u0430\u0442\u044C",
       "overview.wholeVault": "\u0432\u0441\u0451 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435",
@@ -4932,8 +5174,7 @@ var require_ru2 = __commonJS({
       "plural.use": { one: "{n} \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u0435", few: "{n} \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u044F", many: "{n} \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u0439", other: "{n} \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u0439" },
       "plural.note": { one: "{n} \u0437\u0430\u043C\u0435\u0442\u043A\u0430", few: "{n} \u0437\u0430\u043C\u0435\u0442\u043A\u0438", many: "{n} \u0437\u0430\u043C\u0435\u0442\u043E\u043A", other: "{n} \u0437\u0430\u043C\u0435\u0442\u043E\u043A" },
       "plural.link": { one: "{n} \u0441\u0441\u044B\u043B\u043A\u0430", few: "{n} \u0441\u0441\u044B\u043B\u043A\u0438", many: "{n} \u0441\u0441\u044B\u043B\u043E\u043A", other: "{n} \u0441\u0441\u044B\u043B\u043E\u043A" },
-      "plural.file": { one: "{n} \u0444\u0430\u0439\u043B", few: "{n} \u0444\u0430\u0439\u043B\u0430", many: "{n} \u0444\u0430\u0439\u043B\u043E\u0432", other: "{n} \u0444\u0430\u0439\u043B\u043E\u0432" },
-      "plural.alias": { one: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C", few: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u0430", many: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u043E\u0432", other: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u043E\u0432" }
+      "plural.file": { one: "{n} \u0444\u0430\u0439\u043B", few: "{n} \u0444\u0430\u0439\u043B\u0430", many: "{n} \u0444\u0430\u0439\u043B\u043E\u0432", other: "{n} \u0444\u0430\u0439\u043B\u043E\u0432" }
     };
   }
 });
@@ -4974,19 +5215,14 @@ var require_de2 = __commonJS({
       "menu.openNewTabTitle": "In neuem Tab \xF6ffnen\u2026",
       "exclude.words": "ausgeschlossene W\xF6rter",
       "exclude.terms": "ausgeschlossene Begriffe",
-      "exclude.addPrefixed": "Glossary: \u201E{value}\u201C zu {noun} hinzuf\xFCgen",
-      "exclude.removePrefixed": "Glossary: \u201E{value}\u201C aus {noun} entfernen",
       "exclude.add": "\u201E{value}\u201C zu {noun} hinzuf\xFCgen",
       "exclude.remove": "\u201E{value}\u201C aus {noun} entfernen",
       "notice.indexRebuilt": "Glossary Linker: Index neu aufgebaut",
       "notice.unlinked": "Glossary Linker: entlinkt",
-      "notice.noActiveNote": "Keine aktive Notiz",
-      "notice.noSelection": "Keine Auswahl",
       "notice.noMatches": "Glossary Linker: keine Treffer gefunden",
       "notice.noGlossaryLinks": "Glossary Linker: keine Glossar-Links gefunden",
       "notice.noteChanged": "Glossary Linker: Notiz seit der Vorschau ge\xE4ndert, nichts geschrieben",
       "notice.scopeWritten": "Glossary Linker: {files}, {links}",
-      "notice.scopeSkipped": ", {n} \xFCbersprungen (seit der Vorschau ge\xE4ndert)",
       "notice.linksCreated": "Glossary Linker: {links} erstellt",
       "notice.linksRemoved": "Glossary Linker: {links} entfernt",
       "notice.linkCreatedSingle": "Glossary Linker: Link erstellt",
@@ -5019,40 +5255,27 @@ var require_de2 = __commonJS({
       "set.glossaryFolder.desc": "Ordner mit einer Notiz pro Begriff (Dateiname = Begriffstitel).",
       "set.termTemplate.name": "Begriffsvorlage",
       "set.termTemplate.desc": "Notiz, die als Inhalt neuer Begriffsnotizen dient; Platzhalter wie {{title}} und {{date}} werden ausgef\xFCllt. Leer = leere Notiz.",
-      "set.scopeMode.name": "Verlinkungsbereich",
       "set.scopeMode.desc": "In welchen Notizen Begriffe hervorgehoben und verlinkt werden.",
-      "set.scopeMode.folders": "Nur aufgef\xFChrte Pfade",
-      "set.scopeMode.vault": "\xDCberall",
       "set.scopeFolders.name": "Einzuschlie\xDFende Pfade",
       "set.scopeFolders.desc": "Eine Datei oder ein Ordner. Nur diese (und Notizen in aufgef\xFChrten Ordnern) sind im Bereich.",
       "set.excludeFolders.name": "Immer ausgeschlossene Pfade",
       "set.excludeFolders.desc": "Eine Datei oder ein Ordner, nie hervorgehoben, verlinkt oder gescannt, egal welcher Modus oben gilt.",
-      "set.matchMode.name": "Morphologie",
       "set.matchMode.desc": "Wie ein flektiertes Wort einem Begriff zugeordnet wird.",
-      "set.matchMode.stemmer": "Stemmer (empfohlen)",
-      "set.matchMode.endingStrip": "Endungen abschneiden",
-      "set.matchMode.exact": "Exakter Treffer",
       "set.minTermLength.name": "Minimale Begriffsl\xE4nge",
       "set.minTermLength.desc": "Begriffstitel und Aliasse, die k\xFCrzer als diese Zeichenzahl sind, ignorieren, damit einzelne Buchstaben nicht \xFCberall treffen.",
-      "set.languages.desc": "Mitgelieferte Morphologie-Module \u2014 {enabled} von {total} aktiviert",
       "set.languages.invalidSuffix": ", {n} ung\xFCltig",
-      "set.lang.invalid": "Ung\xFCltiges Modul: {error}",
       "set.linkFirstOnly.desc": "Beim Umwandeln von Begriffen in Links nur das erste Vorkommen jedes Begriffs auf einer Seite verlinken.",
       "set.excludeTerms.name": "Ausgeschlossene Begriffe",
       "set.excludeTerms.desc": "Begriffstitel oder Aliasse, einer pro Zeile \u2014 entfernt den gesamten passenden Eintrag aus dem Index.",
       "set.excludeWords.name": "Ausgeschlossene W\xF6rter",
       "set.excludeWords.desc": "W\xF6rter im Text, eines pro Zeile, die nie einen Link ausl\xF6sen, auch wenn sie zu einem Begriff passen.",
       "set.highlightInReading.desc": "Erkannte Begriffe in der Leseansicht als klickbare Links unterstreichen (Datei unver\xE4ndert).",
-      "set.editingHighlight.name": "Beim Bearbeiten hervorheben",
       "set.editingHighlight.desc": "Begriffe auch im Editor (Live-Vorschau / Quelltext) unterstreichen.",
       "set.editingHighlight.off": "Aus",
-      "set.editingHighlight.live": "Live (w\xE4hrend der Eingabe)",
       "set.skipHeadings.desc": "Begriffe in Markdown-\xDCberschriften nicht hervorheben oder verlinken.",
       "set.statusBar.desc": "In der Statusleiste anzeigen, wie viele Glossarbegriffe in der aktuellen Notiz sind.",
-      "set.statusBarIncludeLinks.name": "Direkte Links z\xE4hlen",
       "set.statusBarIncludeLinks.desc": "Auch bereits direkt verlinkte Begriffe z\xE4hlen, nicht nur Erw\xE4hnungen im Text.",
       "set.linkSuggest.desc": "W\xE4hrend der Eingabe in einer Notiz im Bereich anbieten, einen [[Link]] zu einem passenden Glossarbegriff einzuf\xFCgen (Pr\xE4fix eines Titels/Alias oder eine flektierte Form).",
-      "set.suggestMinChars.name": "Mindestanzahl Zeichen",
       "set.suggestSkipAfter.desc": "Keine Vorschl\xE4ge, wenn das Wort direkt auf eines dieser Zeichen folgt, damit andere Autovervollst\xE4ndigungen (Tags, Code-Links, Mathe) ihren Platz behalten. Leer lassen zum Deaktivieren.",
       "set.aliasHarvestMode.name": "Aliasform",
       "set.aliasHarvestMode.desc": "Wie gesammelter Linktext als Alias gespeichert wird.",
@@ -5090,19 +5313,13 @@ var require_de2 = __commonJS({
       "set.folderNotFound": "\u26A0 Ordner nicht gefunden \u2014 es werden keine Begriffe indexiert.",
       "set.termsIndexed": "{terms} indexiert.",
       "modal.materialize.title": "Glossarbegriffe verlinken \u2014 Vorschau",
-      "modal.materialize.summary": "Dateien: {files}, Ersetzungen: {replacements}",
       "modal.materialize.ambiguous": "{n} mehrdeutige(s) Wort(e) passen zu mehr als einem Begriff \u2014 eines w\xE4hlen (gilt f\xFCr jedes Vorkommen):",
-      "modal.skipOption": "(\xFCberspringen \u2014 als Text belassen)",
-      "modal.leftAsText": "\u2014 als Text belassen \u2014",
       "modal.harvest.title": "Aliasse sammeln \u2014 Vorschau",
       "modal.harvest.summary": "Begriffe: {terms}, neue Aliasse: {aliases}",
       "modal.harvest.alsoMatches": "Passt auch zu: {terms}",
       "modal.harvest.alreadyPresent": "Bereits vorhanden (\xFCbersprungen): {items}",
       "modal.unlink.title": "Glossarbegriffe entlinken \u2014 Vorschau",
-      "modal.unlink.summary": "Dateien: {files}, zu entfernende Links: {links}",
-      "modal.choose.body": "Dieses Wort passt zu mehr als einem Begriff \u2014 eines w\xE4hlen:",
       "btn.write": "Schreiben",
-      "label.selection": "Auswahl",
       "view.title": "Glossar",
       "overview.rescan": "Neu scannen",
       "overview.wholeVault": "gesamter Tresor",
@@ -5130,8 +5347,7 @@ var require_de2 = __commonJS({
       "plural.use": { one: "{n} Nutzung", other: "{n} Nutzungen" },
       "plural.note": { one: "{n} Notiz", other: "{n} Notizen" },
       "plural.link": { one: "{n} Link", other: "{n} Links" },
-      "plural.file": { one: "{n} Datei", other: "{n} Dateien" },
-      "plural.alias": { one: "{n} Alias", other: "{n} Aliasse" }
+      "plural.file": { one: "{n} Datei", other: "{n} Dateien" }
     };
   }
 });
@@ -5172,19 +5388,14 @@ var require_es2 = __commonJS({
       "menu.openNewTabTitle": "Abrir en pesta\xF1a nueva\u2026",
       "exclude.words": "palabras excluidas",
       "exclude.terms": "t\xE9rminos excluidos",
-      "exclude.addPrefixed": "Glossary: a\xF1adir \xAB{value}\xBB a {noun}",
-      "exclude.removePrefixed": "Glossary: quitar \xAB{value}\xBB de {noun}",
       "exclude.add": "A\xF1adir \xAB{value}\xBB a {noun}",
       "exclude.remove": "Quitar \xAB{value}\xBB de {noun}",
       "notice.indexRebuilt": "Glossary Linker: \xEDndice reconstruido",
       "notice.unlinked": "Glossary Linker: desenlazado",
-      "notice.noActiveNote": "No hay nota activa",
-      "notice.noSelection": "No hay selecci\xF3n",
       "notice.noMatches": "Glossary Linker: no se encontraron coincidencias",
       "notice.noGlossaryLinks": "Glossary Linker: no se encontraron enlaces del glosario",
       "notice.noteChanged": "Glossary Linker: la nota cambi\xF3 desde la vista previa, no se escribi\xF3 nada",
       "notice.scopeWritten": "Glossary Linker: {files}, {links}",
-      "notice.scopeSkipped": ", {n} omitido(s) (cambiado desde la vista previa)",
       "notice.linksCreated": "Glossary Linker: {links} creado(s)",
       "notice.linksRemoved": "Glossary Linker: {links} eliminado(s)",
       "notice.linkCreatedSingle": "Glossary Linker: enlace creado",
@@ -5217,40 +5428,27 @@ var require_es2 = __commonJS({
       "set.glossaryFolder.desc": "Carpeta con una nota por t\xE9rmino (nombre de archivo = t\xEDtulo del t\xE9rmino).",
       "set.termTemplate.name": "Plantilla de t\xE9rmino",
       "set.termTemplate.desc": "Nota usada como cuerpo de las nuevas notas de t\xE9rmino; los marcadores como {{title}} y {{date}} se rellenan. Vac\xEDo = nota en blanco.",
-      "set.scopeMode.name": "\xC1mbito de enlazado",
       "set.scopeMode.desc": "En qu\xE9 notas se resaltan y enlazan los t\xE9rminos.",
-      "set.scopeMode.folders": "Solo rutas indicadas",
-      "set.scopeMode.vault": "En todas partes",
       "set.scopeFolders.name": "Rutas a incluir",
       "set.scopeFolders.desc": "Un archivo o una carpeta. Solo estas (y las notas dentro de las carpetas indicadas) est\xE1n en el \xE1mbito.",
       "set.excludeFolders.name": "Rutas siempre excluidas",
       "set.excludeFolders.desc": "Un archivo o una carpeta, nunca se resalta, enlaza ni analiza, sea cual sea el modo de arriba.",
-      "set.matchMode.name": "Morfolog\xEDa",
       "set.matchMode.desc": "C\xF3mo se asocia una palabra flexionada a un t\xE9rmino.",
-      "set.matchMode.stemmer": "Lematizador (recomendado)",
-      "set.matchMode.endingStrip": "Quitar terminaciones",
-      "set.matchMode.exact": "Coincidencia exacta",
       "set.minTermLength.name": "Longitud m\xEDnima del t\xE9rmino",
       "set.minTermLength.desc": "Ignorar t\xEDtulos y alias de t\xE9rminos m\xE1s cortos que esta cantidad de caracteres, para que las letras sueltas no coincidan en todas partes.",
-      "set.languages.desc": "M\xF3dulos de morfolog\xEDa incluidos \u2014 {enabled} de {total} activados",
       "set.languages.invalidSuffix": ", {n} no v\xE1lidos",
-      "set.lang.invalid": "M\xF3dulo no v\xE1lido: {error}",
       "set.linkFirstOnly.desc": "Al convertir t\xE9rminos en enlaces, enlazar solo la primera aparici\xF3n de cada t\xE9rmino en una p\xE1gina.",
       "set.excludeTerms.name": "T\xE9rminos excluidos",
       "set.excludeTerms.desc": "T\xEDtulos o alias de t\xE9rminos, uno por l\xEDnea \u2014 quita del \xEDndice toda la entrada coincidente.",
       "set.excludeWords.name": "Palabras excluidas",
       "set.excludeWords.desc": "Palabras del texto, una por l\xEDnea, que nunca generan un enlace aunque coincidan con un t\xE9rmino.",
       "set.highlightInReading.desc": "Subrayar los t\xE9rminos detectados como enlaces en los que se puede hacer clic en la vista de lectura (archivo sin cambios).",
-      "set.editingHighlight.name": "Resaltar al editar",
       "set.editingHighlight.desc": "Subrayar los t\xE9rminos tambi\xE9n en el editor (Vista previa en vivo / C\xF3digo fuente).",
       "set.editingHighlight.off": "Desactivado",
-      "set.editingHighlight.live": "En vivo (mientras escribes)",
       "set.skipHeadings.desc": "No resaltar ni enlazar t\xE9rminos que aparezcan dentro de encabezados Markdown.",
       "set.statusBar.desc": "Mostrar en la barra de estado cu\xE1ntos t\xE9rminos del glosario hay en la nota actual.",
-      "set.statusBarIncludeLinks.name": "Contar enlaces directos",
       "set.statusBarIncludeLinks.desc": "Contar tambi\xE9n los t\xE9rminos ya enlazados directamente, no solo las menciones en texto.",
       "set.linkSuggest.desc": "Mientras escribes en una nota del \xE1mbito, ofrecer insertar un [[enlace]] a un t\xE9rmino del glosario coincidente (prefijo de un t\xEDtulo/alias, o una forma flexionada).",
-      "set.suggestMinChars.name": "Caracteres m\xEDnimos",
       "set.suggestSkipAfter.desc": "No sugerir cuando la palabra sigue a uno de estos caracteres, para que otras autocompletados (etiquetas, enlaces de c\xF3digo, matem\xE1ticas) conserven su lugar. Dejar vac\xEDo para desactivar.",
       "set.aliasHarvestMode.name": "Forma del alias",
       "set.aliasHarvestMode.desc": "C\xF3mo se guarda como alias el texto de enlace recopilado.",
@@ -5288,19 +5486,13 @@ var require_es2 = __commonJS({
       "set.folderNotFound": "\u26A0 Carpeta no encontrada \u2014 no se indexar\xE1 ning\xFAn t\xE9rmino.",
       "set.termsIndexed": "{terms} indexado(s).",
       "modal.materialize.title": "Enlazar t\xE9rminos del glosario \u2014 vista previa",
-      "modal.materialize.summary": "Archivos: {files}, reemplazos: {replacements}",
       "modal.materialize.ambiguous": "{n} palabra(s) ambigua(s) coinciden con m\xE1s de un t\xE9rmino \u2014 elige una (se aplica a cada aparici\xF3n):",
-      "modal.skipOption": "(omitir \u2014 dejar como texto)",
-      "modal.leftAsText": "\u2014 dejado como texto \u2014",
       "modal.harvest.title": "Recopilar alias \u2014 vista previa",
       "modal.harvest.summary": "T\xE9rminos: {terms}, alias nuevos: {aliases}",
       "modal.harvest.alsoMatches": "Tambi\xE9n coincide con: {terms}",
       "modal.harvest.alreadyPresent": "Ya presentes (omitidos): {items}",
       "modal.unlink.title": "Desenlazar t\xE9rminos del glosario \u2014 vista previa",
-      "modal.unlink.summary": "Archivos: {files}, enlaces a eliminar: {links}",
-      "modal.choose.body": "Esta palabra coincide con m\xE1s de un t\xE9rmino \u2014 elige uno:",
       "btn.write": "Escribir",
-      "label.selection": "selecci\xF3n",
       "view.title": "Glosario",
       "overview.rescan": "Volver a analizar",
       "overview.wholeVault": "todo el almac\xE9n",
@@ -5328,8 +5520,7 @@ var require_es2 = __commonJS({
       "plural.use": { one: "{n} uso", other: "{n} usos" },
       "plural.note": { one: "{n} nota", other: "{n} notas" },
       "plural.link": { one: "{n} enlace", other: "{n} enlaces" },
-      "plural.file": { one: "{n} archivo", other: "{n} archivos" },
-      "plural.alias": { one: "{n} alias", other: "{n} alias" }
+      "plural.file": { one: "{n} archivo", other: "{n} archivos" }
     };
   }
 });
@@ -5370,19 +5561,14 @@ var require_fr2 = __commonJS({
       "menu.openNewTabTitle": "Ouvrir dans un nouvel onglet\u2026",
       "exclude.words": "mots exclus",
       "exclude.terms": "termes exclus",
-      "exclude.addPrefixed": "Glossary : ajouter \xAB {value} \xBB \xE0 {noun}",
-      "exclude.removePrefixed": "Glossary : retirer \xAB {value} \xBB de {noun}",
       "exclude.add": "Ajouter \xAB {value} \xBB \xE0 {noun}",
       "exclude.remove": "Retirer \xAB {value} \xBB de {noun}",
       "notice.indexRebuilt": "Glossary Linker : index reconstruit",
       "notice.unlinked": "Glossary Linker : d\xE9li\xE9",
-      "notice.noActiveNote": "Aucune note active",
-      "notice.noSelection": "Aucune s\xE9lection",
       "notice.noMatches": "Glossary Linker : aucune correspondance trouv\xE9e",
       "notice.noGlossaryLinks": "Glossary Linker : aucun lien de glossaire trouv\xE9",
       "notice.noteChanged": "Glossary Linker : la note a chang\xE9 depuis l\u2019aper\xE7u, rien n\u2019a \xE9t\xE9 \xE9crit",
       "notice.scopeWritten": "Glossary Linker : {files}, {links}",
-      "notice.scopeSkipped": ", {n} ignor\xE9(s) (modifi\xE9 depuis l\u2019aper\xE7u)",
       "notice.linksCreated": "Glossary Linker : {links} cr\xE9\xE9(s)",
       "notice.linksRemoved": "Glossary Linker : {links} supprim\xE9(s)",
       "notice.linkCreatedSingle": "Glossary Linker : lien cr\xE9\xE9",
@@ -5415,40 +5601,27 @@ var require_fr2 = __commonJS({
       "set.glossaryFolder.desc": "Dossier avec une note par terme (nom de fichier = titre du terme).",
       "set.termTemplate.name": "Mod\xE8le de terme",
       "set.termTemplate.desc": "Note utilis\xE9e comme corps des nouvelles notes de terme ; les balises comme {{title}} et {{date}} sont remplies. Vide = note vierge.",
-      "set.scopeMode.name": "Port\xE9e du liage",
       "set.scopeMode.desc": "Dans quelles notes les termes sont surlign\xE9s et li\xE9s.",
-      "set.scopeMode.folders": "Chemins list\xE9s seulement",
-      "set.scopeMode.vault": "Partout",
       "set.scopeFolders.name": "Chemins \xE0 inclure",
       "set.scopeFolders.desc": "Un fichier ou un dossier. Seuls ceux-ci (et les notes dans les dossiers list\xE9s) sont dans la port\xE9e.",
       "set.excludeFolders.name": "Chemins toujours exclus",
       "set.excludeFolders.desc": "Un fichier ou un dossier, jamais surlign\xE9, li\xE9 ni analys\xE9, quel que soit le mode ci-dessus.",
-      "set.matchMode.name": "Morphologie",
       "set.matchMode.desc": "Comment un mot fl\xE9chi est associ\xE9 \xE0 un terme.",
-      "set.matchMode.stemmer": "Racinisation (recommand\xE9)",
-      "set.matchMode.endingStrip": "Suppression des terminaisons",
-      "set.matchMode.exact": "Correspondance exacte",
       "set.minTermLength.name": "Longueur minimale du terme",
       "set.minTermLength.desc": "Ignorer les titres et alias de termes plus courts que ce nombre de caract\xE8res, pour que les lettres isol\xE9es ne correspondent pas partout.",
-      "set.languages.desc": "Modules de morphologie inclus \u2014 {enabled} sur {total} activ\xE9s",
       "set.languages.invalidSuffix": ", {n} non valides",
-      "set.lang.invalid": "Module non valide : {error}",
       "set.linkFirstOnly.desc": "Lors de la conversion des termes en liens, ne lier que la premi\xE8re occurrence de chaque terme sur une page.",
       "set.excludeTerms.name": "Termes exclus",
       "set.excludeTerms.desc": "Titres ou alias de termes, un par ligne \u2014 retire toute l\u2019entr\xE9e correspondante de l\u2019index.",
       "set.excludeWords.name": "Mots exclus",
       "set.excludeWords.desc": "Mots du texte, un par ligne, qui ne d\xE9clenchent jamais de lien m\xEAme s\u2019ils correspondent \xE0 un terme.",
       "set.highlightInReading.desc": "Souligner les termes d\xE9tect\xE9s comme des liens cliquables en mode lecture (fichier inchang\xE9).",
-      "set.editingHighlight.name": "Surligner pendant l\u2019\xE9dition",
       "set.editingHighlight.desc": "Souligner les termes aussi dans l\u2019\xE9diteur (Aper\xE7u en direct / Source).",
       "set.editingHighlight.off": "D\xE9sactiv\xE9",
-      "set.editingHighlight.live": "En direct (pendant la saisie)",
       "set.skipHeadings.desc": "Ne pas surligner ni lier les termes qui apparaissent dans les titres Markdown.",
       "set.statusBar.desc": "Afficher dans la barre d\u2019\xE9tat combien de termes du glossaire sont dans la note actuelle.",
-      "set.statusBarIncludeLinks.name": "Compter les liens directs",
       "set.statusBarIncludeLinks.desc": "Compter aussi les termes d\xE9j\xE0 li\xE9s directement, pas seulement les mentions en texte.",
       "set.linkSuggest.desc": "Pendant la saisie dans une note de la port\xE9e, proposer d\u2019ins\xE9rer un [[lien]] vers un terme du glossaire correspondant (pr\xE9fixe d\u2019un titre/alias, ou une forme fl\xE9chie).",
-      "set.suggestMinChars.name": "Caract\xE8res minimum",
       "set.suggestSkipAfter.desc": "Ne pas sugg\xE9rer quand le mot suit l'un de ces caract\xE8res, afin que les autres autocompl\xE9tions (\xE9tiquettes, liens de code, math) gardent leur place. Laisser vide pour d\xE9sactiver.",
       "set.aliasHarvestMode.name": "Forme de l\u2019alias",
       "set.aliasHarvestMode.desc": "Comment le texte de lien collect\xE9 est stock\xE9 comme alias.",
@@ -5486,19 +5659,13 @@ var require_fr2 = __commonJS({
       "set.folderNotFound": "\u26A0 Dossier introuvable \u2014 aucun terme ne sera index\xE9.",
       "set.termsIndexed": "{terms} index\xE9(s).",
       "modal.materialize.title": "Lier les termes du glossaire \u2014 aper\xE7u",
-      "modal.materialize.summary": "Fichiers : {files}, remplacements : {replacements}",
       "modal.materialize.ambiguous": "{n} mot(s) ambigu(s) correspondent \xE0 plus d\u2019un terme \u2014 choisissez-en un (s\u2019applique \xE0 chaque occurrence) :",
-      "modal.skipOption": "(ignorer \u2014 laisser en texte)",
-      "modal.leftAsText": "\u2014 laiss\xE9 en texte \u2014",
       "modal.harvest.title": "Collecter les alias \u2014 aper\xE7u",
       "modal.harvest.summary": "Termes : {terms}, nouveaux alias : {aliases}",
       "modal.harvest.alsoMatches": "Correspond aussi \xE0 : {terms}",
       "modal.harvest.alreadyPresent": "D\xE9j\xE0 pr\xE9sents (ignor\xE9s) : {items}",
       "modal.unlink.title": "D\xE9lier les termes du glossaire \u2014 aper\xE7u",
-      "modal.unlink.summary": "Fichiers : {files}, liens \xE0 supprimer : {links}",
-      "modal.choose.body": "Ce mot correspond \xE0 plus d\u2019un terme \u2014 choisissez-en un :",
       "btn.write": "\xC9crire",
-      "label.selection": "s\xE9lection",
       "view.title": "Glossaire",
       "overview.rescan": "R\xE9analyser",
       "overview.wholeVault": "tout le coffre",
@@ -5526,8 +5693,7 @@ var require_fr2 = __commonJS({
       "plural.use": { one: "{n} utilisation", other: "{n} utilisations" },
       "plural.note": { one: "{n} note", other: "{n} notes" },
       "plural.link": { one: "{n} lien", other: "{n} liens" },
-      "plural.file": { one: "{n} fichier", other: "{n} fichiers" },
-      "plural.alias": { one: "{n} alias", other: "{n} alias" }
+      "plural.file": { one: "{n} fichier", other: "{n} fichiers" }
     };
   }
 });
@@ -5568,19 +5734,14 @@ var require_uk2 = __commonJS({
       "menu.openNewTabTitle": "\u0412\u0456\u0434\u043A\u0440\u0438\u0442\u0438 \u0432 \u043D\u043E\u0432\u0456\u0439 \u0432\u043A\u043B\u0430\u0434\u0446\u0456\u2026",
       "exclude.words": "\u0432\u0438\u043A\u043B\u044E\u0447\u0435\u043D\u0456 \u0441\u043B\u043E\u0432\u0430",
       "exclude.terms": "\u0432\u0438\u043A\u043B\u044E\u0447\u0435\u043D\u0456 \u0442\u0435\u0440\u043C\u0456\u043D\u0438",
-      "exclude.addPrefixed": "Glossary: \u0434\u043E\u0434\u0430\u0442\u0438 \xAB{value}\xBB \u0434\u043E \u0441\u043F\u0438\u0441\u043A\u0443 ({noun})",
-      "exclude.removePrefixed": "Glossary: \u043F\u0440\u0438\u0431\u0440\u0430\u0442\u0438 \xAB{value}\xBB \u0437\u0456 \u0441\u043F\u0438\u0441\u043A\u0443 ({noun})",
       "exclude.add": "\u0414\u043E\u0434\u0430\u0442\u0438 \xAB{value}\xBB \u0434\u043E \u0441\u043F\u0438\u0441\u043A\u0443 ({noun})",
       "exclude.remove": "\u041F\u0440\u0438\u0431\u0440\u0430\u0442\u0438 \xAB{value}\xBB \u0437\u0456 \u0441\u043F\u0438\u0441\u043A\u0443 ({noun})",
       "notice.indexRebuilt": "Glossary Linker: \u0456\u043D\u0434\u0435\u043A\u0441 \u043F\u0435\u0440\u0435\u0431\u0443\u0434\u043E\u0432\u0430\u043D\u043E",
       "notice.unlinked": "Glossary Linker: \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F \u043F\u0440\u0438\u0431\u0440\u0430\u043D\u043E",
-      "notice.noActiveNote": "\u041D\u0435\u043C\u0430\u0454 \u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0457 \u043D\u043E\u0442\u0430\u0442\u043A\u0438",
-      "notice.noSelection": "\u041D\u0435\u043C\u0430\u0454 \u0432\u0438\u0434\u0456\u043B\u0435\u043D\u043D\u044F",
       "notice.noMatches": "Glossary Linker: \u0437\u0431\u0456\u0433\u0456\u0432 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E",
       "notice.noGlossaryLinks": "Glossary Linker: \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u044C \u043D\u0430 \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u0439 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E",
       "notice.noteChanged": "Glossary Linker: \u043D\u043E\u0442\u0430\u0442\u043A\u0443 \u0437\u043C\u0456\u043D\u0435\u043D\u043E \u043F\u0456\u0441\u043B\u044F \u043F\u043E\u043F\u0435\u0440\u0435\u0434\u043D\u044C\u043E\u0433\u043E \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434\u0443, \u043D\u0456\u0447\u043E\u0433\u043E \u043D\u0435 \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u043E",
       "notice.scopeWritten": "Glossary Linker: {files}, {links}",
-      "notice.scopeSkipped": ", \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E: {n} (\u0437\u043C\u0456\u043D\u0435\u043D\u043E \u043F\u0456\u0441\u043B\u044F \u043F\u043E\u043F\u0435\u0440\u0435\u0434\u043D\u044C\u043E\u0433\u043E \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434\u0443)",
       "notice.linksCreated": "Glossary Linker: \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043E \u2014 {links}",
       "notice.linksRemoved": "Glossary Linker: \u043F\u0440\u0438\u0431\u0440\u0430\u043D\u043E \u2014 {links}",
       "notice.linkCreatedSingle": "Glossary Linker: \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043E",
@@ -5613,40 +5774,27 @@ var require_uk2 = __commonJS({
       "set.glossaryFolder.desc": "\u0422\u0435\u043A\u0430 \u0437 \u043E\u0434\u043D\u0456\u0454\u044E \u043D\u043E\u0442\u0430\u0442\u043A\u043E\u044E \u043D\u0430 \u0442\u0435\u0440\u043C\u0456\u043D (\u0456\u043C\u2019\u044F \u0444\u0430\u0439\u043B\u0443 = \u043D\u0430\u0437\u0432\u0430 \u0442\u0435\u0440\u043C\u0456\u043D\u0430).",
       "set.termTemplate.name": "\u0428\u0430\u0431\u043B\u043E\u043D \u0442\u0435\u0440\u043C\u0456\u043D\u0430",
       "set.termTemplate.desc": "\u041D\u043E\u0442\u0430\u0442\u043A\u0430, \u0449\u043E \u0432\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u043E\u0432\u0443\u0454\u0442\u044C\u0441\u044F \u044F\u043A \u0442\u0456\u043B\u043E \u043D\u043E\u0432\u0438\u0445 \u043D\u043E\u0442\u0430\u0442\u043E\u043A \u0442\u0435\u0440\u043C\u0456\u043D\u0456\u0432; \u0437\u0430\u043F\u043E\u0432\u043D\u044E\u0432\u0430\u0447\u0456 \u043D\u0430 \u043A\u0448\u0442\u0430\u043B\u0442 {{title}} \u0456 {{date}} \u043F\u0456\u0434\u0441\u0442\u0430\u0432\u043B\u044F\u044E\u0442\u044C\u0441\u044F. \u041F\u043E\u0440\u043E\u0436\u043D\u044C\u043E = \u043F\u043E\u0440\u043E\u0436\u043D\u044F \u043D\u043E\u0442\u0430\u0442\u043A\u0430.",
-      "set.scopeMode.name": "\u041E\u0431\u043B\u0430\u0441\u0442\u044C \u0437\u0432\u2019\u044F\u0437\u0443\u0432\u0430\u043D\u043D\u044F",
       "set.scopeMode.desc": "\u0423 \u044F\u043A\u0438\u0445 \u043D\u043E\u0442\u0430\u0442\u043A\u0430\u0445 \u0442\u0435\u0440\u043C\u0456\u043D\u0438 \u043F\u0456\u0434\u0441\u0432\u0456\u0447\u0443\u044E\u0442\u044C\u0441\u044F \u0442\u0430 \u0437\u0432\u2019\u044F\u0437\u0443\u044E\u0442\u044C\u0441\u044F.",
-      "set.scopeMode.folders": "\u041B\u0438\u0448\u0435 \u0432\u043A\u0430\u0437\u0430\u043D\u0456 \u0448\u043B\u044F\u0445\u0438",
-      "set.scopeMode.vault": "\u0423\u0441\u044E\u0434\u0438",
       "set.scopeFolders.name": "\u0428\u043B\u044F\u0445\u0438 \u0434\u043B\u044F \u0432\u043A\u043B\u044E\u0447\u0435\u043D\u043D\u044F",
       "set.scopeFolders.desc": "\u0424\u0430\u0439\u043B \u0430\u0431\u043E \u0442\u0435\u043A\u0430. \u0414\u043E \u043E\u0431\u043B\u0430\u0441\u0442\u0456 \u0437\u0432\u2019\u044F\u0437\u0443\u0432\u0430\u043D\u043D\u044F \u0432\u0445\u043E\u0434\u044F\u0442\u044C \u043B\u0438\u0448\u0435 \u0432\u043E\u043D\u0438 (\u0456 \u043D\u043E\u0442\u0430\u0442\u043A\u0438 \u0432\u0441\u0435\u0440\u0435\u0434\u0438\u043D\u0456 \u0432\u043A\u0430\u0437\u0430\u043D\u0438\u0445 \u0442\u0435\u043A).",
       "set.excludeFolders.name": "\u0417\u0430\u0432\u0436\u0434\u0438 \u0432\u0438\u043A\u043B\u044E\u0447\u0435\u043D\u0456 \u0448\u043B\u044F\u0445\u0438",
       "set.excludeFolders.desc": "\u0424\u0430\u0439\u043B \u0430\u0431\u043E \u0442\u0435\u043A\u0430; \u043D\u0456\u043A\u043E\u043B\u0438 \u043D\u0435 \u043F\u0456\u0434\u0441\u0432\u0456\u0447\u0443\u044E\u0442\u044C\u0441\u044F, \u043D\u0435 \u0437\u0432\u2019\u044F\u0437\u0443\u044E\u0442\u044C\u0441\u044F \u0439 \u043D\u0435 \u0441\u043A\u0430\u043D\u0443\u044E\u0442\u044C\u0441\u044F, \u043D\u0435\u0437\u0430\u043B\u0435\u0436\u043D\u043E \u0432\u0456\u0434 \u0440\u0435\u0436\u0438\u043C\u0443 \u0432\u0438\u0449\u0435.",
-      "set.matchMode.name": "\u041C\u043E\u0440\u0444\u043E\u043B\u043E\u0433\u0456\u044F",
       "set.matchMode.desc": "\u042F\u043A \u0441\u043B\u043E\u0432\u043E\u0444\u043E\u0440\u043C\u0430 \u0437\u0456\u0441\u0442\u0430\u0432\u043B\u044F\u0454\u0442\u044C\u0441\u044F \u0437 \u0442\u0435\u0440\u043C\u0456\u043D\u043E\u043C.",
-      "set.matchMode.stemmer": "\u0421\u0442\u0435\u043C\u0435\u0440 (\u0440\u0435\u043A\u043E\u043C\u0435\u043D\u0434\u043E\u0432\u0430\u043D\u043E)",
-      "set.matchMode.endingStrip": "\u0412\u0456\u0434\u0441\u0456\u043A\u0430\u043D\u043D\u044F \u0437\u0430\u043A\u0456\u043D\u0447\u0435\u043D\u044C",
-      "set.matchMode.exact": "\u0422\u043E\u0447\u043D\u0438\u0439 \u0437\u0431\u0456\u0433",
       "set.minTermLength.name": "\u041C\u0456\u043D\u0456\u043C\u0430\u043B\u044C\u043D\u0430 \u0434\u043E\u0432\u0436\u0438\u043D\u0430 \u0442\u0435\u0440\u043C\u0456\u043D\u0430",
       "set.minTermLength.desc": "\u0406\u0433\u043D\u043E\u0440\u0443\u0432\u0430\u0442\u0438 \u043D\u0430\u0437\u0432\u0438 \u0442\u0430 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0438 \u043A\u043E\u0440\u043E\u0442\u0448\u0456 \u0437\u0430 \u0432\u043A\u0430\u0437\u0430\u043D\u0443 \u043A\u0456\u043B\u044C\u043A\u0456\u0441\u0442\u044C \u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432, \u0449\u043E\u0431 \u043E\u043A\u0440\u0435\u043C\u0456 \u043B\u0456\u0442\u0435\u0440\u0438 \u043D\u0435 \u0437\u0431\u0456\u0433\u0430\u043B\u0438\u0441\u044F \u0432\u0441\u044E\u0434\u0438.",
-      "set.languages.desc": "\u0412\u0431\u0443\u0434\u043E\u0432\u0430\u043D\u0456 \u043C\u043E\u0434\u0443\u043B\u0456 \u043C\u043E\u0440\u0444\u043E\u043B\u043E\u0433\u0456\u0457 \u2014 \u0443\u0432\u0456\u043C\u043A\u043D\u0435\u043D\u043E {enabled} \u0437 {total}",
       "set.languages.invalidSuffix": ", \u0437 \u043F\u043E\u043C\u0438\u043B\u043A\u0430\u043C\u0438: {n}",
-      "set.lang.invalid": "\u041D\u0435\u0434\u043E\u043F\u0443\u0441\u0442\u0438\u043C\u0438\u0439 \u043C\u043E\u0434\u0443\u043B\u044C: {error}",
       "set.linkFirstOnly.desc": "\u041F\u0435\u0440\u0435\u0442\u0432\u043E\u0440\u044E\u044E\u0447\u0438 \u0442\u0435\u0440\u043C\u0456\u043D\u0438 \u043D\u0430 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F, \u0437\u0432\u2019\u044F\u0437\u0443\u0432\u0430\u0442\u0438 \u043B\u0438\u0448\u0435 \u043F\u0435\u0440\u0448\u0435 \u0432\u0445\u043E\u0434\u0436\u0435\u043D\u043D\u044F \u043A\u043E\u0436\u043D\u043E\u0433\u043E \u0442\u0435\u0440\u043C\u0456\u043D\u0430 \u043D\u0430 \u0441\u0442\u043E\u0440\u0456\u043D\u0446\u0456.",
       "set.excludeTerms.name": "\u0412\u0438\u043A\u043B\u044E\u0447\u0435\u043D\u0456 \u0442\u0435\u0440\u043C\u0456\u043D\u0438",
       "set.excludeTerms.desc": "\u041D\u0430\u0437\u0432\u0438 \u0430\u0431\u043E \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0438 \u0442\u0435\u0440\u043C\u0456\u043D\u0456\u0432, \u043F\u043E \u043E\u0434\u043D\u043E\u043C\u0443 \u043D\u0430 \u0440\u044F\u0434\u043E\u043A \u2014 \u043F\u0440\u0438\u0431\u0438\u0440\u0430\u044E\u0442\u044C \u0443\u0432\u0435\u0441\u044C \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u043D\u0438\u0439 \u0437\u0430\u043F\u0438\u0441 \u0437 \u0456\u043D\u0434\u0435\u043A\u0441\u0443.",
       "set.excludeWords.name": "\u0412\u0438\u043A\u043B\u044E\u0447\u0435\u043D\u0456 \u0441\u043B\u043E\u0432\u0430",
       "set.excludeWords.desc": "\u0421\u043B\u043E\u0432\u0430 \u0432 \u0442\u0435\u043A\u0441\u0442\u0456, \u043F\u043E \u043E\u0434\u043D\u043E\u043C\u0443 \u043D\u0430 \u0440\u044F\u0434\u043E\u043A, \u0449\u043E \u043D\u0456\u043A\u043E\u043B\u0438 \u043D\u0435 \u0434\u0430\u044E\u0442\u044C \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F, \u043D\u0430\u0432\u0456\u0442\u044C \u044F\u043A\u0449\u043E \u0437\u0431\u0456\u0433\u0430\u044E\u0442\u044C\u0441\u044F \u0437 \u0442\u0435\u0440\u043C\u0456\u043D\u043E\u043C.",
       "set.highlightInReading.desc": "\u041F\u0456\u0434\u043A\u0440\u0435\u0441\u043B\u044E\u0432\u0430\u0442\u0438 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u0456 \u0442\u0435\u0440\u043C\u0456\u043D\u0438 \u044F\u043A \u043A\u043B\u0456\u043A\u0430\u0431\u0435\u043B\u044C\u043D\u0456 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F \u0432 \u0440\u0435\u0436\u0438\u043C\u0456 \u0447\u0438\u0442\u0430\u043D\u043D\u044F (\u0444\u0430\u0439\u043B \u043D\u0435 \u0437\u043C\u0456\u043D\u044E\u0454\u0442\u044C\u0441\u044F).",
-      "set.editingHighlight.name": "\u041F\u0456\u0434\u0441\u0432\u0456\u0447\u0443\u0432\u0430\u0442\u0438 \u043F\u0456\u0434 \u0447\u0430\u0441 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F",
       "set.editingHighlight.desc": "\u041F\u0456\u0434\u043A\u0440\u0435\u0441\u043B\u044E\u0432\u0430\u0442\u0438 \u0442\u0435\u0440\u043C\u0456\u043D\u0438 \u0456 \u0432 \u0440\u0435\u0434\u0430\u043A\u0442\u043E\u0440\u0456 (Live Preview / Source).",
       "set.editingHighlight.off": "\u0412\u0438\u043C\u043A.",
-      "set.editingHighlight.live": "\u041D\u0430 \u043B\u044C\u043E\u0442\u0443 (\u043F\u0456\u0434 \u0447\u0430\u0441 \u043D\u0430\u0431\u043E\u0440\u0443)",
       "set.skipHeadings.desc": "\u041D\u0435 \u043F\u0456\u0434\u0441\u0432\u0456\u0447\u0443\u0432\u0430\u0442\u0438 \u0439 \u043D\u0435 \u0437\u0432\u2019\u044F\u0437\u0443\u0432\u0430\u0442\u0438 \u0442\u0435\u0440\u043C\u0456\u043D\u0438 \u0432\u0441\u0435\u0440\u0435\u0434\u0438\u043D\u0456 \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043A\u0456\u0432 Markdown.",
       "set.statusBar.desc": "\u041F\u043E\u043A\u0430\u0437\u0443\u0432\u0430\u0442\u0438 \u0432 \u0440\u044F\u0434\u043A\u0443 \u0441\u0442\u0430\u043D\u0443, \u0441\u043A\u0456\u043B\u044C\u043A\u0438 \u0442\u0435\u0440\u043C\u0456\u043D\u0456\u0432 \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u044F \u0432 \u043F\u043E\u0442\u043E\u0447\u043D\u0456\u0439 \u043D\u043E\u0442\u0430\u0442\u0446\u0456.",
-      "set.statusBarIncludeLinks.name": "\u0420\u0430\u0445\u0443\u0432\u0430\u0442\u0438 \u043F\u0440\u044F\u043C\u0456 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F",
       "set.statusBarIncludeLinks.desc": "\u0422\u0430\u043A\u043E\u0436 \u0440\u0430\u0445\u0443\u0432\u0430\u0442\u0438 \u0432\u0436\u0435 \u0437\u0432\u2019\u044F\u0437\u0430\u043D\u0456 \u0442\u0435\u0440\u043C\u0456\u043D\u0438, \u0430 \u043D\u0435 \u043B\u0438\u0448\u0435 \u0437\u0433\u0430\u0434\u043A\u0438 \u0432 \u0442\u0435\u043A\u0441\u0442\u0456.",
       "set.linkSuggest.desc": "\u041F\u0456\u0434 \u0447\u0430\u0441 \u043D\u0430\u0431\u043E\u0440\u0443 \u0432 \u043D\u043E\u0442\u0430\u0442\u0446\u0456 \u0437 \u043E\u0431\u043B\u0430\u0441\u0442\u0456 \u043F\u0440\u043E\u043F\u043E\u043D\u0443\u0432\u0430\u0442\u0438 \u0432\u0441\u0442\u0430\u0432\u0438\u0442\u0438 [[\u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F]] \u043D\u0430 \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u043D\u0438\u0439 \u0442\u0435\u0440\u043C\u0456\u043D \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u044F (\u0437\u0430 \u043F\u043E\u0447\u0430\u0442\u043A\u043E\u043C \u043D\u0430\u0437\u0432\u0438/\u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0430 \u0430\u0431\u043E \u0437\u0430 \u0441\u043B\u043E\u0432\u043E\u0444\u043E\u0440\u043C\u043E\u044E).",
-      "set.suggestMinChars.name": "\u041C\u0456\u043D\u0456\u043C\u0443\u043C \u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432",
       "set.suggestSkipAfter.desc": "\u041D\u0435 \u043F\u0456\u0434\u043A\u0430\u0437\u0443\u0432\u0430\u0442\u0438, \u044F\u043A\u0449\u043E \u0441\u043B\u043E\u0432\u043E \u0439\u0434\u0435 \u043E\u0434\u0440\u0430\u0437\u0443 \u043F\u0456\u0441\u043B\u044F \u043E\u0434\u043D\u043E\u0433\u043E \u0437 \u0446\u0438\u0445 \u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432 \u2014 \u0449\u043E\u0431 \u0456\u043D\u0448\u0456 \u043F\u0456\u0434\u043A\u0430\u0437\u043A\u0438 (\u0442\u0435\u0433\u0438, \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F \u043D\u0430 \u043A\u043E\u0434, \u0444\u043E\u0440\u043C\u0443\u043B\u0438) \u0437\u0431\u0435\u0440\u0456\u0433\u0430\u043B\u0438 \u0441\u0432\u0456\u0439 \u0441\u043B\u043E\u0442. \u041F\u043E\u0440\u043E\u0436\u043D\u044C\u043E \u2014 \u0432\u0438\u043C\u043A\u043D\u0443\u0442\u0438.",
       "set.aliasHarvestMode.name": "\u0424\u043E\u0440\u043C\u0430 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0430",
       "set.aliasHarvestMode.desc": "\u042F\u043A \u0437\u0456\u0431\u0440\u0430\u043D\u0438\u0439 \u0442\u0435\u043A\u0441\u0442 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F \u0437\u0431\u0435\u0440\u0456\u0433\u0430\u0454\u0442\u044C\u0441\u044F \u044F\u043A \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C.",
@@ -5684,19 +5832,13 @@ var require_uk2 = __commonJS({
       "set.folderNotFound": "\u26A0 \u0422\u0435\u043A\u0443 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E \u2014 \u0442\u0435\u0440\u043C\u0456\u043D\u0438 \u043D\u0435 \u0431\u0443\u0434\u0443\u0442\u044C \u043F\u0440\u043E\u0456\u043D\u0434\u0435\u043A\u0441\u043E\u0432\u0430\u043D\u0456.",
       "set.termsIndexed": "\u041F\u0440\u043E\u0456\u043D\u0434\u0435\u043A\u0441\u043E\u0432\u0430\u043D\u043E: {terms}.",
       "modal.materialize.title": "\u0417\u0432\u2019\u044F\u0437\u0430\u0442\u0438 \u0442\u0435\u0440\u043C\u0456\u043D\u0438 \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u044F \u2014 \u043F\u043E\u043F\u0435\u0440\u0435\u0434\u043D\u0456\u0439 \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434",
-      "modal.materialize.summary": "\u0424\u0430\u0439\u043B\u0456\u0432: {files}, \u0437\u0430\u043C\u0456\u043D: {replacements}",
       "modal.materialize.ambiguous": "\u041D\u0435\u043E\u0434\u043D\u043E\u0437\u043D\u0430\u0447\u043D\u0438\u0445 \u0441\u043B\u0456\u0432, \u0449\u043E \u0437\u0431\u0456\u0433\u0430\u044E\u0442\u044C\u0441\u044F \u0437 \u043A\u0456\u043B\u044C\u043A\u043E\u043C\u0430 \u0442\u0435\u0440\u043C\u0456\u043D\u0430\u043C\u0438: {n} \u2014 \u0432\u0438\u0431\u0435\u0440\u0456\u0442\u044C \u043E\u0434\u043D\u0435 (\u0437\u0430\u0441\u0442\u043E\u0441\u043E\u0432\u0443\u0454\u0442\u044C\u0441\u044F \u0434\u043E \u043A\u043E\u0436\u043D\u043E\u0433\u043E \u0432\u0445\u043E\u0434\u0436\u0435\u043D\u043D\u044F):",
-      "modal.skipOption": "(\u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u0438 \u2014 \u0437\u0430\u043B\u0438\u0448\u0438\u0442\u0438 \u0442\u0435\u043A\u0441\u0442\u043E\u043C)",
-      "modal.leftAsText": "\u2014 \u0437\u0430\u043B\u0438\u0448\u0435\u043D\u043E \u0442\u0435\u043A\u0441\u0442\u043E\u043C \u2014",
       "modal.harvest.title": "\u0417\u0456\u0431\u0440\u0430\u0442\u0438 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0438 \u2014 \u043F\u043E\u043F\u0435\u0440\u0435\u0434\u043D\u0456\u0439 \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434",
       "modal.harvest.summary": "\u0422\u0435\u0440\u043C\u0456\u043D\u0456\u0432: {terms}, \u043D\u043E\u0432\u0438\u0445 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0456\u0432: {aliases}",
       "modal.harvest.alsoMatches": "\u0422\u0430\u043A\u043E\u0436 \u0437\u0431\u0456\u0433\u0430\u0454\u0442\u044C\u0441\u044F \u0437: {terms}",
       "modal.harvest.alreadyPresent": "\u0423\u0436\u0435 \u043D\u0430\u044F\u0432\u043D\u0456 (\u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E): {items}",
       "modal.unlink.title": "\u041F\u0440\u0438\u0431\u0440\u0430\u0442\u0438 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F \u043D\u0430 \u0442\u0435\u0440\u043C\u0456\u043D\u0438 \u2014 \u043F\u043E\u043F\u0435\u0440\u0435\u0434\u043D\u0456\u0439 \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434",
-      "modal.unlink.summary": "\u0424\u0430\u0439\u043B\u0456\u0432: {files}, \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u044C \u0434\u043E \u0432\u0438\u0434\u0430\u043B\u0435\u043D\u043D\u044F: {links}",
-      "modal.choose.body": "\u0426\u0435 \u0441\u043B\u043E\u0432\u043E \u0437\u0431\u0456\u0433\u0430\u0454\u0442\u044C\u0441\u044F \u0437 \u043A\u0456\u043B\u044C\u043A\u043E\u043C\u0430 \u0442\u0435\u0440\u043C\u0456\u043D\u0430\u043C\u0438 \u2014 \u0432\u0438\u0431\u0435\u0440\u0456\u0442\u044C \u043E\u0434\u0438\u043D:",
       "btn.write": "\u0417\u0430\u043F\u0438\u0441\u0430\u0442\u0438",
-      "label.selection": "\u0432\u0438\u0434\u0456\u043B\u0435\u043D\u043D\u044F",
       "view.title": "\u0413\u043B\u043E\u0441\u0430\u0440\u0456\u0439",
       "overview.rescan": "\u041F\u0435\u0440\u0435\u0441\u043A\u0430\u043D\u0443\u0432\u0430\u0442\u0438",
       "overview.wholeVault": "\u0443\u0441\u0435 \u0441\u0445\u043E\u0432\u0438\u0449\u0435",
@@ -5724,8 +5866,7 @@ var require_uk2 = __commonJS({
       "plural.use": { one: "{n} \u0432\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u0430\u043D\u043D\u044F", few: "{n} \u0432\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u0430\u043D\u043D\u044F", many: "{n} \u0432\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u0430\u043D\u044C", other: "{n} \u0432\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u0430\u043D\u044C" },
       "plural.note": { one: "{n} \u043D\u043E\u0442\u0430\u0442\u043A\u0430", few: "{n} \u043D\u043E\u0442\u0430\u0442\u043A\u0438", many: "{n} \u043D\u043E\u0442\u0430\u0442\u043E\u043A", other: "{n} \u043D\u043E\u0442\u0430\u0442\u043E\u043A" },
       "plural.link": { one: "{n} \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F", few: "{n} \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F", many: "{n} \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u044C", other: "{n} \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u044C" },
-      "plural.file": { one: "{n} \u0444\u0430\u0439\u043B", few: "{n} \u0444\u0430\u0439\u043B\u0438", many: "{n} \u0444\u0430\u0439\u043B\u0456\u0432", other: "{n} \u0444\u0430\u0439\u043B\u0456\u0432" },
-      "plural.alias": { one: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C", few: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0438", many: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0456\u0432", other: "{n} \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0456\u0432" }
+      "plural.file": { one: "{n} \u0444\u0430\u0439\u043B", few: "{n} \u0444\u0430\u0439\u043B\u0438", many: "{n} \u0444\u0430\u0439\u043B\u0456\u0432", other: "{n} \u0444\u0430\u0439\u043B\u0456\u0432" }
     };
   }
 });
@@ -5745,7 +5886,7 @@ var indexEvents = require_index_events();
 var { GlossaryTermSuggest, suggestAvailable } = require_term_suggest();
 var { GlossaryOverviewView, OVERVIEW_VIEW_TYPE } = require_overview_view();
 var { initI18n, withFamily, t, plural } = require_i18n();
-var { menuSection } = require_menu();
+var { buildMenu } = require_menu_verbs();
 var { ChoicePopover } = require_choices();
 var GlossaryLinkerPlugin = class extends Plugin {
   async onload() {
@@ -5832,7 +5973,7 @@ var GlossaryLinkerPlugin = class extends Plugin {
       if (active && active.path === file.path)
         this.updateStatusBarDebounced();
     }));
-    this.registerEvent(this.app.workspace.on("editor-menu", (menu, editor) => {
+    this.registerEvent(this.app.workspace.on("editor-menu", (nativeMenu, editor) => buildMenu(this, nativeMenu, (menu) => {
       const sel = editor.getSelection().trim();
       const hasSel = !!sel && !sel.includes("\n");
       const link = this.glossaryLinkAt(editor);
@@ -5870,21 +6011,22 @@ var GlossaryLinkerPlugin = class extends Plugin {
         const display = hit.match.display;
         const canonical = hit.match.canonical;
         const candidates = () => this.cursorCandidates(hit, sourcePath, false);
+        const ownCandidates = () => [hit.match.canonical, ...hit.match.alts || []];
         if (file && this.settings.menuTurnInto) {
           const scope = this.settings.linkFirstOnly ? t("scope.first") : t("scope.all");
-          const linkGroup = menuSection(menu, t("menu.linkThisWord", { display }), true, "link");
+          const linkGroup = menu.section(t("menu.linkThisWord", { display }), "link");
           linkGroup.addItem((i) => i.setTitle(t("menu.linkHere", { display })).setIcon("link").onClick(() => this.chooseTerm(
-            candidates(),
+            ownCandidates(),
             t("menu.linkDisplayTo", { display }),
             (c) => this.materializeSingle(file, canonical, display, editor.posToOffset({ line: hit.line, ch: hit.match.start }), 0, c)
           )));
           linkGroup.addItem((i) => i.setTitle(t("menu.linkScopeThisNote", { scope, display })).setIcon("links-coming-in").onClick(() => this.chooseTerm(
-            candidates(),
+            ownCandidates(),
             t("menu.linkScopeTo", { scope, display }),
             (c) => this.materializeTerm(file, canonical, c)
           )));
           linkGroup.addItem((i) => i.setTitle(t("menu.linkScopeAllNotes", { scope, display })).setIcon("links-going-out").onClick(() => this.chooseTerm(
-            candidates(),
+            ownCandidates(),
             t("menu.linkScopeTo", { scope, display }),
             (c) => this.materializeTermScope(canonical, c)
           )));
@@ -5900,7 +6042,13 @@ var GlossaryLinkerPlugin = class extends Plugin {
         excludeItems(word.canonical, "excludeTerms");
         return;
       }
-    }));
+      const raw = this.rawWordAtCursor(editor);
+      if (raw) {
+        const lists = ["excludeWords", "excludeTerms"].filter((k) => this.isExcluded(k, raw));
+        if (lists.length)
+          excludeItems(raw, ...lists);
+      }
+    })));
     this.registerEvent(this.app.workspace.on("file-menu", (menu, file, source) => {
       if (source === "link-context-menu")
         return;

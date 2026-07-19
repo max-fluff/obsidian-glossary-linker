@@ -54,6 +54,12 @@ module.exports = {
         suggest: (query) => suggestionsFor(plugin, String(query || '')),
         // The popup's owner writes our link text but never composes it.
         linkFor: (target, display, inTable) => plugin.wikiLink(target, display, inTable),
+        // Whether we would add a menu item of this verb for this text — asked before either
+        // plugin writes one, since the grouping has to be settled first.
+        offers: (kind, text) => kind === 'exclude' && !!plugin.settings.menuExclude
+          && (plugin.findMatches(String(text || ''), null).length > 0
+            || plugin.isExcluded('excludeWords', String(text || ''))
+            || plugin.isExcluded('excludeTerms', String(text || ''))),
         refresh: () => plugin.rerenderViews(),
       },
     };
