@@ -11,7 +11,7 @@ const { run } = require('../src/shared/testing/harness');
 // the app. Installed here, not by whichever test file happens to need it: `require` caches
 // by resolved filename, so the first file to pull in `obsidian` fixes the stub for every
 // file after it.
-require('./stubs/app').installStubs();
+require('../src/shared/testing/stubs').installStubs();
 
 const dirs = [__dirname, path.join(__dirname, '..', 'src', 'shared', 'testing', 'tests')];
 const files = [];

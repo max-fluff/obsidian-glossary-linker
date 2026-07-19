@@ -5,7 +5,7 @@
 // getting that wrong inserts a fine-looking link pointing at the wrong place.
 
 const { describe, it, assert } = require('../src/shared/testing/harness');
-const { installStubs } = require('./stubs/app');
+const { installStubs } = require('../src/shared/testing/stubs');
 
 installStubs();
 
@@ -100,4 +100,38 @@ describe('autocomplete broker', () => {
     assert.strictEqual(written, '[[Spawning|Spawning]]<heading-linker>');
     assert.ok(!/<glossary>/.test(written), 'wrote our own link format for a sibling’s target');
   });
+
+  // Our own candidates go through the config handed to createProseSuggest, and the two
+  // prose plugins fill it differently — a term links to its title, a heading to
+  // "File#Heading". Getting it wrong writes a valid-looking link to the wrong place.
+  it('writes our own candidate as a link to the term title', () => {
+    const { suggest } = makeSuggest({});
+    const written = writeWith(suggest, { kind: 'prefix', canonical: 'Spawn', matchedForm: 'Spawn' });
+    assert.strictEqual(written, '[[Spawn|Spawn]]<glossary>');
+  });
+
+  it('keeps the reader’s wording when the typed word was an inflection', () => {
+    const { suggest } = makeSuggest({});
+    const written = writeWith(suggest, { kind: 'form', canonical: 'Spawn', matchedForm: 'Spawn' });
+    assert.strictEqual(written, '[[Spawn|spawning]]<glossary>');
+  });
 });
+
+// selectSuggestion against a fake editor, returning what was written.
+function writeWith(suggest, item) {
+  let written = null;
+  suggest.context = {
+    query: 'spawning',
+    start: { line: 0, ch: 0 },
+    end: { line: 0, ch: 8 },
+    editor: {
+      getValue: () => 'spawning',
+      posToOffset: () => 0,
+      offsetToPos: (o) => ({ line: 0, ch: o }),
+      replaceRange: (text) => { written = text; },
+      setCursor: () => {},
+    },
+  };
+  suggest.selectSuggestion(item);
+  return written;
+}

@@ -1,41 +1,72 @@
-/* @settings
+/* Glossary Linker 1.3.1 — assembled from the shared styles and src/styles.css by "npm run build". Do not edit directly. */
 
-name: Glossary Linker
-id: glossary-linker
-settings:
-  -
-    id: glossary-link-color
-    title: Highlight color
-    description: Color of glossary-term highlights. Leave at default to follow the theme's link color.
-    type: variable-themed-color
-    format: hex
-    opacity: false
-    default-light: '#705dcf'
-    default-dark: '#a68cff'
-  -
-    id: glossary-underline-style
-    title: Underline style
-    type: variable-select
-    default: dotted
-    options:
-      - dotted
-      - solid
-      - dashed
-      - double
-      - none
-  -
-    id: glossary-ambiguous-underline-style
-    title: Ambiguous-term underline style
-    description: Underline for words that match more than one glossary term.
-    type: variable-select
-    default: double
-    options:
-      - double
-      - dotted
-      - dashed
-      - solid
+/* Styles every linker plugin uses. The token below stands for the plugin class prefix;
+   build.mjs substitutes it when it assembles styles.css. See CONTRIBUTING.md. */
 
-*/
+.glossary-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-ui-small);
+}
+
+.glossary-preview-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.glossary-folder-row .setting-item-name {
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  overflow-wrap: anywhere;
+}
+
+.glossary-folder-add {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0 18px 1.5em;
+}
+
+.glossary-folder-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.glossary-folder-addbtn {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.glossary-folder-addbtn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Priority order among the installed linker plugins. Our own row is the movable one, so
+   it is the one that reads as active; the others are context. */
+.glossary-precedence-list {
+  margin: 0 0 18px 1.5em;
+}
+
+.glossary-precedence-list .setting-item {
+  border-top: none;
+  /* Padding matches the folder-list rows, so this nested list lines up with the other one in the same pane: text off the left edge, arrows level with the remove buttons. */ padding: 4px 6px 4px 0.75em;
+}
+
+.glossary-precedence-list .setting-item-name {
+  color: var(--text-muted);
+}
+
+.glossary-precedence-self .setting-item-name {
+  color: var(--text-normal);
+  font-weight: var(--font-semibold);
+}
+
+/* Styles both prose linkers use. The plugin class prefix is substituted by build.mjs. */
 
 .glossary-link,
 .cm-glossary-link {
@@ -87,30 +118,6 @@ a.glossary-link.internal-link:hover {
   margin-left: auto;
 }
 
-/* Collect-aliases preview: checkboxes + collision flag */
-.glossary-harvest-list {
-  margin: 0 0 6px 4px;
-}
-
-.glossary-harvest-alias {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 1px 0;
-}
-
-.glossary-harvest-alias label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-}
-
-.glossary-collision {
-  color: var(--text-warning, var(--text-error));
-  cursor: help;
-}
-
 /* Per-word collision resolver in the "turn into links" preview */
 .glossary-term-select {
   max-width: 16em;
@@ -154,12 +161,6 @@ a.glossary-link.internal-link:hover {
   width: 100%;
 }
 
-.glossary-preview-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--font-ui-small);
-}
-
 .glossary-preview-table td,
 .glossary-preview-table th {
   border-bottom: 1px solid var(--background-modifier-border);
@@ -176,18 +177,6 @@ a.glossary-link.internal-link:hover {
 .glossary-preview-empty {
   color: var(--text-muted);
   padding: 12px 0;
-}
-
-.glossary-preview-buttons {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  margin-top: 16px;
-}
-
-.glossary-add {
-  color: var(--text-accent);
-  font-weight: var(--font-semibold);
 }
 
 .glossary-section-desc {
@@ -209,9 +198,127 @@ a.glossary-link.internal-link:hover {
   color: var(--text-error);
 }
 
-.setting-item.mod-warning .extra-setting-button {
+/* Scoped to our own rows: `.setting-item.mod-warning` on its own would restyle the warning
+   rows in every other plugin's settings too. */
+.glossary-lang-row.mod-warning .extra-setting-button {
   color: var(--text-error);
   opacity: 1;
+}
+
+/* Folder-set editor. Each chosen path is a compact indented row (matching the
+   language-row treatment so the pane reads as one list style); a full-width input
+   with autocomplete and an add button sits below the list. */
+.glossary-folder-rows:not(:empty) {
+  margin: 6px 0;
+}
+
+.glossary-folder-row.setting-item {
+  border-top: none;
+  padding: 4px 6px 4px 0.75em;
+  margin-left: 1.5em;
+  border-left: 2px solid var(--background-modifier-border);
+}
+
+/* The list of what a word could mean, shown on hover over an ambiguous span. Hovering a
+   row opens Obsidian own page preview for that one target, so this stays a plain list. */
+.glossary-choices {
+  position: fixed;
+  z-index: var(--layer-popover);
+  max-width: 320px;
+  padding: 6px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+}
+
+.glossary-choices.glossary-hidden {
+  display: none;
+}
+
+.glossary-choices-title {
+  padding: 2px 8px 6px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.glossary-choices-item {
+  padding: 4px 8px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.glossary-choices-item:hover {
+  background: var(--background-modifier-hover);
+}
+
+/* @settings
+
+name: Glossary Linker
+id: glossary-linker
+settings:
+  -
+    id: glossary-link-color
+    title: Highlight color
+    description: Color of glossary-term highlights. Leave at default to follow the theme's link color.
+    type: variable-themed-color
+    format: hex
+    opacity: false
+    default-light: '#705dcf'
+    default-dark: '#a68cff'
+  -
+    id: glossary-underline-style
+    title: Underline style
+    type: variable-select
+    default: dotted
+    options:
+      - dotted
+      - solid
+      - dashed
+      - double
+      - none
+  -
+    id: glossary-ambiguous-underline-style
+    title: Ambiguous-term underline style
+    description: Underline for words that match more than one glossary term.
+    type: variable-select
+    default: double
+    options:
+      - double
+      - dotted
+      - dashed
+      - solid
+
+*/
+
+/* Collect-aliases preview: checkboxes + collision flag */
+.glossary-harvest-list {
+  margin: 0 0 6px 4px;
+}
+
+.glossary-harvest-alias {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 0;
+}
+
+.glossary-harvest-alias label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.glossary-collision {
+  color: var(--text-warning, var(--text-error));
+  cursor: help;
+}
+
+.glossary-add {
+  color: var(--text-accent);
+  font-weight: var(--font-semibold);
 }
 
 .glossary-del {
@@ -323,93 +430,6 @@ a.glossary-link.internal-link:hover {
 
 .glossary-alias-input {
   width: 100%;
-}
-
-/* Folder-set editor. Each chosen path is a compact indented row (matching the
-   language-row treatment so the pane reads as one list style); a full-width input
-   with autocomplete and an add button sits below the list. */
-.glossary-folder-rows:not(:empty) {
-  margin: 6px 0;
-}
-.glossary-folder-row.setting-item {
-  border-top: none;
-  padding: 4px 6px 4px 0.75em;
-  margin-left: 1.5em;
-  border-left: 2px solid var(--background-modifier-border);
-}
-.glossary-folder-row .setting-item-name {
-  font-family: var(--font-monospace);
-  font-size: var(--font-ui-smaller);
-  overflow-wrap: anywhere;
-}
-.glossary-folder-add {
-  display: flex;
-  gap: 8px;
-  margin: 6px 0 18px 1.5em;
-}
-.glossary-folder-input {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.glossary-folder-addbtn {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-.glossary-folder-addbtn svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* Priority order among the installed linker plugins. Our own row is the movable one, so
-   it is the one that reads as active; the others are context. */
-.glossary-precedence-list {
-  margin: 0 0 18px 1.5em;
-}
-.glossary-precedence-list .setting-item {
-  border-top: none;
-  /* Padding matches the folder-list rows, so this nested list lines up with the other
-     one in the same pane: text off the left edge, arrows level with the remove buttons. */
-  padding: 4px 6px 4px 0.75em;
-}
-.glossary-precedence-list .setting-item-name {
-  color: var(--text-muted);
-}
-.glossary-precedence-self .setting-item-name {
-  color: var(--text-normal);
-  font-weight: var(--font-semibold);
-}
-
-/* The list of what a word could mean, shown on hover over an ambiguous span. Hovering a
-   row opens Obsidian own page preview for that one target, so this stays a plain list. */
-.glossary-choices {
-  position: fixed;
-  z-index: var(--layer-popover);
-  max-width: 320px;
-  padding: 6px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-m);
-  background: var(--background-primary);
-  box-shadow: var(--shadow-s);
-}
-.glossary-choices.glossary-hidden {
-  display: none;
-}
-.glossary-choices-title {
-  padding: 2px 8px 6px;
-  color: var(--text-muted);
-  font-size: var(--font-ui-smaller);
-}
-.glossary-choices-item {
-  padding: 4px 8px;
-  border-radius: var(--radius-s);
-  cursor: pointer;
-  overflow-wrap: anywhere;
-}
-.glossary-choices-item:hover {
-  background: var(--background-modifier-hover);
 }
 
 /* Glossary Linker 1.3.1 */

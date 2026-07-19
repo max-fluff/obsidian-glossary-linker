@@ -11,5 +11,7 @@ await buildPlugin({
     '@codemirror/state', '@codemirror/view', '@codemirror/language',
     '@lezer/common', '@lezer/highlight', '@lezer/lr',
   ],
+  kind: 'prose',
+  prefix: 'glossary',
   deployTargets,
 });

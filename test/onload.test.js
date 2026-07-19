@@ -5,7 +5,7 @@
 
 const { describe, it, assert } = require('../src/shared/testing/harness');
 const path = require('path');
-const { fakeApp, installStubs, recordingMenu, fakeEditor, obsidianStub } = require('./stubs/app');
+const { fakeApp, installStubs, recordingMenu, fakeEditor, obsidianStub } = require('../src/shared/testing/stubs');
 
 installStubs();
 

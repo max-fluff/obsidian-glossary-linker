@@ -1,7 +1,10 @@
 name: Build
 
-# Runs the tests, builds the plugin, and verifies the committed main.js matches a fresh
-# build of src/, so a PR (or a push to main) can't land a stale bundle.
+# Runs the tests, builds the plugin, and verifies the committed build artifacts match a
+# fresh build, so a PR (or a push to main) can't land a stale bundle.
+#
+# Identical in all four linker plugins. It cannot live in the submodule — GitHub only reads
+# workflows from the repository itself — so keep the four copies byte-identical by hand.
 
 on:
   push:

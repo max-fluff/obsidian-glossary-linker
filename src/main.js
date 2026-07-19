@@ -10,18 +10,19 @@ const matcher = require('./matcher');
 const highlight = require('./highlight');
 const actions = require('./actions');
 const api = require('./api');
+const indexEvents = require('./shared/index-events');
 const { GlossaryTermSuggest, suggestAvailable } = require('./term-suggest');
 const { GlossaryOverviewView, OVERVIEW_VIEW_TYPE } = require('./overview-view');
-const { initI18n, t, plural } = require('./shared/i18n');
+const { initI18n, withFamily, t, plural } = require('./shared/i18n');
 const { menuSection } = require('./shared/menu');
 const { ChoicePopover } = require('./shared/prose/choices');
 
 class GlossaryLinkerPlugin extends Plugin {
   async onload() {
-    initI18n({
+    initI18n(withFamily('prose', {
       en: require('./locales/en'), ru: require('./locales/ru'), de: require('./locales/de'),
       es: require('./locales/es'), fr: require('./locales/fr'), uk: require('./locales/uk'),
-    });
+    }));
     const loaded = await this.loadData();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded);
     if (loaded) {
@@ -602,6 +603,6 @@ class GlossaryLinkerPlugin extends Plugin {
   }
 }
 
-Object.assign(GlossaryLinkerPlugin.prototype, matcher, highlight, actions, api);
+Object.assign(GlossaryLinkerPlugin.prototype, matcher, highlight, actions, api, indexEvents);
 
 module.exports = GlossaryLinkerPlugin;

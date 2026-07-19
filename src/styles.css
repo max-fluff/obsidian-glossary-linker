@@ -1,0 +1,178 @@
+/* @settings
+
+name: Glossary Linker
+id: %p%-linker
+settings:
+  -
+    id: %p%-link-color
+    title: Highlight color
+    description: Color of %p%-term highlights. Leave at default to follow the theme's link color.
+    type: variable-themed-color
+    format: hex
+    opacity: false
+    default-light: '#705dcf'
+    default-dark: '#a68cff'
+  -
+    id: %p%-underline-style
+    title: Underline style
+    type: variable-select
+    default: dotted
+    options:
+      - dotted
+      - solid
+      - dashed
+      - double
+      - none
+  -
+    id: %p%-ambiguous-underline-style
+    title: Ambiguous-term underline style
+    description: Underline for words that match more than one %p% term.
+    type: variable-select
+    default: double
+    options:
+      - double
+      - dotted
+      - dashed
+      - solid
+
+*/
+
+/* Collect-aliases preview: checkboxes + collision flag */
+.%p%-harvest-list {
+  margin: 0 0 6px 4px;
+}
+
+.%p%-harvest-alias {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 0;
+}
+
+.%p%-harvest-alias label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.%p%-collision {
+  color: var(--text-warning, var(--text-error));
+  cursor: help;
+}
+
+.%p%-add {
+  color: var(--text-accent);
+  font-weight: var(--font-semibold);
+}
+
+.%p%-del {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* Overview panel (right-sidebar ItemView) */
+.%p%-overview-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.%p%-overview-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 4px 0 6px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.%p%-overview-controls input[type='number'] {
+  width: 4em;
+}
+
+.%p%-overview-controls select {
+  flex: 1 1 7em;
+}
+
+.%p%-overview-check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.%p%-overview-head {
+  font-weight: var(--font-semibold);
+  margin: 12px 0 4px;
+}
+
+.%p%-overview-head.is-toggle {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.%p%-overview-caret {
+  color: var(--text-muted);
+  width: 1em;
+}
+
+.%p%-overview-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.%p%-overview-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.%p%-overview-name.is-link {
+  cursor: pointer;
+}
+
+.%p%-overview-name.is-link:hover {
+  color: var(--text-accent);
+  text-decoration: underline;
+}
+
+.%p%-overview-row.is-orphan .%p%-overview-name {
+  color: var(--text-muted);
+}
+
+.%p%-overview-count {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  white-space: nowrap;
+}
+
+.%p%-overview-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.%p%-overview-act {
+  cursor: pointer;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-accent);
+}
+
+.%p%-overview-empty {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  padding: 6px 0;
+}
+
+.%p%-alias-input {
+  width: 100%;
+}

@@ -149,17 +149,4 @@ module.exports = {
     out.sort((a, b) => b.docFreq - a.docFreq || b.count - a.count);
     return out.slice(0, 100);
   },
-
-  onIndexChange(cb) {
-    if (typeof cb !== 'function') return () => {};
-    if (!this._indexListeners) this._indexListeners = new Set();
-    this._indexListeners.add(cb);
-    return () => this._indexListeners.delete(cb);
-  },
-
-  notifyIndexChange() {
-    for (const cb of this._indexListeners || []) {
-      try { cb(); } catch (e) { /* subscriber threw */ }
-    }
-  },
 };
