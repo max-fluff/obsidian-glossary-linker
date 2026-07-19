@@ -161,13 +161,13 @@ module.exports = {
   'set.wholeVaultStatus': 'Whole vault is the glossary — {terms} indexed.',
 
   // Modals
-  'modal.materialize.title': 'Link glossary terms — preview',
-  'modal.materialize.ambiguous': '{n} ambiguous word(s) match more than one term — pick one (applies to every occurrence):',
-  'modal.harvest.title': 'Collect aliases — preview',
+  'modal.materialize.title': 'Turn words into term links',
+  'modal.materialize.ambiguous': '{n} word(s) match more than one term — pick one or skip:',
+  'modal.harvest.title': 'Collect aliases',
   'modal.harvest.summary': 'Terms: {terms}, new aliases: {aliases}',
   'modal.harvest.alsoMatches': 'Also matches: {terms}',
   'modal.harvest.alreadyPresent': 'Already present (skipped): {items}',
-  'modal.unlink.title': 'Unlink glossary terms — preview',
+  'modal.unlink.title': 'Unlink term links',
   'modal.alias.pickTerm': 'Which term is this an alias for?',
   'modal.alias.title': 'Alias for "{term}"',
   'modal.alias.body': 'A form the stemmer cannot derive from the title: an abbreviation (CNS, PNS), a synonym, or an alternate spelling. Matched verbatim, so type it exactly as it appears.',
