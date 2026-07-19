@@ -390,10 +390,10 @@ Nothing below is required — the plugin runs on its own — but it cooperates w
 
 Also by the author — the rest of the linker family. Two of them highlight words already in your notes and link them; two autocomplete a name into a deep-link that lands on the exact spot.
 
-**[Heading Linker](https://github.com/max-fluff/obsidian-heading-linker)** — the file-based sibling of this plugin: each heading inside a chosen file is a term, matched in any word form and turned into a link, on the same matching engine. Works on desktop and mobile. Not in the community catalog yet.
+**[Heading Linker](https://community.obsidian.md/plugins/heading-linker)** — the file-based sibling of this plugin: each heading inside a chosen file is a term, matched in any word form and turned into a link, on the same matching engine. Works on desktop and mobile.
 
 <p align="center">
-  <a href="https://github.com/max-fluff/obsidian-heading-linker">
+  <a href="https://community.obsidian.md/plugins/heading-linker">
     <img src="docs/images/heading-linker-banner.svg" alt="Heading Linker — highlight words in any form, link them to headings" width="480">
   </a>
 </p>
@@ -406,10 +406,10 @@ Also by the author — the rest of the linker family. Two of them highlight word
   </a>
 </p>
 
-**[Reference Linker](https://github.com/max-fluff/obsidian-reference-linker)** — autocompletes links to external documents (PDF, Office, images) and inserts a deep-link that opens them at the right page in an external viewer. Desktop-only. Not in the community catalog yet.
+**[Reference Linker](https://community.obsidian.md/plugins/reference-linker)** — autocompletes links to external documents (PDF, Office, images) and inserts a deep-link that opens them at the right page in an external viewer. Desktop-only.
 
 <p align="center">
-  <a href="https://github.com/max-fluff/obsidian-reference-linker">
+  <a href="https://community.obsidian.md/plugins/reference-linker">
     <img src="docs/images/reference-linker-banner.svg" alt="Reference Linker — autocomplete document references, jump to the exact page" width="480">
   </a>
 </p>
