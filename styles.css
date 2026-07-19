@@ -1,4 +1,4 @@
-/* Glossary Linker 1.3.1 — assembled from the shared styles and src/styles.css by "npm run build". Do not edit directly. */
+/* Glossary Linker 1.4.0 — assembled from the shared styles and src/styles.css by "npm run build". Do not edit directly. */
 
 /* Styles every linker plugin uses. The token below stands for the plugin class prefix;
    build.mjs substitutes it when it assembles styles.css. See CONTRIBUTING.md. */
@@ -448,4 +448,4 @@ settings:
   width: 100%;
 }
 
-/* Glossary Linker 1.3.1 */
+/* Glossary Linker 1.4.0 */
