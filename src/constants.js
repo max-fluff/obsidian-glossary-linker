@@ -8,6 +8,7 @@ const DEFAULT_SETTINGS = {
   excludeFolders: '',
   matchMode: 'stemmer', // 'stemmer' | 'endingStrip' | 'exact'
   minTermLength: 2, // forms (title/alias) shorter than this are not indexed — keeps single letters from matching everywhere
+  smartCase: true, // acronym-like terms (mostly uppercase) match case-sensitively
   enabledLanguages: null, // null until first-run defaults are picked
   languageOrder: [], // ids in priority order (first = highest); overrides module defaults
   aliasHarvestMode: 'lemma', // 'lemma' | 'literal' | 'both'
@@ -23,6 +24,7 @@ const DEFAULT_SETTINGS = {
   linkSuggest: false, // offer [[link]] autocomplete while typing
   suggestMinChars: 3, // min typed length before autocomplete triggers
   suggestSkipAfter: '@#$^', // yield when the word follows one of these sigils (code-linker @@, tags, math, block refs)
+  suggestPlainText: false, // complete the word without making a link
   aliasCollisionWarnings: true, // warn when a collected/created alias collides with another term
   candidateMinNotes: 3, // overview: a candidate must appear in at least this many notes
   overviewSort: 'usage', // overview terms order: 'usage' | 'name'

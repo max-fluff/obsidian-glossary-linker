@@ -2,6 +2,7 @@
 
 const { t } = require('./shared/i18n');
 const { createProseSuggest, suggestAvailable } = require('./shared/prose/editor-suggest');
+const { suggestionsAllowed } = require('./shared/prose/suggest');
 
 // The candidates for a typed word, ranked, or an empty list. Kept out of the class and free
 // of editor state: onTrigger needs the answer before it can decide whether to claim the
@@ -48,7 +49,8 @@ function noteFor(item) {
 // Our candidates in the shape a sibling linker consumes: no internals, and `display` says
 // what the inserted link should read — null meaning "keep whatever the reader typed", which
 // is what a 'form' match is for.
-function suggestionsFor(plugin, query) {
+function suggestionsFor(plugin, query, sourcePath) {
+  if (!suggestionsAllowed(plugin, query, sourcePath)) return [];
   return collectSuggestions(plugin, query, plugin.activeCanonical()).map((it) => ({
     label: it.canonical,
     note: noteFor(it),

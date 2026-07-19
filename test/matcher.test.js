@@ -25,6 +25,7 @@ function makePlugin({ notes = [], settings = {} } = {}) {
       skipHeadings: true,
       excludeTerms: '',
       excludeWords: '',
+      smartCase: true, // as shipped — a test that wants it off says so
     },
     settings
   );
@@ -121,5 +122,36 @@ describe('protected ranges', () => {
     // would corrupt a sibling's declaration.
     assert.deepStrictEqual(matched('%% alias: spawn %%'), []);
     assert.strictEqual(makePlugin({ notes: [spawn] }).isProtectedAt('%% alias: spawn %%', 12), true);
+  });
+});
+
+describe('smart case', () => {
+  // The rule itself is pinned in the shared suite; these cover this plugin's half of it —
+  // that a note title is indexed with its case marks and that the config asks for the rule
+  // at all. Without either, an acronym note silently links every lowercase spelling.
+  const hits = (p, text) => p.findMatches(text, null).map((m) => m.canonical);
+
+  it('keeps an acronym note off the ordinary word', () => {
+    const p = makePlugin({ notes: [{ title: 'IT' }] });
+    assert.deepStrictEqual(hits(p, 'the IT department'), ['IT']);
+    assert.deepStrictEqual(hits(p, 'it depends'), [], 'the pronoun was linked to the note');
+  });
+
+  it('leaves an ordinary note title case-insensitive', () => {
+    const p = makePlugin({ notes: [spawn] });
+    assert.deepStrictEqual(hits(p, 'a spawn here'), ['Spawn']);
+    assert.deepStrictEqual(hits(p, 'A Spawn here'), ['Spawn']);
+  });
+
+  it('cases an acronym alias without casing its note title', () => {
+    const p = makePlugin({ notes: [{ title: 'Central nervous system', aliases: ['CNS'] }] });
+    assert.deepStrictEqual(hits(p, 'the CNS is'), ['Central nervous system']);
+    assert.deepStrictEqual(hits(p, 'the cns is'), [], 'the alias matched lowercase');
+    assert.deepStrictEqual(hits(p, 'the central nervous system is'), ['Central nervous system']);
+  });
+
+  it('turns the rule off with the setting', () => {
+    const p = makePlugin({ notes: [{ title: 'IT' }], settings: { smartCase: false } });
+    assert.deepStrictEqual(hits(p, 'it depends'), ['IT']);
   });
 });

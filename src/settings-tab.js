@@ -3,9 +3,9 @@
 const { PluginSettingTab, Setting, Notice, TFolder } = require('obsidian');
 const { sanitizeFolder } = require('./constants');
 const { FolderSuggest, FileSuggest, PathSuggest, folderSuggestAvailable } = require('./shared/prose/folder-suggest');
-const { renderFolderList } = require('./shared/folder-list');
 const { t, plural } = require('./shared/i18n');
-const { renderPrecedence: precedenceSetting } = require('./shared/precedence');
+const { renderPrecedenceSetting } = require('./shared/precedence');
+const { createProseSettings } = require('./shared/prose/settings');
 
 class GlossaryLinkerSettingTab extends PluginSettingTab {
   constructor(app, plugin) { super(app, plugin); this.plugin = plugin; }
@@ -21,6 +21,8 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
     };
     // Scope changes don't touch the term index, so refresh views without a rebuild.
     const saveScope = async () => { await this.plugin.saveSettings(); this.plugin.rerenderViews(); this.plugin.updateStatusBar(); this.plugin.refreshOverviewDebounced(); };
+
+    const sections = createProseSettings(this, { cls: 'glossary', save });
 
     new Setting(containerEl).setName(t('set.heading.scope')).setHeading();
 
@@ -40,28 +42,18 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
         if (folderSuggestAvailable()) new FileSuggest(this.app, c.inputEl);
       });
 
-    new Setting(containerEl)
-      .setName(t('set.scopeMode.name'))
-      .setDesc(t('set.scopeMode.desc'))
-      .addDropdown((d) => d
-        .addOption('folders', t('set.scopeMode.folders'))
-        .addOption('vault', t('set.scopeMode.vault'))
-        .setValue(s.scopeMode)
-        .onChange(async (v) => { s.scopeMode = v; await saveScope(); this.display(); }));
+    sections.scopeMode(containerEl, saveScope);
 
-    const folderList = (name, desc, key) => renderFolderList(containerEl, {
-      cls: 'glossary',
+    const folderList = (name, desc, key) => sections.pathList(containerEl, {
       name,
       desc,
-      get: () => s[key],
-      set: async (v) => { s[key] = v; await saveScope(); },
+      key,
+      labels: 'folderList',
       normalize: sanitizeFolder,
       attachSuggest: folderSuggestAvailable()
         ? (inputEl, onPick) => new PathSuggest(this.app, inputEl, onPick)
         : null,
-      placeholder: t('set.folderList.add'),
-      removeLabel: t('set.folderList.remove'),
-      addLabel: t('set.folderList.addAria'),
+      save: saveScope,
     });
 
     if (s.scopeMode === 'folders') {
@@ -75,127 +67,17 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl).setName(t('set.heading.matching')).setHeading();
 
-    new Setting(containerEl)
-      .setName(t('set.matchMode.name'))
-      .setDesc(t('set.matchMode.desc'))
-      .addDropdown((d) => d
-        .addOption('stemmer', t('set.matchMode.stemmer'))
-        .addOption('endingStrip', t('set.matchMode.endingStrip'))
-        .addOption('exact', t('set.matchMode.exact'))
-        .setValue(s.matchMode)
-        .onChange(async (v) => { s.matchMode = v; await save(true); }));
-
-    new Setting(containerEl)
-      .setName(t('set.minTermLength.name'))
-      .setDesc(t('set.minTermLength.desc'))
-      .addText((c) => { c.inputEl.type = 'number'; c.inputEl.min = '1'; c.setValue(String(s.minTermLength)).onChange(async (v) => { const n = parseInt(v, 10); s.minTermLength = Number.isFinite(n) && n > 0 ? n : 1; await save(true); }); });
-
-    const langs = this.plugin.languages;
-    const errors = this.plugin.languageErrors || [];
-    const enabledCount = langs.filter((l) => (s.enabledLanguages || []).includes(l.id)).length;
-    if (this.showLanguages === undefined) this.showLanguages = false;
-
-    const langDesc = t('set.languages.desc', { enabled: enabledCount, total: langs.length })
-      + (errors.length ? t('set.languages.invalidSuffix', { n: errors.length }) : '') + '.';
-
-    new Setting(containerEl)
-      .setName(t('set.languages.name'))
-      .setDesc(langDesc)
-      .addExtraButton((b) => b.setIcon(this.showLanguages ? 'chevron-up' : 'chevron-down')
-        .setTooltip(this.showLanguages ? t('set.languages.hide') : t('set.languages.show'))
-        .onClick(() => { this.showLanguages = !this.showLanguages; this.display(); }));
-
-    if (this.showLanguages) {
-      langs.forEach((lang, i) => {
-        const row = new Setting(containerEl)
-          .setName(lang.name)
-          .setDesc(`id: ${lang.id}`)
-          .addExtraButton((b) => b.setIcon('chevron-up').setTooltip(t('set.lang.higher')).setDisabled(i === 0)
-            .onClick(async () => { this.plugin.moveLanguage(lang.id, -1); await this.applyLanguageChange(); }))
-          .addExtraButton((b) => b.setIcon('chevron-down').setTooltip(t('set.lang.lower')).setDisabled(i === langs.length - 1)
-            .onClick(async () => { this.plugin.moveLanguage(lang.id, 1); await this.applyLanguageChange(); }))
-          .addToggle((c) => c.setValue((s.enabledLanguages || []).includes(lang.id)).onChange(async (v) => {
-            const set = new Set(s.enabledLanguages || []);
-            if (v) set.add(lang.id); else set.delete(lang.id);
-            s.enabledLanguages = [...set];
-            await this.applyLanguageChange();
-          }));
-        row.settingEl.addClass('glossary-lang-row');
-      });
-      for (const bad of errors) {
-        const row = new Setting(containerEl)
-          .setName(bad.id)
-          .setDesc(t('set.lang.invalid', { error: bad.error }))
-          .addExtraButton((b) => b.setIcon('alert-triangle').setTooltip(t('set.lang.invalid', { error: bad.error })).setDisabled(true));
-        row.nameEl.addClass('glossary-lang-error');
-        row.settingEl.addClass('glossary-lang-row');
-        row.settingEl.addClass('mod-warning');
-      }
-    }
-
-    new Setting(containerEl)
-      .setName(t('set.linkFirstOnly.name'))
-      .setDesc(t('set.linkFirstOnly.desc'))
-      .addToggle((c) => c.setValue(s.linkFirstOnly).onChange(async (v) => { s.linkFirstOnly = v; await save(false); }));
-
-    new Setting(containerEl)
-      .setName(t('set.excludeTerms.name'))
-      .setDesc(t('set.excludeTerms.desc'))
-      .addTextArea((c) => { c.setValue(s.excludeTerms).onChange(async (v) => { s.excludeTerms = v; await save(true); }); c.inputEl.rows = 3; });
+    sections.matchMode(containerEl);
+    sections.languages(containerEl);
+    sections.matchLimits(containerEl);
 
     new Setting(containerEl)
       .setName(t('set.excludeWords.name'))
       .setDesc(t('set.excludeWords.desc'))
       .addTextArea((c) => { c.setValue(s.excludeWords).onChange(async (v) => { s.excludeWords = v; await save(true); }); c.inputEl.rows = 3; });
 
-    new Setting(containerEl).setName(t('set.heading.highlighting')).setHeading();
-
-    new Setting(containerEl)
-      .setName(t('set.highlightInReading.name'))
-      .setDesc(t('set.highlightInReading.desc'))
-      .addToggle((c) => c.setValue(s.highlightInReading).onChange(async (v) => { s.highlightInReading = v; await save(false); this.plugin.rerenderViews(); }));
-
-    new Setting(containerEl)
-      .setName(t('set.editingHighlight.name'))
-      .setDesc(t('set.editingHighlight.desc'))
-      .addDropdown((d) => d
-        .addOption('off', t('set.editingHighlight.off'))
-        .addOption('live', t('set.editingHighlight.live'))
-        .addOption('onSave', t('set.editingHighlight.onSave'))
-        .setValue(s.editingHighlight)
-        .onChange(async (v) => { s.editingHighlight = v; await save(false); this.plugin.refreshEditors(); }));
-
-    new Setting(containerEl)
-      .setName(t('set.skipHeadings.name'))
-      .setDesc(t('set.skipHeadings.desc'))
-      .addToggle((c) => c.setValue(s.skipHeadings).onChange(async (v) => { s.skipHeadings = v; await save(false); this.plugin.rerenderViews(); }));
-
-    new Setting(containerEl)
-      .setName(t('set.statusBar.name'))
-      .setDesc(t('set.statusBar.desc'))
-      .addToggle((c) => c.setValue(s.statusBar).onChange(async (v) => { s.statusBar = v; await save(false); this.plugin.updateStatusBar(); }));
-
-    new Setting(containerEl)
-      .setName(t('set.statusBarIncludeLinks.name'))
-      .setDesc(t('set.statusBarIncludeLinks.desc'))
-      .addToggle((c) => c.setValue(s.statusBarIncludeLinks).onChange(async (v) => { s.statusBarIncludeLinks = v; await save(false); this.plugin.updateStatusBar(); }));
-
-    new Setting(containerEl).setName(t('set.heading.autocomplete')).setHeading();
-
-    new Setting(containerEl)
-      .setName(t('set.linkSuggest.name'))
-      .setDesc(t('set.linkSuggest.desc'))
-      .addToggle((c) => c.setValue(s.linkSuggest).onChange(async (v) => { s.linkSuggest = v; await save(false); }));
-
-    new Setting(containerEl)
-      .setName(t('set.suggestMinChars.name'))
-      .setDesc(t('set.suggestMinChars.desc'))
-      .addText((c) => { c.inputEl.type = 'number'; c.inputEl.min = '1'; c.setValue(String(s.suggestMinChars)).onChange(async (v) => { const n = parseInt(v, 10); s.suggestMinChars = Number.isFinite(n) && n > 0 ? n : 1; await save(false); }); });
-
-    new Setting(containerEl)
-      .setName(t('set.suggestSkipAfter.name'))
-      .setDesc(t('set.suggestSkipAfter.desc'))
-      .addText((c) => c.setValue(s.suggestSkipAfter).onChange(async (v) => { s.suggestSkipAfter = v; await save(false); }));
+    sections.highlighting(containerEl);
+    sections.autocomplete(containerEl);
 
     new Setting(containerEl).setName(t('set.heading.collecting')).setDesc(t('set.collecting.desc')).setHeading();
 
@@ -224,52 +106,14 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
       .setDesc(t('set.harvestSingleWordOnly.desc'))
       .addToggle((c) => c.setValue(s.harvestSingleWordOnly).onChange(async (v) => { s.harvestSingleWordOnly = v; await save(false); }));
 
-    new Setting(containerEl)
-      .setName(t('set.harvestMinLength.name'))
-      .setDesc(t('set.harvestMinLength.desc'))
-      .addText((c) => { c.inputEl.type = 'number'; c.inputEl.min = '1'; c.setValue(String(s.harvestMinLength)).onChange(async (v) => { const n = parseInt(v, 10); s.harvestMinLength = Number.isFinite(n) && n > 0 ? n : 1; await save(false); }); });
+    sections.positiveNumber(containerEl, 'harvestMinLength', false);
 
     new Setting(containerEl)
       .setName(t('set.aliasCollisionWarnings.name'))
       .setDesc(t('set.aliasCollisionWarnings.desc'))
       .addToggle((c) => c.setValue(s.aliasCollisionWarnings).onChange(async (v) => { s.aliasCollisionWarnings = v; await save(false); }));
 
-    new Setting(containerEl).setName(t('set.heading.contextMenu')).setHeading();
-
-    new Setting(containerEl)
-      .setName(t('set.menuTurnInto.name'))
-      .setDesc(t('set.menuTurnInto.desc'))
-      .addToggle((c) => c.setValue(s.menuTurnInto).onChange(async (v) => { s.menuTurnInto = v; await save(false); }));
-
-    new Setting(containerEl)
-      .setName(t('set.menuCollect.name'))
-      .setDesc(t('set.menuCollect.desc'))
-      .addToggle((c) => c.setValue(s.menuCollect).onChange(async (v) => { s.menuCollect = v; await save(false); }));
-
-    new Setting(containerEl)
-      .setName(t('set.menuExclude.name'))
-      .setDesc(t('set.menuExclude.desc'))
-      .addToggle((c) => c.setValue(s.menuExclude).onChange(async (v) => { s.menuExclude = v; await save(false); }));
-
-    new Setting(containerEl)
-      .setName(t('set.menuOpen.name'))
-      .setDesc(t('set.menuOpen.desc'))
-      .addToggle((c) => c.setValue(s.menuOpen).onChange(async (v) => { s.menuOpen = v; await save(false); }));
-
-    new Setting(containerEl)
-      .setName(t('set.menuCreateTerm.name'))
-      .setDesc(t('set.menuCreateTerm.desc'))
-      .addToggle((c) => c.setValue(s.menuCreateTerm).onChange(async (v) => { s.menuCreateTerm = v; await save(false); }));
-
-    new Setting(containerEl)
-      .setName(t('set.menuAddAlias.name'))
-      .setDesc(t('set.menuAddAlias.desc'))
-      .addToggle((c) => c.setValue(s.menuAddAlias).onChange(async (v) => { s.menuAddAlias = v; await save(false); }));
-
-    new Setting(containerEl)
-      .setName(t('set.menuUnlink.name'))
-      .setDesc(t('set.menuUnlink.desc'))
-      .addToggle((c) => c.setValue(s.menuUnlink).onChange(async (v) => { s.menuUnlink = v; await save(false); }));
+    sections.menuToggles(containerEl, ['menuTurnInto', 'menuCollect', 'menuExclude', 'menuOpen', 'menuCreateTerm', 'menuAddAlias', 'menuUnlink']);
 
     new Setting(containerEl).setName(t('set.heading.overview')).setHeading();
 
@@ -283,37 +127,18 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
     // First thing in Maintenance, in the same place in all four plugins: it is a
     // vault-wide arrangement between plugins rather than a knob for this one, and it
     // renders nothing at all unless another linker is installed.
-    this.renderPrecedence(containerEl, save);
+    renderPrecedenceSetting(containerEl, {
+      app: this.app,
+      provider: this.plugin.api && this.plugin.api.linker,
+      Setting,
+      cls: 'glossary',
+      save: async (value) => { s.linkPrecedence = value; await save(false); },
+    });
 
     new Setting(containerEl)
       .setName(t('set.rebuild.name'))
       .setDesc(t('set.rebuild.desc'))
       .addButton((b) => b.setButtonText(t('set.rebuild.button')).onClick(() => { this.plugin.rebuildIndex(); new Notice(t('notice.indexRebuilt')); this.renderFolderStatus(); }));
-  }
-
-  async applyLanguageChange() {
-    await this.plugin.saveSettings();
-    this.plugin.refreshActiveLanguages();
-    this.plugin.rebuildIndex();
-    this.plugin.rerenderViews();
-    this.display();
-  }
-
-  // Where this plugin sits in the family-wide priority order. Shown only when another linker
-  // is installed — alone there is no order to argue about.
-  renderPrecedence(containerEl, save) {
-    precedenceSetting(containerEl, {
-      app: this.app,
-      provider: this.plugin.api && this.plugin.api.linker,
-      Setting,
-      cls: 'glossary',
-      name: t('set.precedence.name'),
-      desc: t('set.precedence.desc'),
-      otherDesc: t('set.precedence.other'),
-      upTooltip: t('set.precedence.up'),
-      downTooltip: t('set.precedence.down'),
-      save: async (value) => { this.plugin.settings.linkPrecedence = value; await save(false); },
-    });
   }
 
   renderFolderStatus() {

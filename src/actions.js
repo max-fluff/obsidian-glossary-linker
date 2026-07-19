@@ -240,10 +240,15 @@ module.exports = {
     const head = editor.getCursor('head');
     const line = editor.getLine(head.line);
     if (!line) return null;
-    const matches = this.ownSpans(line, this.findMatches(line, this.activeCanonical(), { protect: true }));
+    const activeFile = this.app.workspace.getActiveFile();
+    const activePath = activeFile ? activeFile.path : '';
+    // 'menu' rather than 'editing': acting on a word is not drawing it, so a peer with its
+    // highlighting switched off still owns its words here.
+    const where = { path: activePath, surface: 'menu' };
+    const matches = this.ownSpans(line, this.findMatches(line, this.activeCanonical(), { protect: true }), where);
     const hit = matches.find((m) => head.ch >= m.start && head.ch <= m.end);
     if (!hit) return null;
-    const foreign = candidatesFor(this.yieldedIn(line), hit.start, hit.end);
+    const foreign = candidatesFor(this.yieldedIn(line, where), hit.start, hit.end);
     return { match: hit, foreign, line: head.line };
   },
 
@@ -277,7 +282,7 @@ module.exports = {
     return [...own, ...foreign];
   },
 
-  chooseTerm(candidates, title, action) {
+  chooseTerm(candidates, title, action, display) {
     const list = (candidates || []).filter(Boolean);
     // A lone candidate needs no dialog. It can still be another linker's, in which case it
     // opens itself rather than going through our own resolver.
@@ -286,7 +291,7 @@ module.exports = {
       if (only && typeof only === 'object') return only.open();
       return action(only);
     }
-    new ChooseTermModal(this.app, { title, terms: list, onChoose: action }).open();
+    new ChooseTermModal(this.app, { title, terms: list, onChoose: action, display, plugin: this }).open();
   },
 
   isExcluded(listKey, value) {

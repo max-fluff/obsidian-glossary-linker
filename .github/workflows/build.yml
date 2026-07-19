@@ -1,7 +1,11 @@
 name: Build
 
-# Runs the tests, builds the plugin, and verifies the committed build artifacts match a
-# fresh build, so a PR (or a push to main) can't land a stale bundle.
+# Runs the core tests, builds the plugin, and verifies the committed build artifacts match
+# a fresh build, so a PR (or a push to main) can't land a stale bundle.
+#
+# Core only: CI guards what a change's author cannot see locally — the cross-plugin contract
+# and whether the bundle loads. The behaviour tests run with `npm test`, because behaviour is
+# what most commits are meant to change.
 #
 # Identical in all four linker plugins. It cannot live in the submodule — GitHub only reads
 # workflows from the repository itself — so keep the four copies byte-identical by hand.
@@ -24,7 +28,7 @@ jobs:
           node-version: "20"
 
       - run: npm ci
-      - run: npm test
+      - run: npm run test:core
       - run: npm run build
 
       # styles.css is generated too — the build stamps the version into it — so checking

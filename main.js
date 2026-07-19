@@ -21,6 +21,8 @@ var require_constants = __commonJS({
       // 'stemmer' | 'endingStrip' | 'exact'
       minTermLength: 2,
       // forms (title/alias) shorter than this are not indexed — keeps single letters from matching everywhere
+      smartCase: true,
+      // acronym-like terms (mostly uppercase) match case-sensitively
       enabledLanguages: null,
       // null until first-run defaults are picked
       languageOrder: [],
@@ -43,6 +45,8 @@ var require_constants = __commonJS({
       // min typed length before autocomplete triggers
       suggestSkipAfter: "@#$^",
       // yield when the word follows one of these sigils (code-linker @@, tags, math, block refs)
+      suggestPlainText: false,
+      // complete the word without making a link
       aliasCollisionWarnings: true,
       // warn when a collected/created alias collides with another term
       candidateMinNotes: 3,
@@ -1065,67 +1069,6 @@ var require_folder_suggest = __commonJS({
   }
 });
 
-// src/shared/folder-list.js
-var require_folder_list = __commonJS({
-  "src/shared/folder-list.js"(exports2, module2) {
-    "use strict";
-    var { Setting, setIcon } = require("obsidian");
-    function renderFolderList(containerEl, opts) {
-      const cls = opts.cls;
-      const norm = opts.normalize || ((x) => x.trim());
-      const read = () => (opts.get() || "").split("\n").map((x) => x.trim()).filter(Boolean);
-      new Setting(containerEl).setName(opts.name).setDesc(opts.desc);
-      const rowsEl = containerEl.createDiv({ cls: `${cls}-folder-rows` });
-      const addEl = containerEl.createDiv({ cls: `${cls}-folder-add` });
-      const commit = async (next) => {
-        const seen = /* @__PURE__ */ new Set();
-        const clean = [];
-        for (const p of next) {
-          const n = norm(p);
-          if (n && !seen.has(n)) {
-            seen.add(n);
-            clean.push(n);
-          }
-        }
-        await opts.set(clean.join("\n"));
-        draw();
-      };
-      const draw = () => {
-        rowsEl.empty();
-        read().forEach((path, i) => {
-          const row = new Setting(rowsEl).setName(path);
-          row.settingEl.addClass(`${cls}-folder-row`);
-          row.addExtraButton((b) => b.setIcon("x").setTooltip(opts.removeLabel || "").onClick(() => {
-            const next = read();
-            next.splice(i, 1);
-            commit(next);
-          }));
-        });
-      };
-      const input = addEl.createEl("input", { type: "text", cls: `${cls}-folder-input`, attr: { placeholder: opts.placeholder || "" } });
-      const addBtn = addEl.createEl("button", { cls: `${cls}-folder-addbtn`, attr: { "aria-label": opts.addLabel || "" } });
-      setIcon(addBtn, "plus");
-      const add = (raw) => {
-        if (norm(raw))
-          commit([...read(), raw]);
-        input.value = "";
-        input.focus();
-      };
-      if (opts.attachSuggest)
-        opts.attachSuggest(input, add);
-      addBtn.addEventListener("click", () => add(input.value));
-      input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          add(input.value);
-        }
-      });
-      draw();
-    }
-    module2.exports = { renderFolderList };
-  }
-});
-
 // src/shared/locales/common.js
 var require_common = __commonJS({
   "src/shared/locales/common.js"(exports2, module2) {
@@ -1218,6 +1161,8 @@ var require_prose = __commonJS({
       "set.linkSuggest.name": "Suggest links while typing",
       "set.suggestMinChars.desc": "How many characters to type before suggestions appear.",
       "set.suggestSkipAfter.name": "Skip after characters",
+      "set.suggestPlainText.name": "Insert plain text",
+      "set.suggestPlainText.desc": "Suggestions complete the word without turning it into a link.",
       "set.heading.contextMenu": "Context menu",
       // The shared submenu the exclusion items collect into, and their wording inside it, where
       // the parent already names the word.
@@ -1241,6 +1186,11 @@ var require_prose = __commonJS({
       "set.matchMode.exact": "Exact (case-insensitive)",
       "set.matchMode.endingStrip": "Light ending strip",
       "set.matchMode.stemmer": "Stemmer (best across forms)",
+      "kind.heading": "Heading",
+      "kind.term": "Term",
+      "kind.viaAlias": "via alias \u201C{form}\u201D",
+      "set.smartCase.name": "Smart case for acronyms",
+      "set.smartCase.desc": "Match mostly-uppercase terms (like \u201CIT\u201D or \u201CNASA\u201D) case-sensitively, so they don\u2019t link ordinary words.",
       "set.scopeMode.name": "Where to link",
       "set.scopeMode.vault": "The whole vault",
       "set.scopeMode.folders": "Only chosen folders",
@@ -1278,6 +1228,8 @@ var require_prose = __commonJS({
       "set.linkSuggest.name": "\u041F\u043E\u0434\u0441\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0441\u0441\u044B\u043B\u043A\u0438 \u043F\u0440\u0438 \u043D\u0430\u0431\u043E\u0440\u0435",
       "set.suggestMinChars.desc": "\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432 \u043D\u0430\u0431\u0440\u0430\u0442\u044C, \u043F\u0440\u0435\u0436\u0434\u0435 \u0447\u0435\u043C \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0438.",
       "set.suggestSkipAfter.name": "\u041F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u0442\u044C \u043F\u043E\u0441\u043B\u0435 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432",
+      "set.suggestPlainText.name": "\u0412\u0441\u0442\u0430\u0432\u043B\u044F\u0442\u044C \u043F\u0440\u043E\u0441\u0442\u043E\u0439 \u0442\u0435\u043A\u0441\u0442",
+      "set.suggestPlainText.desc": "\u041F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430 \u0434\u043E\u043F\u0438\u0441\u044B\u0432\u0430\u0435\u0442 \u0441\u043B\u043E\u0432\u043E, \u043D\u0435 \u043F\u0440\u0435\u0432\u0440\u0430\u0449\u0430\u044F \u0435\u0433\u043E \u0432 \u0441\u0441\u044B\u043B\u043A\u0443.",
       "set.heading.contextMenu": "\u041A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u043E\u0435 \u043C\u0435\u043D\u044E",
       "exclude.group": "\u0418\u0441\u043A\u043B\u044E\u0447\u0438\u0442\u044C \xAB{value}\xBB",
       "exclude.addShort": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 {noun}",
@@ -1299,6 +1251,11 @@ var require_prose = __commonJS({
       "set.matchMode.exact": "\u0422\u043E\u0447\u043D\u043E\u0435 (\u0431\u0435\u0437 \u0443\u0447\u0451\u0442\u0430 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430)",
       "set.matchMode.endingStrip": "\u041B\u0451\u0433\u043A\u043E\u0435 \u043E\u0442\u0441\u0435\u0447\u0435\u043D\u0438\u0435 \u043E\u043A\u043E\u043D\u0447\u0430\u043D\u0438\u0439",
       "set.matchMode.stemmer": "\u0421\u0442\u0435\u043C\u043C\u0435\u0440 (\u043B\u0443\u0447\u0448\u0435 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u0444\u043E\u0440\u043C)",
+      "kind.heading": "\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A",
+      "kind.term": "\u0422\u0435\u0440\u043C\u0438\u043D",
+      "kind.viaAlias": "\u043F\u043E \u0430\u043B\u0438\u0430\u0441\u0443 \xAB{form}\xBB",
+      "set.smartCase.name": "\u0423\u043C\u043D\u044B\u0439 \u0440\u0435\u0433\u0438\u0441\u0442\u0440 \u0434\u043B\u044F \u0430\u0431\u0431\u0440\u0435\u0432\u0438\u0430\u0442\u0443\u0440",
+      "set.smartCase.desc": "\u0422\u0435\u0440\u043C\u0438\u043D\u044B \u0438\u0437 \u0437\u0430\u0433\u043B\u0430\u0432\u043D\u044B\u0445 \u0431\u0443\u043A\u0432 (\u043D\u0430\u043F\u0440\u0438\u043C\u0435\u0440 \xABIT\xBB \u0438\u043B\u0438 \xABNASA\xBB) \u0441\u043E\u043F\u043E\u0441\u0442\u0430\u0432\u043B\u044F\u044E\u0442\u0441\u044F \u0441 \u0443\u0447\u0451\u0442\u043E\u043C \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430, \u0447\u0442\u043E\u0431\u044B \u043D\u0435 \u0446\u0435\u043F\u043B\u044F\u0442\u044C \u043E\u0431\u044B\u0447\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430.",
       "set.scopeMode.name": "\u0413\u0434\u0435 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u0442\u044C",
       "set.scopeMode.vault": "\u0412\u0441\u0451 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435",
       "set.scopeMode.folders": "\u0422\u043E\u043B\u044C\u043A\u043E \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u0435 \u043F\u0430\u043F\u043A\u0438",
@@ -1333,6 +1290,8 @@ var require_prose = __commonJS({
       "set.linkSuggest.name": "Links w\xE4hrend der Eingabe vorschlagen",
       "set.suggestMinChars.desc": "Wie viele Zeichen einzugeben sind, bevor Vorschl\xE4ge erscheinen.",
       "set.suggestSkipAfter.name": "Nach Zeichen \xFCberspringen",
+      "set.suggestPlainText.name": "Reinen Text einf\xFCgen",
+      "set.suggestPlainText.desc": "Vorschl\xE4ge vervollst\xE4ndigen das Wort, ohne daraus einen Link zu machen.",
       "set.heading.contextMenu": "Kontextmen\xFC",
       "label.selection": "Auswahl",
       "modal.leftAsText": "\u2014 als Text belassen \u2014",
@@ -1351,6 +1310,11 @@ var require_prose = __commonJS({
       "set.matchMode.exact": "Exakter Treffer",
       "set.matchMode.endingStrip": "Endungen abschneiden",
       "set.matchMode.stemmer": "Stemmer (empfohlen)",
+      "kind.heading": "\xDCberschrift",
+      "kind.term": "Begriff",
+      "kind.viaAlias": "\xFCber Alias \u201E{form}\u201C",
+      "set.smartCase.name": "Schreibweise von Abk\xFCrzungen beachten",
+      "set.smartCase.desc": "\xDCberwiegend gro\xDFgeschriebene Begriffe (etwa \u201EIT\u201C oder \u201ENASA\u201C) werden nur bei gleicher Schreibweise verkn\xFCpft, damit sie keine gew\xF6hnlichen W\xF6rter erfassen.",
       "set.scopeMode.name": "Verlinkungsbereich",
       "set.scopeMode.vault": "\xDCberall",
       "set.scopeMode.folders": "Nur aufgef\xFChrte Pfade",
@@ -1383,6 +1347,8 @@ var require_prose = __commonJS({
       "set.linkSuggest.name": "Sugerir enlaces al escribir",
       "set.suggestMinChars.desc": "Cu\xE1ntos caracteres escribir antes de que aparezcan las sugerencias.",
       "set.suggestSkipAfter.name": "Omitir tras caracteres",
+      "set.suggestPlainText.name": "Insertar texto sin enlace",
+      "set.suggestPlainText.desc": "Las sugerencias completan la palabra sin convertirla en un enlace.",
       "set.heading.contextMenu": "Men\xFA contextual",
       "label.selection": "selecci\xF3n",
       "modal.leftAsText": "\u2014 dejado como texto \u2014",
@@ -1401,6 +1367,11 @@ var require_prose = __commonJS({
       "set.matchMode.exact": "Coincidencia exacta",
       "set.matchMode.endingStrip": "Quitar terminaciones",
       "set.matchMode.stemmer": "Lematizador (recomendado)",
+      "kind.heading": "Encabezado",
+      "kind.term": "T\xE9rmino",
+      "kind.viaAlias": "por el alias \xAB{form}\xBB",
+      "set.smartCase.name": "Distinguir may\xFAsculas en siglas",
+      "set.smartCase.desc": "Los t\xE9rminos escritos casi todo en may\xFAsculas (como \xABIT\xBB o \xABNASA\xBB) solo coinciden con esa misma graf\xEDa, para que no enlacen palabras corrientes.",
       "set.scopeMode.name": "\xC1mbito de enlazado",
       "set.scopeMode.vault": "En todas partes",
       "set.scopeMode.folders": "Solo rutas indicadas",
@@ -1433,6 +1404,8 @@ var require_prose = __commonJS({
       "set.linkSuggest.name": "Sugg\xE9rer des liens pendant la saisie",
       "set.suggestMinChars.desc": "Combien de caract\xE8res saisir avant que les suggestions apparaissent.",
       "set.suggestSkipAfter.name": "Ignorer apr\xE8s caract\xE8res",
+      "set.suggestPlainText.name": "Ins\xE9rer du texte simple",
+      "set.suggestPlainText.desc": "Les suggestions compl\xE8tent le mot sans en faire un lien.",
       "set.heading.contextMenu": "Menu contextuel",
       "label.selection": "s\xE9lection",
       "modal.leftAsText": "\u2014 laiss\xE9 en texte \u2014",
@@ -1451,6 +1424,11 @@ var require_prose = __commonJS({
       "set.matchMode.exact": "Correspondance exacte",
       "set.matchMode.endingStrip": "Suppression des terminaisons",
       "set.matchMode.stemmer": "Racinisation (recommand\xE9)",
+      "kind.heading": "Titre",
+      "kind.term": "Terme",
+      "kind.viaAlias": "via l\u2019alias \xAB {form} \xBB",
+      "set.smartCase.name": "Respecter la casse des sigles",
+      "set.smartCase.desc": "Les termes \xE9crits en majuscules (comme \xAB IT \xBB ou \xAB NASA \xBB) ne correspondent qu\u2019\xE0 la m\xEAme graphie, afin de ne pas lier des mots ordinaires.",
       "set.scopeMode.name": "Port\xE9e du liage",
       "set.scopeMode.vault": "Partout",
       "set.scopeMode.folders": "Chemins list\xE9s seulement",
@@ -1483,6 +1461,8 @@ var require_prose = __commonJS({
       "set.linkSuggest.name": "\u041F\u0440\u043E\u043F\u043E\u043D\u0443\u0432\u0430\u0442\u0438 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F \u043F\u0456\u0434 \u0447\u0430\u0441 \u043D\u0430\u0431\u043E\u0440\u0443",
       "set.suggestMinChars.desc": "\u0421\u043A\u0456\u043B\u044C\u043A\u0438 \u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432 \u043D\u0430\u0431\u0440\u0430\u0442\u0438, \u043F\u0435\u0440\u0448 \u043D\u0456\u0436 \u0437\u2019\u044F\u0432\u043B\u044F\u0442\u044C\u0441\u044F \u043F\u0456\u0434\u043A\u0430\u0437\u043A\u0438.",
       "set.suggestSkipAfter.name": "\u041F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u0442\u0438 \u043F\u0456\u0441\u043B\u044F \u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432",
+      "set.suggestPlainText.name": "\u0412\u0441\u0442\u0430\u0432\u043B\u044F\u0442\u0438 \u043F\u0440\u043E\u0441\u0442\u0438\u0439 \u0442\u0435\u043A\u0441\u0442",
+      "set.suggestPlainText.desc": "\u041F\u0456\u0434\u043A\u0430\u0437\u043A\u0430 \u0434\u043E\u043F\u0438\u0441\u0443\u0454 \u0441\u043B\u043E\u0432\u043E, \u043D\u0435 \u043F\u0435\u0440\u0435\u0442\u0432\u043E\u0440\u044E\u044E\u0447\u0438 \u0439\u043E\u0433\u043E \u043D\u0430 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F.",
       "set.heading.contextMenu": "\u041A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u0435 \u043C\u0435\u043D\u044E",
       "label.selection": "\u0432\u0438\u0434\u0456\u043B\u0435\u043D\u043D\u044F",
       "modal.leftAsText": "\u2014 \u0437\u0430\u043B\u0438\u0448\u0435\u043D\u043E \u0442\u0435\u043A\u0441\u0442\u043E\u043C \u2014",
@@ -1501,6 +1481,11 @@ var require_prose = __commonJS({
       "set.matchMode.exact": "\u0422\u043E\u0447\u043D\u0438\u0439 \u0437\u0431\u0456\u0433",
       "set.matchMode.endingStrip": "\u0412\u0456\u0434\u0441\u0456\u043A\u0430\u043D\u043D\u044F \u0437\u0430\u043A\u0456\u043D\u0447\u0435\u043D\u044C",
       "set.matchMode.stemmer": "\u0421\u0442\u0435\u043C\u0435\u0440 (\u0440\u0435\u043A\u043E\u043C\u0435\u043D\u0434\u043E\u0432\u0430\u043D\u043E)",
+      "kind.heading": "\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A",
+      "kind.term": "\u0422\u0435\u0440\u043C\u0456\u043D",
+      "kind.viaAlias": "\u0437\u0430 \u0430\u043B\u0456\u0430\u0441\u043E\u043C \xAB{form}\xBB",
+      "set.smartCase.name": "\u0420\u043E\u0437\u0443\u043C\u043D\u0438\u0439 \u0440\u0435\u0433\u0456\u0441\u0442\u0440 \u0434\u043B\u044F \u0430\u0431\u0440\u0435\u0432\u0456\u0430\u0442\u0443\u0440",
+      "set.smartCase.desc": "\u0422\u0435\u0440\u043C\u0456\u043D\u0438 \u0437 \u0432\u0435\u043B\u0438\u043A\u0438\u0445 \u043B\u0456\u0442\u0435\u0440 (\u043D\u0430\u043F\u0440\u0438\u043A\u043B\u0430\u0434 \xABIT\xBB \u0430\u0431\u043E \xABNASA\xBB) \u0437\u0456\u0441\u0442\u0430\u0432\u043B\u044F\u044E\u0442\u044C\u0441\u044F \u0437 \u0443\u0440\u0430\u0445\u0443\u0432\u0430\u043D\u043D\u044F\u043C \u0440\u0435\u0433\u0456\u0441\u0442\u0440\u0443, \u0449\u043E\u0431 \u043D\u0435 \u0447\u0456\u043F\u043B\u044F\u0442\u0438 \u0437\u0432\u0438\u0447\u0430\u0439\u043D\u0456 \u0441\u043B\u043E\u0432\u0430.",
       "set.scopeMode.name": "\u041E\u0431\u043B\u0430\u0441\u0442\u044C \u0437\u0432\u2019\u044F\u0437\u0443\u0432\u0430\u043D\u043D\u044F",
       "set.scopeMode.vault": "\u0423\u0441\u044E\u0434\u0438",
       "set.scopeMode.folders": "\u041B\u0438\u0448\u0435 \u0432\u043A\u0430\u0437\u0430\u043D\u0456 \u0448\u043B\u044F\u0445\u0438",
@@ -1687,12 +1672,22 @@ var require_discover = __commonJS({
         return (a.precedence || 0) > (b.precedence || 0);
       return String(a.id) < String(b.id);
     }
-    function foreignRanges(app, self, text) {
+    function drawsHere(peer, where) {
+      if (typeof peer.drawsIn !== "function")
+        return true;
+      const w = where || {};
+      try {
+        return peer.drawsIn(w.path, w.surface) !== false;
+      } catch (e) {
+        return true;
+      }
+    }
+    function foreignRanges(app, self, text, where) {
       const ranges = [];
       for (const peer of discoverLinkers(app)) {
         if (peer.id === self.id || !outranks(peer, self))
           continue;
-        if (typeof peer.matches !== "function")
+        if (typeof peer.matches !== "function" || !drawsHere(peer, where))
           continue;
         let matches;
         try {
@@ -1716,20 +1711,20 @@ var require_discover = __commonJS({
       }
       return false;
     }
-    function ownedMatches(app, self, text, matches) {
+    function ownedMatches(app, self, text, matches, where) {
       if (!matches.length)
         return matches;
-      const foreign = foreignRanges(app, self, text);
+      const foreign = foreignRanges(app, self, text, where);
       if (!foreign.length)
         return matches;
       return matches.filter((m) => !overlaps(foreign, m.start, m.end));
     }
-    function yieldedCandidates(app, self, text) {
+    function yieldedCandidates(app, self, text, where) {
       const out = [];
       for (const peer of discoverLinkers(app)) {
         if (peer.id === self.id || outranks(peer, self))
           continue;
-        if (typeof peer.matches !== "function")
+        if (typeof peer.matches !== "function" || !drawsHere(peer, where))
           continue;
         let matches;
         try {
@@ -1749,6 +1744,17 @@ var require_discover = __commonJS({
             // again at click time.
             id: peer.id,
             source: peer.displayName || peer.id,
+            // How this row reads in an ambiguity list, asked of its owner and only when a list is
+            // actually drawn — every span on screen produces candidates, few are ever looked at.
+            describe: (display) => {
+              if (typeof peer.describe !== "function")
+                return null;
+              try {
+                return peer.describe(m.target, display);
+              } catch (e) {
+                return null;
+              }
+            },
             open: (sourcePath, newTab) => {
               if (typeof peer.open === "function")
                 peer.open(m.target, sourcePath, newTab);
@@ -1765,14 +1771,14 @@ var require_discover = __commonJS({
     function candidatesFor(candidates, s, e) {
       return candidates.filter((c) => c.start < e && c.end > s);
     }
-    function peerSuggestions(app, self, query) {
+    function peerSuggestions(app, self, query, sourcePath) {
       const out = [];
       for (const peer of discoverLinkers(app)) {
         if (peer.id === self.id || typeof peer.suggest !== "function")
           continue;
         let items;
         try {
-          items = peer.suggest(String(query || "")) || [];
+          items = peer.suggest(String(query || ""), sourcePath) || [];
         } catch (e) {
           items = [];
         }
@@ -1789,7 +1795,14 @@ var require_discover = __commonJS({
             id: peer.id,
             source: peer.displayName || peer.id,
             precedence: peer.precedence || 0,
-            insert: (display, inTable) => typeof peer.linkFor === "function" ? peer.linkFor(it.target, display, inTable) : null
+            // Answered by the row's owner, including whether to compose a link at all. A peer
+            // that predates `insertFor` has only `linkFor`, which always links — the right
+            // reading for a plugin with no plain-text mode to consult.
+            insert: (display, inTable) => {
+              if (typeof peer.insertFor === "function")
+                return peer.insertFor(it.target, display, inTable);
+              return typeof peer.linkFor === "function" ? peer.linkFor(it.target, display, inTable) : null;
+            }
           });
         }
       }
@@ -1814,7 +1827,7 @@ var require_discover = __commonJS({
     function siblingLinkers(app, self) {
       return discoverLinkers(app).filter((p) => p.id !== self.id);
     }
-    module2.exports = { LINKER_API, discoverLinkers, outranks, foreignRanges, overlaps, ownedMatches, yieldedCandidates, candidatesFor, peerSuggestions, peersOffering, siblingLinkers };
+    module2.exports = { LINKER_API, discoverLinkers, outranks, drawsHere, foreignRanges, overlaps, ownedMatches, yieldedCandidates, candidatesFor, peerSuggestions, peersOffering, siblingLinkers };
   }
 });
 
@@ -1823,6 +1836,7 @@ var require_precedence = __commonJS({
   "src/shared/precedence.js"(exports2, module2) {
     "use strict";
     var { discoverLinkers, outranks, siblingLinkers } = require_discover();
+    var { t: t2 } = require_i18n();
     var STEP = 10;
     function rankedLinkers(app) {
       return discoverLinkers(app).slice().sort((a, b) => {
@@ -1833,18 +1847,39 @@ var require_precedence = __commonJS({
         return 0;
       });
     }
+    function indexForPrecedence(others, self, value) {
+      const hypothetical = { precedence: value, id: self.id };
+      return others.filter((o) => outranks(o, hypothetical)).length;
+    }
     function precedenceForIndex(app, self, index) {
       const others = rankedLinkers(app).filter((p) => p.id !== self.id);
       if (!others.length)
         return self.precedence || 0;
       const at = Math.max(0, Math.min(index, others.length));
-      const above = at > 0 ? others[at - 1].precedence || 0 : null;
-      const below = at < others.length ? others[at].precedence || 0 : null;
-      if (above === null)
-        return below + STEP;
-      if (below === null)
-        return above - STEP;
-      return (above + below) / 2;
+      const values = others.map((p) => p.precedence || 0);
+      const candidates = [values[0] + STEP, values[values.length - 1] - STEP];
+      for (let i = 1; i < values.length; i++) {
+        if (values[i - 1] !== values[i])
+          candidates.push((values[i - 1] + values[i]) / 2);
+      }
+      for (const v of values)
+        candidates.push(v);
+      const from = currentIndex(app, self);
+      const wanted = Math.sign(at - from);
+      let best = null;
+      let bestLanded = null;
+      for (const v of candidates) {
+        const landed = indexForPrecedence(others, self, v);
+        if (landed === at)
+          return v;
+        if (Math.sign(landed - from) !== wanted)
+          continue;
+        if (best === null || Math.abs(landed - at) < Math.abs(bestLanded - at)) {
+          best = v;
+          bestLanded = landed;
+        }
+      }
+      return best === null ? self.precedence || 0 : best;
     }
     function currentIndex(app, self) {
       return rankedLinkers(app).findIndex((p) => p.id === self.id);
@@ -1890,7 +1925,281 @@ var require_precedence = __commonJS({
       };
       draw();
     }
-    module2.exports = { STEP, rankedLinkers, precedenceForIndex, currentIndex, renderPrecedence };
+    function renderPrecedenceSetting(containerEl, opts) {
+      renderPrecedence(containerEl, {
+        app: opts.app,
+        provider: opts.provider,
+        Setting: opts.Setting,
+        cls: opts.cls,
+        name: t2("set.precedence.name"),
+        desc: t2("set.precedence.desc"),
+        otherDesc: t2("set.precedence.other"),
+        upTooltip: t2("set.precedence.up"),
+        downTooltip: t2("set.precedence.down"),
+        save: opts.save
+      });
+    }
+    module2.exports = { STEP, rankedLinkers, precedenceForIndex, currentIndex, renderPrecedence, renderPrecedenceSetting };
+  }
+});
+
+// src/shared/folder-list.js
+var require_folder_list = __commonJS({
+  "src/shared/folder-list.js"(exports2, module2) {
+    "use strict";
+    var { Setting, setIcon } = require("obsidian");
+    function renderFolderList(containerEl, opts) {
+      const cls = opts.cls;
+      const norm = opts.normalize || ((x) => x.trim());
+      const read = () => (opts.get() || "").split("\n").map((x) => x.trim()).filter(Boolean);
+      new Setting(containerEl).setName(opts.name).setDesc(opts.desc);
+      const rowsEl = containerEl.createDiv({ cls: `${cls}-folder-rows` });
+      const addEl = containerEl.createDiv({ cls: `${cls}-folder-add` });
+      const commit = async (next) => {
+        const seen = /* @__PURE__ */ new Set();
+        const clean = [];
+        for (const p of next) {
+          const n = norm(p);
+          if (n && !seen.has(n)) {
+            seen.add(n);
+            clean.push(n);
+          }
+        }
+        await opts.set(clean.join("\n"));
+        draw();
+      };
+      const draw = () => {
+        rowsEl.empty();
+        read().forEach((path, i) => {
+          const row = new Setting(rowsEl).setName(path);
+          row.settingEl.addClass(`${cls}-folder-row`);
+          row.addExtraButton((b) => b.setIcon("x").setTooltip(opts.removeLabel || "").onClick(() => {
+            const next = read();
+            next.splice(i, 1);
+            commit(next);
+          }));
+        });
+      };
+      const input = addEl.createEl("input", { type: "text", cls: `${cls}-folder-input`, attr: { placeholder: opts.placeholder || "" } });
+      const addBtn = addEl.createEl("button", { cls: `${cls}-folder-addbtn`, attr: { "aria-label": opts.addLabel || "" } });
+      setIcon(addBtn, "plus");
+      const add = (raw) => {
+        if (norm(raw))
+          commit([...read(), raw]);
+        input.value = "";
+        input.focus();
+      };
+      if (opts.attachSuggest)
+        opts.attachSuggest(input, add);
+      addBtn.addEventListener("click", () => add(input.value));
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          add(input.value);
+        }
+      });
+      draw();
+    }
+    module2.exports = { renderFolderList };
+  }
+});
+
+// src/shared/prose/settings.js
+var require_settings = __commonJS({
+  "src/shared/prose/settings.js"(exports2, module2) {
+    "use strict";
+    var { Setting } = require("obsidian");
+    var { t: t2 } = require_i18n();
+    var { renderFolderList } = require_folder_list();
+    var settingsOf = (ctx) => ctx.tab.plugin.settings;
+    var openLanguages = /* @__PURE__ */ new WeakSet();
+    function positiveNumber(containerEl, ctx, key, rebuild) {
+      const s = settingsOf(ctx);
+      new Setting(containerEl).setName(t2(`set.${key}.name`)).setDesc(t2(`set.${key}.desc`)).addText((c) => {
+        c.inputEl.type = "number";
+        c.inputEl.min = "1";
+        c.setValue(String(s[key])).onChange(async (v) => {
+          const n = parseInt(v, 10);
+          s[key] = Number.isFinite(n) && n > 0 ? n : 1;
+          await ctx.save(rebuild);
+        });
+      });
+    }
+    function renderMatchMode(containerEl, ctx) {
+      const s = settingsOf(ctx);
+      new Setting(containerEl).setName(t2("set.matchMode.name")).setDesc(t2("set.matchMode.desc")).addDropdown((d) => d.addOption("stemmer", t2("set.matchMode.stemmer")).addOption("endingStrip", t2("set.matchMode.endingStrip")).addOption("exact", t2("set.matchMode.exact")).setValue(s.matchMode).onChange(async (v) => {
+        s.matchMode = v;
+        await ctx.save(true);
+      }));
+      positiveNumber(containerEl, ctx, "minTermLength", true);
+      new Setting(containerEl).setName(t2("set.smartCase.name")).setDesc(t2("set.smartCase.desc")).addToggle((c) => c.setValue(s.smartCase).onChange(async (v) => {
+        s.smartCase = v;
+        await ctx.save(true);
+      }));
+    }
+    function renderMatchLimits(containerEl, ctx) {
+      const s = settingsOf(ctx);
+      new Setting(containerEl).setName(t2("set.linkFirstOnly.name")).setDesc(t2("set.linkFirstOnly.desc")).addToggle((c) => c.setValue(s.linkFirstOnly).onChange(async (v) => {
+        s.linkFirstOnly = v;
+        await ctx.save(false);
+      }));
+      new Setting(containerEl).setName(t2("set.excludeTerms.name")).setDesc(t2("set.excludeTerms.desc")).addTextArea((c) => {
+        c.setValue(s.excludeTerms).onChange(async (v) => {
+          s.excludeTerms = v;
+          await ctx.save(true);
+        });
+        c.inputEl.rows = 3;
+      });
+    }
+    async function applyLanguageChange(ctx) {
+      const plugin = ctx.tab.plugin;
+      await plugin.saveSettings();
+      plugin.refreshActiveLanguages();
+      plugin.rebuildIndex();
+      plugin.rerenderViews();
+      ctx.tab.display();
+    }
+    function renderLanguages(containerEl, ctx) {
+      const { tab, cls } = ctx;
+      const s = settingsOf(ctx);
+      const langs = tab.plugin.languages;
+      const errors = tab.plugin.languageErrors || [];
+      const enabledCount = langs.filter((l) => (s.enabledLanguages || []).includes(l.id)).length;
+      const open = openLanguages.has(tab);
+      const desc = t2("set.languages.desc", { enabled: enabledCount, total: langs.length }) + (errors.length ? t2("set.languages.invalidSuffix", { n: errors.length }) : "") + ".";
+      new Setting(containerEl).setName(t2("set.languages.name")).setDesc(desc).addExtraButton((b) => b.setIcon(open ? "chevron-up" : "chevron-down").setTooltip(open ? t2("set.languages.hide") : t2("set.languages.show")).onClick(() => {
+        if (open)
+          openLanguages.delete(tab);
+        else
+          openLanguages.add(tab);
+        tab.display();
+      }));
+      if (!open)
+        return;
+      langs.forEach((lang, i) => {
+        const row = new Setting(containerEl).setName(lang.name).setDesc(`id: ${lang.id}`).addExtraButton((b) => b.setIcon("chevron-up").setTooltip(t2("set.lang.higher")).setDisabled(i === 0).onClick(async () => {
+          tab.plugin.moveLanguage(lang.id, -1);
+          await applyLanguageChange(ctx);
+        })).addExtraButton((b) => b.setIcon("chevron-down").setTooltip(t2("set.lang.lower")).setDisabled(i === langs.length - 1).onClick(async () => {
+          tab.plugin.moveLanguage(lang.id, 1);
+          await applyLanguageChange(ctx);
+        })).addToggle((c) => c.setValue((s.enabledLanguages || []).includes(lang.id)).onChange(async (v) => {
+          const set = new Set(s.enabledLanguages || []);
+          if (v)
+            set.add(lang.id);
+          else
+            set.delete(lang.id);
+          s.enabledLanguages = [...set];
+          await applyLanguageChange(ctx);
+        }));
+        row.settingEl.addClass(`${cls}-lang-row`);
+      });
+      for (const bad of errors) {
+        const row = new Setting(containerEl).setName(bad.id).setDesc(t2("set.lang.invalid", { error: bad.error })).addExtraButton((b) => b.setIcon("alert-triangle").setTooltip(t2("set.lang.invalid", { error: bad.error })).setDisabled(true));
+        row.nameEl.addClass(`${cls}-lang-error`);
+        row.settingEl.addClass(`${cls}-lang-row`);
+        row.settingEl.addClass("mod-warning");
+      }
+    }
+    function renderHighlighting(containerEl, ctx) {
+      const { tab } = ctx;
+      const s = settingsOf(ctx);
+      new Setting(containerEl).setName(t2("set.heading.highlighting")).setHeading();
+      new Setting(containerEl).setName(t2("set.highlightInReading.name")).setDesc(t2("set.highlightInReading.desc")).addToggle((c) => c.setValue(s.highlightInReading).onChange(async (v) => {
+        s.highlightInReading = v;
+        await ctx.save(false);
+        tab.plugin.rerenderViews();
+      }));
+      new Setting(containerEl).setName(t2("set.editingHighlight.name")).setDesc(t2("set.editingHighlight.desc")).addDropdown((d) => d.addOption("off", t2("set.editingHighlight.off")).addOption("live", t2("set.editingHighlight.live")).addOption("onSave", t2("set.editingHighlight.onSave")).setValue(s.editingHighlight).onChange(async (v) => {
+        s.editingHighlight = v;
+        await ctx.save(false);
+        tab.plugin.refreshEditors();
+      }));
+      new Setting(containerEl).setName(t2("set.skipHeadings.name")).setDesc(t2("set.skipHeadings.desc")).addToggle((c) => c.setValue(s.skipHeadings).onChange(async (v) => {
+        s.skipHeadings = v;
+        await ctx.save(false);
+        tab.plugin.rerenderViews();
+      }));
+      new Setting(containerEl).setName(t2("set.statusBar.name")).setDesc(t2("set.statusBar.desc")).addToggle((c) => c.setValue(s.statusBar).onChange(async (v) => {
+        s.statusBar = v;
+        await ctx.save(false);
+        tab.plugin.updateStatusBar();
+      }));
+      new Setting(containerEl).setName(t2("set.statusBarIncludeLinks.name")).setDesc(t2("set.statusBarIncludeLinks.desc")).addToggle((c) => c.setValue(s.statusBarIncludeLinks).onChange(async (v) => {
+        s.statusBarIncludeLinks = v;
+        await ctx.save(false);
+        tab.plugin.updateStatusBar();
+      }));
+    }
+    function renderAutocomplete(containerEl, ctx) {
+      const s = settingsOf(ctx);
+      new Setting(containerEl).setName(t2("set.heading.autocomplete")).setHeading();
+      new Setting(containerEl).setName(t2("set.linkSuggest.name")).setDesc(t2("set.linkSuggest.desc")).addToggle((c) => c.setValue(s.linkSuggest).onChange(async (v) => {
+        s.linkSuggest = v;
+        await ctx.save(false);
+      }));
+      positiveNumber(containerEl, ctx, "suggestMinChars", false);
+      new Setting(containerEl).setName(t2("set.suggestSkipAfter.name")).setDesc(t2("set.suggestSkipAfter.desc")).addText((c) => c.setValue(s.suggestSkipAfter).onChange(async (v) => {
+        s.suggestSkipAfter = v;
+        await ctx.save(false);
+      }));
+      new Setting(containerEl).setName(t2("set.suggestPlainText.name")).setDesc(t2("set.suggestPlainText.desc")).addToggle((c) => c.setValue(s.suggestPlainText).onChange(async (v) => {
+        s.suggestPlainText = v;
+        await ctx.save(false);
+      }));
+    }
+    function renderMenuToggles(containerEl, ctx, keys) {
+      const s = settingsOf(ctx);
+      new Setting(containerEl).setName(t2("set.heading.contextMenu")).setHeading();
+      for (const key of keys) {
+        new Setting(containerEl).setName(t2(`set.${key}.name`)).setDesc(t2(`set.${key}.desc`)).addToggle((c) => c.setValue(s[key]).onChange(async (v) => {
+          s[key] = v;
+          await ctx.save(false);
+        }));
+      }
+    }
+    function renderScopeMode(containerEl, ctx, saveScope) {
+      const s = settingsOf(ctx);
+      new Setting(containerEl).setName(t2("set.scopeMode.name")).setDesc(t2("set.scopeMode.desc")).addDropdown((d) => d.addOption("folders", t2("set.scopeMode.folders")).addOption("vault", t2("set.scopeMode.vault")).setValue(s.scopeMode).onChange(async (v) => {
+        s.scopeMode = v;
+        await saveScope();
+        ctx.tab.display();
+      }));
+    }
+    function renderPathList(containerEl, ctx, opts) {
+      const s = settingsOf(ctx);
+      const labels = opts.labels;
+      renderFolderList(containerEl, {
+        cls: ctx.cls,
+        name: opts.name,
+        desc: opts.desc,
+        get: () => s[opts.key],
+        set: async (v) => {
+          s[opts.key] = v;
+          await opts.save();
+        },
+        normalize: opts.normalize,
+        attachSuggest: opts.attachSuggest,
+        placeholder: t2(`set.${labels}.add`),
+        removeLabel: t2(`set.${labels}.remove`),
+        addLabel: t2(`set.${labels}.addAria`)
+      });
+    }
+    function createProseSettings(tab, opts) {
+      const ctx = { tab, cls: opts.cls, save: opts.save };
+      return {
+        matchMode: (el) => renderMatchMode(el, ctx),
+        languages: (el) => renderLanguages(el, ctx),
+        matchLimits: (el) => renderMatchLimits(el, ctx),
+        highlighting: (el) => renderHighlighting(el, ctx),
+        autocomplete: (el) => renderAutocomplete(el, ctx),
+        menuToggles: (el, keys) => renderMenuToggles(el, ctx, keys),
+        scopeMode: (el, saveScope) => renderScopeMode(el, ctx, saveScope),
+        pathList: (el, o) => renderPathList(el, ctx, o),
+        positiveNumber: (el, key, rebuild) => positiveNumber(el, ctx, key, rebuild)
+      };
+    }
+    module2.exports = { createProseSettings };
   }
 });
 
@@ -1901,9 +2210,9 @@ var require_settings_tab = __commonJS({
     var { PluginSettingTab, Setting, Notice: Notice2, TFolder: TFolder2 } = require("obsidian");
     var { sanitizeFolder: sanitizeFolder2 } = require_constants();
     var { FolderSuggest, FileSuggest, PathSuggest, folderSuggestAvailable } = require_folder_suggest();
-    var { renderFolderList } = require_folder_list();
     var { t: t2, plural: plural2 } = require_i18n();
-    var { renderPrecedence: precedenceSetting } = require_precedence();
+    var { renderPrecedenceSetting } = require_precedence();
+    var { createProseSettings } = require_settings();
     var GlossaryLinkerSettingTab2 = class extends PluginSettingTab {
       constructor(app, plugin) {
         super(app, plugin);
@@ -1927,6 +2236,7 @@ var require_settings_tab = __commonJS({
           this.plugin.updateStatusBar();
           this.plugin.refreshOverviewDebounced();
         };
+        const sections = createProseSettings(this, { cls: "glossary", save });
         new Setting(containerEl).setName(t2("set.heading.scope")).setHeading();
         new Setting(containerEl).setName(t2("set.glossaryFolder.name")).setDesc(t2("set.glossaryFolder.desc")).addText((c) => {
           c.setValue(s.glossaryFolder).onChange(async (v) => {
@@ -1946,25 +2256,15 @@ var require_settings_tab = __commonJS({
           if (folderSuggestAvailable())
             new FileSuggest(this.app, c.inputEl);
         });
-        new Setting(containerEl).setName(t2("set.scopeMode.name")).setDesc(t2("set.scopeMode.desc")).addDropdown((d) => d.addOption("folders", t2("set.scopeMode.folders")).addOption("vault", t2("set.scopeMode.vault")).setValue(s.scopeMode).onChange(async (v) => {
-          s.scopeMode = v;
-          await saveScope();
-          this.display();
-        }));
-        const folderList = (name, desc, key) => renderFolderList(containerEl, {
-          cls: "glossary",
+        sections.scopeMode(containerEl, saveScope);
+        const folderList = (name, desc, key) => sections.pathList(containerEl, {
           name,
           desc,
-          get: () => s[key],
-          set: async (v) => {
-            s[key] = v;
-            await saveScope();
-          },
+          key,
+          labels: "folderList",
           normalize: sanitizeFolder2,
           attachSuggest: folderSuggestAvailable() ? (inputEl, onPick) => new PathSuggest(this.app, inputEl, onPick) : null,
-          placeholder: t2("set.folderList.add"),
-          removeLabel: t2("set.folderList.remove"),
-          addLabel: t2("set.folderList.addAria")
+          save: saveScope
         });
         if (s.scopeMode === "folders") {
           folderList(t2("set.scopeFolders.name"), t2("set.scopeFolders.desc"), "scopeFolders");
@@ -1973,66 +2273,9 @@ var require_settings_tab = __commonJS({
         this.folderStatusEl = containerEl.createEl("div", { cls: "glossary-section-desc" });
         this.renderFolderStatus();
         new Setting(containerEl).setName(t2("set.heading.matching")).setHeading();
-        new Setting(containerEl).setName(t2("set.matchMode.name")).setDesc(t2("set.matchMode.desc")).addDropdown((d) => d.addOption("stemmer", t2("set.matchMode.stemmer")).addOption("endingStrip", t2("set.matchMode.endingStrip")).addOption("exact", t2("set.matchMode.exact")).setValue(s.matchMode).onChange(async (v) => {
-          s.matchMode = v;
-          await save(true);
-        }));
-        new Setting(containerEl).setName(t2("set.minTermLength.name")).setDesc(t2("set.minTermLength.desc")).addText((c) => {
-          c.inputEl.type = "number";
-          c.inputEl.min = "1";
-          c.setValue(String(s.minTermLength)).onChange(async (v) => {
-            const n = parseInt(v, 10);
-            s.minTermLength = Number.isFinite(n) && n > 0 ? n : 1;
-            await save(true);
-          });
-        });
-        const langs = this.plugin.languages;
-        const errors = this.plugin.languageErrors || [];
-        const enabledCount = langs.filter((l) => (s.enabledLanguages || []).includes(l.id)).length;
-        if (this.showLanguages === void 0)
-          this.showLanguages = false;
-        const langDesc = t2("set.languages.desc", { enabled: enabledCount, total: langs.length }) + (errors.length ? t2("set.languages.invalidSuffix", { n: errors.length }) : "") + ".";
-        new Setting(containerEl).setName(t2("set.languages.name")).setDesc(langDesc).addExtraButton((b) => b.setIcon(this.showLanguages ? "chevron-up" : "chevron-down").setTooltip(this.showLanguages ? t2("set.languages.hide") : t2("set.languages.show")).onClick(() => {
-          this.showLanguages = !this.showLanguages;
-          this.display();
-        }));
-        if (this.showLanguages) {
-          langs.forEach((lang, i) => {
-            const row = new Setting(containerEl).setName(lang.name).setDesc(`id: ${lang.id}`).addExtraButton((b) => b.setIcon("chevron-up").setTooltip(t2("set.lang.higher")).setDisabled(i === 0).onClick(async () => {
-              this.plugin.moveLanguage(lang.id, -1);
-              await this.applyLanguageChange();
-            })).addExtraButton((b) => b.setIcon("chevron-down").setTooltip(t2("set.lang.lower")).setDisabled(i === langs.length - 1).onClick(async () => {
-              this.plugin.moveLanguage(lang.id, 1);
-              await this.applyLanguageChange();
-            })).addToggle((c) => c.setValue((s.enabledLanguages || []).includes(lang.id)).onChange(async (v) => {
-              const set = new Set(s.enabledLanguages || []);
-              if (v)
-                set.add(lang.id);
-              else
-                set.delete(lang.id);
-              s.enabledLanguages = [...set];
-              await this.applyLanguageChange();
-            }));
-            row.settingEl.addClass("glossary-lang-row");
-          });
-          for (const bad of errors) {
-            const row = new Setting(containerEl).setName(bad.id).setDesc(t2("set.lang.invalid", { error: bad.error })).addExtraButton((b) => b.setIcon("alert-triangle").setTooltip(t2("set.lang.invalid", { error: bad.error })).setDisabled(true));
-            row.nameEl.addClass("glossary-lang-error");
-            row.settingEl.addClass("glossary-lang-row");
-            row.settingEl.addClass("mod-warning");
-          }
-        }
-        new Setting(containerEl).setName(t2("set.linkFirstOnly.name")).setDesc(t2("set.linkFirstOnly.desc")).addToggle((c) => c.setValue(s.linkFirstOnly).onChange(async (v) => {
-          s.linkFirstOnly = v;
-          await save(false);
-        }));
-        new Setting(containerEl).setName(t2("set.excludeTerms.name")).setDesc(t2("set.excludeTerms.desc")).addTextArea((c) => {
-          c.setValue(s.excludeTerms).onChange(async (v) => {
-            s.excludeTerms = v;
-            await save(true);
-          });
-          c.inputEl.rows = 3;
-        });
+        sections.matchMode(containerEl);
+        sections.languages(containerEl);
+        sections.matchLimits(containerEl);
         new Setting(containerEl).setName(t2("set.excludeWords.name")).setDesc(t2("set.excludeWords.desc")).addTextArea((c) => {
           c.setValue(s.excludeWords).onChange(async (v) => {
             s.excludeWords = v;
@@ -2040,50 +2283,8 @@ var require_settings_tab = __commonJS({
           });
           c.inputEl.rows = 3;
         });
-        new Setting(containerEl).setName(t2("set.heading.highlighting")).setHeading();
-        new Setting(containerEl).setName(t2("set.highlightInReading.name")).setDesc(t2("set.highlightInReading.desc")).addToggle((c) => c.setValue(s.highlightInReading).onChange(async (v) => {
-          s.highlightInReading = v;
-          await save(false);
-          this.plugin.rerenderViews();
-        }));
-        new Setting(containerEl).setName(t2("set.editingHighlight.name")).setDesc(t2("set.editingHighlight.desc")).addDropdown((d) => d.addOption("off", t2("set.editingHighlight.off")).addOption("live", t2("set.editingHighlight.live")).addOption("onSave", t2("set.editingHighlight.onSave")).setValue(s.editingHighlight).onChange(async (v) => {
-          s.editingHighlight = v;
-          await save(false);
-          this.plugin.refreshEditors();
-        }));
-        new Setting(containerEl).setName(t2("set.skipHeadings.name")).setDesc(t2("set.skipHeadings.desc")).addToggle((c) => c.setValue(s.skipHeadings).onChange(async (v) => {
-          s.skipHeadings = v;
-          await save(false);
-          this.plugin.rerenderViews();
-        }));
-        new Setting(containerEl).setName(t2("set.statusBar.name")).setDesc(t2("set.statusBar.desc")).addToggle((c) => c.setValue(s.statusBar).onChange(async (v) => {
-          s.statusBar = v;
-          await save(false);
-          this.plugin.updateStatusBar();
-        }));
-        new Setting(containerEl).setName(t2("set.statusBarIncludeLinks.name")).setDesc(t2("set.statusBarIncludeLinks.desc")).addToggle((c) => c.setValue(s.statusBarIncludeLinks).onChange(async (v) => {
-          s.statusBarIncludeLinks = v;
-          await save(false);
-          this.plugin.updateStatusBar();
-        }));
-        new Setting(containerEl).setName(t2("set.heading.autocomplete")).setHeading();
-        new Setting(containerEl).setName(t2("set.linkSuggest.name")).setDesc(t2("set.linkSuggest.desc")).addToggle((c) => c.setValue(s.linkSuggest).onChange(async (v) => {
-          s.linkSuggest = v;
-          await save(false);
-        }));
-        new Setting(containerEl).setName(t2("set.suggestMinChars.name")).setDesc(t2("set.suggestMinChars.desc")).addText((c) => {
-          c.inputEl.type = "number";
-          c.inputEl.min = "1";
-          c.setValue(String(s.suggestMinChars)).onChange(async (v) => {
-            const n = parseInt(v, 10);
-            s.suggestMinChars = Number.isFinite(n) && n > 0 ? n : 1;
-            await save(false);
-          });
-        });
-        new Setting(containerEl).setName(t2("set.suggestSkipAfter.name")).setDesc(t2("set.suggestSkipAfter.desc")).addText((c) => c.setValue(s.suggestSkipAfter).onChange(async (v) => {
-          s.suggestSkipAfter = v;
-          await save(false);
-        }));
+        sections.highlighting(containerEl);
+        sections.autocomplete(containerEl);
         new Setting(containerEl).setName(t2("set.heading.collecting")).setDesc(t2("set.collecting.desc")).setHeading();
         new Setting(containerEl).setName(t2("set.aliasHarvestMode.name")).setDesc(t2("set.aliasHarvestMode.desc")).addDropdown((d) => d.addOption("lemma", t2("set.aliasHarvestMode.lemma")).addOption("literal", t2("set.aliasHarvestMode.literal")).addOption("both", t2("set.aliasHarvestMode.both")).setValue(s.aliasHarvestMode).onChange(async (v) => {
           s.aliasHarvestMode = v;
@@ -2097,48 +2298,12 @@ var require_settings_tab = __commonJS({
           s.harvestSingleWordOnly = v;
           await save(false);
         }));
-        new Setting(containerEl).setName(t2("set.harvestMinLength.name")).setDesc(t2("set.harvestMinLength.desc")).addText((c) => {
-          c.inputEl.type = "number";
-          c.inputEl.min = "1";
-          c.setValue(String(s.harvestMinLength)).onChange(async (v) => {
-            const n = parseInt(v, 10);
-            s.harvestMinLength = Number.isFinite(n) && n > 0 ? n : 1;
-            await save(false);
-          });
-        });
+        sections.positiveNumber(containerEl, "harvestMinLength", false);
         new Setting(containerEl).setName(t2("set.aliasCollisionWarnings.name")).setDesc(t2("set.aliasCollisionWarnings.desc")).addToggle((c) => c.setValue(s.aliasCollisionWarnings).onChange(async (v) => {
           s.aliasCollisionWarnings = v;
           await save(false);
         }));
-        new Setting(containerEl).setName(t2("set.heading.contextMenu")).setHeading();
-        new Setting(containerEl).setName(t2("set.menuTurnInto.name")).setDesc(t2("set.menuTurnInto.desc")).addToggle((c) => c.setValue(s.menuTurnInto).onChange(async (v) => {
-          s.menuTurnInto = v;
-          await save(false);
-        }));
-        new Setting(containerEl).setName(t2("set.menuCollect.name")).setDesc(t2("set.menuCollect.desc")).addToggle((c) => c.setValue(s.menuCollect).onChange(async (v) => {
-          s.menuCollect = v;
-          await save(false);
-        }));
-        new Setting(containerEl).setName(t2("set.menuExclude.name")).setDesc(t2("set.menuExclude.desc")).addToggle((c) => c.setValue(s.menuExclude).onChange(async (v) => {
-          s.menuExclude = v;
-          await save(false);
-        }));
-        new Setting(containerEl).setName(t2("set.menuOpen.name")).setDesc(t2("set.menuOpen.desc")).addToggle((c) => c.setValue(s.menuOpen).onChange(async (v) => {
-          s.menuOpen = v;
-          await save(false);
-        }));
-        new Setting(containerEl).setName(t2("set.menuCreateTerm.name")).setDesc(t2("set.menuCreateTerm.desc")).addToggle((c) => c.setValue(s.menuCreateTerm).onChange(async (v) => {
-          s.menuCreateTerm = v;
-          await save(false);
-        }));
-        new Setting(containerEl).setName(t2("set.menuAddAlias.name")).setDesc(t2("set.menuAddAlias.desc")).addToggle((c) => c.setValue(s.menuAddAlias).onChange(async (v) => {
-          s.menuAddAlias = v;
-          await save(false);
-        }));
-        new Setting(containerEl).setName(t2("set.menuUnlink.name")).setDesc(t2("set.menuUnlink.desc")).addToggle((c) => c.setValue(s.menuUnlink).onChange(async (v) => {
-          s.menuUnlink = v;
-          await save(false);
-        }));
+        sections.menuToggles(containerEl, ["menuTurnInto", "menuCollect", "menuExclude", "menuOpen", "menuCreateTerm", "menuAddAlias", "menuUnlink"]);
         new Setting(containerEl).setName(t2("set.heading.overview")).setHeading();
         new Setting(containerEl).setName(t2("set.showRibbonIcon.name")).setDesc(t2("set.showRibbonIcon.desc")).addToggle((c) => c.setValue(s.showRibbonIcon).onChange(async (v) => {
           s.showRibbonIcon = v;
@@ -2146,38 +2311,21 @@ var require_settings_tab = __commonJS({
           this.plugin.applyRibbonIcon();
         }));
         new Setting(containerEl).setName(t2("set.heading.maintenance")).setHeading();
-        this.renderPrecedence(containerEl, save);
+        renderPrecedenceSetting(containerEl, {
+          app: this.app,
+          provider: this.plugin.api && this.plugin.api.linker,
+          Setting,
+          cls: "glossary",
+          save: async (value) => {
+            s.linkPrecedence = value;
+            await save(false);
+          }
+        });
         new Setting(containerEl).setName(t2("set.rebuild.name")).setDesc(t2("set.rebuild.desc")).addButton((b) => b.setButtonText(t2("set.rebuild.button")).onClick(() => {
           this.plugin.rebuildIndex();
           new Notice2(t2("notice.indexRebuilt"));
           this.renderFolderStatus();
         }));
-      }
-      async applyLanguageChange() {
-        await this.plugin.saveSettings();
-        this.plugin.refreshActiveLanguages();
-        this.plugin.rebuildIndex();
-        this.plugin.rerenderViews();
-        this.display();
-      }
-      // Where this plugin sits in the family-wide priority order. Shown only when another linker
-      // is installed — alone there is no order to argue about.
-      renderPrecedence(containerEl, save) {
-        precedenceSetting(containerEl, {
-          app: this.app,
-          provider: this.plugin.api && this.plugin.api.linker,
-          Setting,
-          cls: "glossary",
-          name: t2("set.precedence.name"),
-          desc: t2("set.precedence.desc"),
-          otherDesc: t2("set.precedence.other"),
-          upTooltip: t2("set.precedence.up"),
-          downTooltip: t2("set.precedence.down"),
-          save: async (value) => {
-            this.plugin.settings.linkPrecedence = value;
-            await save(false);
-          }
-        });
       }
       renderFolderStatus() {
         const el = this.folderStatusEl;
@@ -2238,10 +2386,18 @@ var require_matcher = __commonJS({
       }
       return false;
     }
+    function isAcronymish(text) {
+      const letters = [...text].filter((ch) => /\p{L}/u.test(ch));
+      if (letters.length < 2)
+        return false;
+      const upper = letters.filter((ch) => ch !== ch.toLowerCase() && ch === ch.toUpperCase()).length;
+      return upper / letters.length > 0.75;
+    }
+    var smartCaseFits = (plugin, c, surface) => !plugin.settings.smartCase || !c.cs || surface === c.caseText;
     function createMatcher(config) {
       const { idOf, selfIdOf, fieldsOf } = config;
       const accepts = config.accepts || (() => true);
-      const caseFits = config.caseFits || (() => true);
+      const caseFits = config.caseFits || smartCaseFits;
       return {
         // Keys for a word: the union from every language that claims it (same-script
         // languages overlap); words no language claims fall back to the exact form.
@@ -2272,6 +2428,15 @@ var require_matcher = __commonJS({
         tokenizeForm(form) {
           const words = [...form.matchAll(/[\p{L}\p{Nd}]+/gu)].map((m) => m[0]);
           return words.map((raw) => ({ raw, keys: this.keysFor(raw) }));
+        },
+        // The fields every index entry carries for one written form, or null if the form holds
+        // no word at all. Built here rather than by each plugin's index: a forgotten `cs` or
+        // `caseText` disables smart case for that form silently, with nothing to notice.
+        formEntry(form) {
+          const words = this.tokenizeForm(form);
+          if (!words.length)
+            return null;
+          return { words, wordCount: words.length, cs: isAcronymish(form), caseText: form };
         },
         // Every term id whose form matches `text`, `except` one. Runs the same scan as the
         // highlighter, so collisions agree with what actually gets linked.
@@ -2448,7 +2613,7 @@ var require_matcher = __commonJS({
         }
       };
     }
-    module2.exports = { createMatcher };
+    module2.exports = { createMatcher, isAcronymish, smartCaseFits };
   }
 });
 
@@ -2501,13 +2666,13 @@ var require_matcher2 = __commonJS({
           for (const form of forms) {
             if (form.trim().length < minTermLength)
               continue;
-            const words = this.tokenizeForm(form);
-            if (!words.length)
+            const entry = this.formEntry(form);
+            if (!entry)
               continue;
-            if (words.length === 1 && words[0].keys.some((k) => this.excludeWordKeys.has(k)))
+            if (entry.wordCount === 1 && entry.words[0].keys.some((k) => this.excludeWordKeys.has(k)))
               continue;
-            const matcher2 = { canonical, target, words, wordCount: words.length };
-            for (const k of words[0].keys) {
+            const matcher2 = Object.assign({ canonical, target }, entry);
+            for (const k of entry.words[0].keys) {
               if (!byKey.has(k))
                 byKey.set(k, []);
               byKey.get(k).push(matcher2);
@@ -2539,18 +2704,56 @@ var require_highlight = __commonJS({
       const ATTR_FOREIGN = `data-${cls}-foreign`;
       return {
         // Our matches minus the ones a higher-ranked sibling also claims.
-        ownSpans(text, matches) {
+        // `where` is `{ path, surface }` — which note, and which of reading/editing/menu is being
+        // built. Peers use it to stand aside where they would draw nothing.
+        ownSpans(text, matches, where) {
           const provider = this.api && this.api.linker;
           if (!provider)
             return matches;
-          return ownedMatches(this.app, provider, text, matches);
+          return ownedMatches(this.app, provider, text, matches, where);
+        },
+        // The editor keeps a span's foreign candidates in a DOM attribute, so they are rebuilt
+        // from JSON rather than handed over as closures. Everything is resolved against the peer
+        // at use time, not at draw time: it may have been disabled since the mark was drawn, and
+        // a row that captions itself from stale data would read differently here than in reading
+        // view.
+        foreignFromAttr(raw, sourcePath, newTab) {
+          if (!raw)
+            return [];
+          let parsed;
+          try {
+            parsed = JSON.parse(raw);
+          } catch (err) {
+            return [];
+          }
+          const peers = discoverLinkers(this.app);
+          return parsed.map((f) => {
+            const peerOf = () => peers.find((p) => p.id === f.id);
+            const ask = (name, fn) => {
+              const peer = peerOf();
+              if (!peer || typeof peer[name] !== "function")
+                return null;
+              try {
+                return fn(peer);
+              } catch (err) {
+                return null;
+              }
+            };
+            return {
+              label: f.label,
+              source: f.source,
+              describe: (display) => ask("describe", (peer) => peer.describe(f.target, display)),
+              open: () => ask("open", (peer) => peer.open(f.target, sourcePath, newTab)),
+              hover: (ev, row, parent) => ask("hover", (peer) => peer.hover(f.target, ev, row, sourcePath, parent))
+            };
+          });
         },
         // What the linkers that yielded a span to us would have offered there.
-        yieldedIn(text) {
+        yieldedIn(text, where) {
           const provider = this.api && this.api.linker;
           if (!provider)
             return [];
-          return yieldedCandidates(this.app, provider, text);
+          return yieldedCandidates(this.app, provider, text, where);
         },
         processReadingMode(el, ctx) {
           if (!this.settings.highlightInReading)
@@ -2587,10 +2790,11 @@ var require_highlight = __commonJS({
           const text = node.textContent;
           if (!text || text.length < 2)
             return;
-          const matches = this.ownSpans(text, this.findMatches(text, selfId, { protect: true }));
+          const where = { path: sourcePath, surface: "reading" };
+          const matches = this.ownSpans(text, this.findMatches(text, selfId, { protect: true }), where);
           if (!matches.length)
             return;
-          const yielded = this.yieldedIn(text);
+          const yielded = this.yieldedIn(text, where);
           const frag = document.createDocumentFragment();
           let cursor = 0;
           for (const m of matches) {
@@ -2612,17 +2816,17 @@ var require_highlight = __commonJS({
                 this.chooseTerm(
                   candidates.map((c) => typeof c === "object" ? { ...c, open: () => c.open(sourcePath, newTab) } : c),
                   newTab ? t2("menu.openNewTabTitle") : t2("menu.openTitle"),
-                  (c) => this.openTerm(c, sourcePath, newTab)
+                  (c) => this.openTerm(c, sourcePath, newTab),
+                  display
                 );
               };
               a.addEventListener("mouseenter", (e) => {
                 if (!this.choices)
                   return;
-                this.choices.schedule(candidates.map((c) => typeof c === "object" ? {
-                  label: c.label,
+                this.choices.schedule(candidates.map((c) => typeof c === "object" ? Object.assign({}, c, {
                   open: () => c.open(sourcePath, false),
                   hover: (ev, row, parent) => c.hover(ev, row, sourcePath, parent)
-                } : c), e.clientX, e.clientY);
+                }) : c), e.clientX, e.clientY, display);
               });
               a.addEventListener("mouseleave", () => {
                 if (this.choices)
@@ -2697,8 +2901,9 @@ var require_highlight = __commonJS({
             const tree = syntaxTree(editorView.state);
             for (const { from, to } of editorView.visibleRanges) {
               const text = editorView.state.doc.sliceString(from, to);
-              const yielded = plugin.yieldedIn(text);
-              for (const m of plugin.ownSpans(text, plugin.findMatches(text, selfId))) {
+              const where = { path: activeFile ? activeFile.path : void 0, surface: "editing" };
+              const yielded = plugin.yieldedIn(text, where);
+              for (const m of plugin.ownSpans(text, plugin.findMatches(text, selfId), where)) {
                 const start = from + m.start;
                 const end = from + m.end;
                 let skip = false;
@@ -2721,35 +2926,7 @@ var require_highlight = __commonJS({
             const v = el.getAttribute(ATTR_ALTS);
             return v ? v.split("\n") : null;
           };
-          const foreignOf = (el, sourcePath, newTab) => {
-            const raw = el.getAttribute(ATTR_FOREIGN);
-            if (!raw)
-              return [];
-            let parsed;
-            try {
-              parsed = JSON.parse(raw);
-            } catch (err) {
-              return [];
-            }
-            const peers = discoverLinkers(plugin.app);
-            return parsed.map((f) => {
-              const peerOf = () => peers.find((p) => p.id === f.id);
-              return {
-                label: f.label,
-                source: f.source,
-                open: () => {
-                  const peer = peerOf();
-                  if (peer && typeof peer.open === "function")
-                    peer.open(f.target, sourcePath, newTab);
-                },
-                hover: (ev, row, parent) => {
-                  const peer = peerOf();
-                  if (peer && typeof peer.hover === "function")
-                    peer.hover(f.target, ev, row, sourcePath, parent);
-                }
-              };
-            });
-          };
+          const foreignOf = (el, sourcePath, newTab) => plugin.foreignFromAttr(el.getAttribute(ATTR_FOREIGN), sourcePath, newTab);
           const candidatesOn = (el, sourcePath) => [targetOfEl(el), ...altsOf(el) || [], ...foreignOf(el, sourcePath, false)];
           let lastX = 0;
           let lastY = 0;
@@ -2765,7 +2942,7 @@ var require_highlight = __commonJS({
             if (!el || !(el.hasAttribute(ATTR_ALTS) || el.hasAttribute(ATTR_FOREIGN)))
               return;
             const file = plugin.app.workspace.getActiveFile();
-            plugin.choices.schedule(candidatesOn(el, file ? file.path : ""), lastX, lastY);
+            plugin.choices.schedule(candidatesOn(el, file ? file.path : ""), lastX, lastY, el.textContent);
           });
           const vp = ViewPlugin.fromClass(
             class {
@@ -2799,7 +2976,7 @@ var require_highlight = __commonJS({
                   const alts = altsOf(el) || [];
                   const pick = (newTab, title) => {
                     const candidates = [targetOfEl(el), ...alts, ...foreignOf(el, sourcePath, newTab)];
-                    plugin.chooseTerm(candidates, title, (c) => plugin.openTerm(c, sourcePath, newTab));
+                    plugin.chooseTerm(candidates, title, (c) => plugin.openTerm(c, sourcePath, newTab), el.textContent);
                   };
                   if (e.button === 1) {
                     pick(true, t2("menu.openNewTabTitle"));
@@ -2820,7 +2997,7 @@ var require_highlight = __commonJS({
                   if (el.hasAttribute(ATTR_ALTS) || el.hasAttribute(ATTR_FOREIGN)) {
                     if (!plugin.choices || !(e.ctrlKey || e.metaKey))
                       return;
-                    plugin.choices.schedule(candidatesOn(el, sourcePath), e.clientX, e.clientY);
+                    plugin.choices.schedule(candidatesOn(el, sourcePath), e.clientX, e.clientY, el.textContent);
                     return;
                   }
                   plugin.hoverTerm(e, el, targetOfEl(el), sourcePath);
@@ -2856,6 +3033,241 @@ var require_highlight2 = __commonJS({
   }
 });
 
+// src/shared/popover.js
+var require_popover = __commonJS({
+  "src/shared/popover.js"(exports2, module2) {
+    "use strict";
+    var SHOW_DELAY = 200;
+    var HIDE_GRACE = 250;
+    var EDGE_PAD = 12;
+    var Popover = class {
+      constructor(opts) {
+        this.cls = opts.cls;
+        this.hiddenCls = opts.hiddenCls;
+        this.showDelay = opts.showDelay == null ? SHOW_DELAY : opts.showDelay;
+        this.hideGrace = opts.hideGrace == null ? HIDE_GRACE : opts.hideGrace;
+        this.onHide = opts.onHide || null;
+        this.onDestroy = opts.onDestroy || null;
+        this.keepAlive = opts.keepAlive || null;
+        this.el = null;
+        this.timer = null;
+        this.hideTimer = null;
+        this.key = "";
+        this.pendingKey = "";
+        this.token = 0;
+      }
+      ensureEl() {
+        if (!this.el) {
+          this.el = document.body.createDiv({ cls: `${this.cls} ${this.hiddenCls}` });
+          this.el.addEventListener("mouseenter", () => this.cancelHide());
+          this.el.addEventListener("mouseleave", () => this.leave());
+        }
+        return this.el;
+      }
+      isVisible() {
+        return !!this.el && !this.el.classList.contains(this.hiddenCls);
+      }
+      contains(node) {
+        return !!this.el && !!node && this.el.contains(node);
+      }
+      cancelHide() {
+        clearTimeout(this.hideTimer);
+        this.hideTimer = null;
+      }
+      // Re-asking for what is already up, or already on its way, changes nothing — otherwise
+      // every mouse move would restart the timer.
+      schedule(key, x, y, build) {
+        this.cancelHide();
+        if (key === this.key && this.isVisible())
+          return;
+        if (key === this.pendingKey)
+          return;
+        this.pendingKey = key;
+        clearTimeout(this.timer);
+        this.timer = setTimeout(() => {
+          this.pendingKey = "";
+          this.show(key, x, y, build);
+        }, this.showDelay);
+      }
+      leave() {
+        if (this.hideTimer)
+          return;
+        this.hideTimer = setTimeout(() => {
+          this.hideTimer = null;
+          if (this.keepAlive && this.keepAlive()) {
+            this.leave();
+            return;
+          }
+          this.hide();
+        }, this.hideGrace);
+      }
+      async show(key, x, y, build) {
+        const token = ++this.token;
+        const ctx = { isCurrent: () => token === this.token };
+        const el = this.ensureEl();
+        el.empty();
+        const after = await build(el, ctx);
+        if (after === false || !ctx.isCurrent())
+          return;
+        this.key = key;
+        el.style.visibility = "hidden";
+        el.style.left = "-9999px";
+        el.style.top = "0px";
+        el.removeClass(this.hiddenCls);
+        if (typeof after === "function")
+          after();
+        const r = el.getBoundingClientRect();
+        let left = x + EDGE_PAD;
+        let top = y + EDGE_PAD;
+        if (left + r.width > window.innerWidth - EDGE_PAD)
+          left = Math.max(EDGE_PAD, x - EDGE_PAD - r.width);
+        if (top + r.height > window.innerHeight - EDGE_PAD)
+          top = Math.max(EDGE_PAD, y - EDGE_PAD - r.height);
+        el.style.left = left + "px";
+        el.style.top = top + "px";
+        el.style.visibility = "visible";
+      }
+      hide() {
+        clearTimeout(this.timer);
+        clearTimeout(this.hideTimer);
+        this.hideTimer = null;
+        this.pendingKey = "";
+        this.key = "";
+        this.token++;
+        if (this.onHide)
+          this.onHide();
+        if (this.el) {
+          this.el.addClass(this.hiddenCls);
+          this.el.empty();
+        }
+      }
+      destroy() {
+        clearTimeout(this.timer);
+        clearTimeout(this.hideTimer);
+        this.token++;
+        if (this.onDestroy)
+          this.onDestroy();
+        if (this.el) {
+          this.el.remove();
+          this.el = null;
+        }
+      }
+    };
+    module2.exports = { Popover, SHOW_DELAY, HIDE_GRACE };
+  }
+});
+
+// src/shared/prose/choices.js
+var require_choices = __commonJS({
+  "src/shared/prose/choices.js"(exports2, module2) {
+    "use strict";
+    var { Popover } = require_popover();
+    var { Component } = require("obsidian");
+    var labelOf = (c) => typeof c === "object" && c ? c.label : c;
+    function captionFor(plugin, c, display) {
+      const provider = plugin && plugin.api && plugin.api.linker;
+      let own = null;
+      if (typeof c === "object" && c !== null) {
+        own = typeof c.describe === "function" ? c.describe(display) : null;
+      } else if (provider && typeof provider.describe === "function") {
+        own = provider.describe(c, display);
+      }
+      if (own && own.title)
+        return { title: own.title, note: own.note || "" };
+      return { title: labelOf(c), note: "" };
+    }
+    var ChoicePopover2 = class {
+      // `hover(target, event, el, hoverParent)` previews one of our own targets; `open(target)`
+      // follows it.
+      constructor(opts) {
+        this.opts = opts;
+        this.component = null;
+        this.pop = new Popover({
+          cls: `${opts.cls}-choices`,
+          hiddenCls: `${opts.cls}-hidden`,
+          onHide: () => this.unloadComponent(),
+          onDestroy: () => this.unloadComponent(),
+          // The preview a row opens is Obsidian's own element in the body, not a child of ours,
+          // so moving the pointer into it reads as leaving the list.
+          keepAlive: () => !!document.querySelector(".hover-popover:hover")
+        });
+      }
+      isVisible() {
+        return this.pop.isVisible();
+      }
+      contains(node) {
+        return this.pop.contains(node);
+      }
+      cancelHide() {
+        this.pop.cancelHide();
+      }
+      leave() {
+        this.pop.leave();
+      }
+      hide() {
+        this.pop.hide();
+      }
+      destroy() {
+        this.pop.destroy();
+      }
+      // Unloading the component closes any preview still hanging off it.
+      unloadComponent() {
+        if (this.component) {
+          this.component.unload();
+          this.component = null;
+        }
+      }
+      schedule(candidates, x, y, display) {
+        if (!candidates || candidates.length < 2)
+          return;
+        const key = candidates.map(labelOf).join("\0");
+        this.pop.schedule(key, x, y, (el) => this.build(candidates, el, display));
+      }
+      // A fresh component per preview, so opening one closes the last instead of stacking one
+      // preview per row the pointer crossed.
+      newComponent() {
+        this.unloadComponent();
+        this.component = new Component();
+        this.component.load();
+        return this.component;
+      }
+      build(candidates, el, display) {
+        this.unloadComponent();
+        const cls = this.opts.cls;
+        el.createDiv({ cls: `${cls}-choices-title`, text: this.opts.title });
+        const list = el.createDiv({ cls: `${cls}-choices-list` });
+        for (const c of candidates) {
+          const foreign = typeof c === "object" && c !== null;
+          const { title, note } = captionFor(this.opts.plugin, c, display);
+          const row = list.createDiv({ cls: `${cls}-choices-item` });
+          row.createDiv({ cls: `${cls}-choices-item-title`, text: title });
+          if (note)
+            row.createDiv({ cls: `${cls}-choices-item-note`, text: note });
+          row.addEventListener("mouseenter", (event) => {
+            const parent = this.newComponent();
+            if (foreign) {
+              if (typeof c.hover === "function")
+                c.hover(event, row, parent);
+            } else {
+              this.opts.hover(c, event, row, parent);
+            }
+          });
+          row.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            this.hide();
+            if (foreign)
+              c.open();
+            else
+              this.opts.open(c);
+          });
+        }
+      }
+    };
+    module2.exports = { ChoicePopover: ChoicePopover2, captionFor };
+  }
+});
+
 // src/shared/prose/modals.js
 var require_modals = __commonJS({
   "src/shared/prose/modals.js"(exports2, module2) {
@@ -2863,6 +3275,7 @@ var require_modals = __commonJS({
     var { Modal } = require("obsidian");
     var { t: t2 } = require_i18n();
     var { inTableCell: inTableCell2 } = require_markdown();
+    var { captionFor } = require_choices();
     var SKIP = " skip";
     var MAX_ROWS = 50;
     function createProseModals(config) {
@@ -3011,7 +3424,11 @@ var require_modals = __commonJS({
           const list = contentEl.createDiv({ cls: `${cls}-choose-list` });
           for (const term of this.opts.terms) {
             const foreign = term && typeof term === "object";
-            const b = list.createEl("button", { cls: `${cls}-choose-item`, text: foreign ? term.label : term });
+            const { title, note } = captionFor(this.opts.plugin, term, this.opts.display);
+            const b = list.createEl("button", { cls: `${cls}-choose-item` });
+            b.createDiv({ cls: `${cls}-choose-item-title`, text: title });
+            if (note)
+              b.createDiv({ cls: `${cls}-choose-item-note`, text: note });
             b.onclick = async () => {
               this.close();
               if (foreign)
@@ -3437,11 +3854,14 @@ var require_actions = __commonJS({
         const line = editor.getLine(head.line);
         if (!line)
           return null;
-        const matches = this.ownSpans(line, this.findMatches(line, this.activeCanonical(), { protect: true }));
+        const activeFile = this.app.workspace.getActiveFile();
+        const activePath = activeFile ? activeFile.path : "";
+        const where = { path: activePath, surface: "menu" };
+        const matches = this.ownSpans(line, this.findMatches(line, this.activeCanonical(), { protect: true }), where);
         const hit = matches.find((m) => head.ch >= m.start && head.ch <= m.end);
         if (!hit)
           return null;
-        const foreign = candidatesFor(this.yieldedIn(line), hit.start, hit.end);
+        const foreign = candidatesFor(this.yieldedIn(line, where), hit.start, hit.end);
         return { match: hit, foreign, line: head.line };
       },
       // The match under the cursor as we see it, ownership aside — so null only when this word
@@ -3472,7 +3892,7 @@ var require_actions = __commonJS({
         const foreign = hit.foreign.map((c) => ({ ...c, open: () => c.open(sourcePath, newTab) }));
         return [...own, ...foreign];
       },
-      chooseTerm(candidates, title, action) {
+      chooseTerm(candidates, title, action, display) {
         const list = (candidates || []).filter(Boolean);
         if (list.length <= 1) {
           const only = list[0];
@@ -3480,7 +3900,7 @@ var require_actions = __commonJS({
             return only.open();
           return action(only);
         }
-        new ChooseTermModal(this.app, { title, terms: list, onChoose: action }).open();
+        new ChooseTermModal(this.app, { title, terms: list, onChoose: action, display, plugin: this }).open();
       },
       isExcluded(listKey, value) {
         const v = value.toLowerCase();
@@ -3784,16 +4204,93 @@ var require_actions = __commonJS({
   }
 });
 
+// src/shared/prose/provider.js
+var require_provider = __commonJS({
+  "src/shared/prose/provider.js"(exports2, module2) {
+    "use strict";
+    var { LINKER_API } = require_discover();
+    var { t: t2 } = require_i18n();
+    function aliasHit(plugin, term, mainForm, display) {
+      const aliases = term && term.aliases || [];
+      if (!display || !aliases.length)
+        return null;
+      const sameForm = (a, b) => {
+        const wa = plugin.tokenizeForm(String(a));
+        const wb = plugin.tokenizeForm(String(b));
+        if (!wa.length || wa.length !== wb.length)
+          return String(a).toLowerCase() === String(b).toLowerCase();
+        return wa.every((w, i) => w.keys.some((k) => wb[i].keys.includes(k)));
+      };
+      if (sameForm(mainForm, display))
+        return null;
+      const hit = aliases.find((a) => sameForm(a, display));
+      return hit ? t2("kind.viaAlias", { form: hit }) : null;
+    }
+    function drawsIn(plugin, sourcePath, surface) {
+      if (sourcePath && !plugin.inScope(sourcePath))
+        return false;
+      if (surface === "reading")
+        return !!plugin.settings.highlightInReading;
+      if (surface === "editing")
+        return plugin.settings.editingHighlight !== "off";
+      return true;
+    }
+    function createProseProvider(plugin, config) {
+      const { id, displayName, spanOf, suggestionsFor, excludes, describe } = config;
+      const str = (v) => String(v || "");
+      return {
+        apiVersion: LINKER_API,
+        id,
+        displayName,
+        kind: "prose",
+        // A getter, so a settings change is seen without rebuilding the api object.
+        get precedence() {
+          return plugin.settings.linkPrecedence;
+        },
+        // Protected ranges are skipped, so the answer matches what we would decorate. Whether we
+        // are switched on anywhere is `drawsIn`'s question, not this one's.
+        matches: (text) => plugin.findMatches(str(text), null, { protect: true }).map(spanOf),
+        // Asked by a sibling before it yields us a span: claiming a word we will not draw would
+        // leave it shown by nobody.
+        drawsIn: (sourcePath, surface) => drawsIn(plugin, sourcePath, surface),
+        // How one of our targets reads when a sibling lists it beside its own: several notes can
+        // claim one word, and without this every row renders as the same string.
+        describe: (target, display) => describe(target, display),
+        open: (target, sourcePath, newTab) => plugin.openTerm(target, sourcePath, newTab),
+        // Our own preview of one of our targets, anchored to someone else's element.
+        hover: (target, event, targetEl, sourcePath, hoverParent) => plugin.hoverTerm(event, targetEl, target, sourcePath, hoverParent),
+        suggest: (query, sourcePath) => suggestionsFor(plugin, str(query), sourcePath),
+        // What choosing our row writes — ours to decide, not the popup owner's.
+        insertFor: (target, display, inTable) => plugin.settings.suggestPlainText ? display : plugin.wikiLink(target, display, inTable),
+        // Superseded by insertFor; kept for peers that predate it.
+        linkFor: (target, display, inTable) => plugin.wikiLink(target, display, inTable),
+        // Whether we would add a menu item of this verb for this text — asked before either
+        // plugin writes one, since the grouping has to be settled first.
+        offers: (kind, text) => kind === "exclude" && !!plugin.settings.menuExclude && (plugin.findMatches(str(text), null).length > 0 || excludes(str(text))),
+        refresh: () => plugin.rerenderViews()
+      };
+    }
+    module2.exports = { createProseProvider, drawsIn, aliasHit };
+  }
+});
+
 // src/shared/prose/suggest.js
 var require_suggest = __commonJS({
   "src/shared/prose/suggest.js"(exports2, module2) {
     "use strict";
     var { peerSuggestions } = require_discover();
-    function mergeSuggestions(plugin, query, own, limit = 8) {
+    function suggestionsAllowed(plugin, query, sourcePath) {
+      if (!plugin.settings.linkSuggest)
+        return false;
+      if (sourcePath && !plugin.inScope(sourcePath))
+        return false;
+      return query.length >= Math.max(1, plugin.settings.suggestMinChars || 1);
+    }
+    function mergeSuggestions(plugin, query, own, sourcePath, limit = 8) {
       const provider = plugin.api && plugin.api.linker;
       if (!provider)
         return own;
-      const foreign = peerSuggestions(plugin.app, provider, query);
+      const foreign = peerSuggestions(plugin.app, provider, query, sourcePath);
       if (!foreign.length)
         return own;
       const mine = provider.precedence || 0;
@@ -3801,7 +4298,7 @@ var require_suggest = __commonJS({
       const below = foreign.filter((f) => f.precedence <= mine);
       return [...above, ...own, ...below].slice(0, limit);
     }
-    module2.exports = { mergeSuggestions };
+    module2.exports = { mergeSuggestions, suggestionsAllowed };
   }
 });
 
@@ -3811,7 +4308,7 @@ var require_editor_suggest = __commonJS({
     "use strict";
     var { EditorSuggest } = require("obsidian");
     var { inTableCell: inTableCell2 } = require_markdown();
-    var { mergeSuggestions } = require_suggest();
+    var { mergeSuggestions, suggestionsAllowed } = require_suggest();
     function createProseSuggest(config) {
       const { cls, ownId, collect, noteFor, labelOf, targetOf, displayFor } = config;
       return class ProseSuggest extends EditorSuggest {
@@ -3821,9 +4318,7 @@ var require_editor_suggest = __commonJS({
         }
         onTrigger(cursor, editor, file) {
           const plugin = this.plugin;
-          if (!plugin.settings.linkSuggest)
-            return null;
-          if (!file || !plugin.inScope(file.path))
+          if (!file)
             return null;
           const line = editor.getLine(cursor.line);
           if (/[\p{L}\p{Nd}]/u.test(line[cursor.ch] || ""))
@@ -3832,7 +4327,7 @@ var require_editor_suggest = __commonJS({
           if (!m)
             return null;
           const query = m[0];
-          if (query.length < Math.max(1, plugin.settings.suggestMinChars || 1))
+          if (!suggestionsAllowed(plugin, query, file.path))
             return null;
           const before = line[cursor.ch - query.length - 1] || "";
           if (before && (plugin.settings.suggestSkipAfter || "").includes(before))
@@ -3840,20 +4335,21 @@ var require_editor_suggest = __commonJS({
           const off = editor.posToOffset(cursor);
           if (plugin.isProtectedAt(editor.getValue(), off))
             return null;
-          const items = this.merged(query);
+          const items = this.merged(query, file.path);
           if (!items.length)
             return null;
           this.cached = { query, items };
           return { start: { line: cursor.line, ch: cursor.ch - query.length }, end: cursor, query };
         }
-        // Ours plus every sibling linker's, in one list.
-        merged(query) {
-          return mergeSuggestions(this.plugin, query, collect(this.plugin, query, ownId(this.plugin)));
+        // Ours plus every sibling linker's, in one list. `sourcePath` travels with the query so
+        // each sibling can decline a note outside its own scope — we are only in scope for us.
+        merged(query, sourcePath) {
+          return mergeSuggestions(this.plugin, query, collect(this.plugin, query, ownId(this.plugin)), sourcePath);
         }
         getSuggestions(context) {
           if (this.cached && this.cached.query === context.query)
             return this.cached.items;
-          return this.merged(context.query);
+          return this.merged(context.query, context.file && context.file.path);
         }
         renderSuggestion(item, el) {
           el.addClass(`${cls}-suggestion`);
@@ -3868,11 +4364,17 @@ var require_editor_suggest = __commonJS({
             return;
           const editor = ctx.editor;
           const inTable = inTableCell2(editor.getValue(), editor.posToOffset(ctx.start));
-          const link = item.insert ? item.insert(item.display == null ? ctx.query : item.display, inTable) : this.plugin.wikiLink(targetOf(item), displayFor(item, ctx.query), inTable);
-          if (!link)
+          let text;
+          if (item.insert) {
+            text = item.insert(item.display == null ? ctx.query : item.display, inTable);
+          } else {
+            const display = displayFor(item, ctx.query);
+            text = this.plugin.settings.suggestPlainText ? display : this.plugin.wikiLink(targetOf(item), display, inTable);
+          }
+          if (!text)
             return;
-          editor.replaceRange(link, ctx.start, ctx.end);
-          editor.setCursor(editor.offsetToPos(editor.posToOffset(ctx.start) + link.length));
+          editor.replaceRange(text, ctx.start, ctx.end);
+          editor.setCursor(editor.offsetToPos(editor.posToOffset(ctx.start) + text.length));
         }
       };
     }
@@ -3887,6 +4389,7 @@ var require_term_suggest = __commonJS({
     "use strict";
     var { t: t2 } = require_i18n();
     var { createProseSuggest, suggestAvailable: suggestAvailable2 } = require_editor_suggest();
+    var { suggestionsAllowed } = require_suggest();
     function collectSuggestions(plugin, query, ownCanonical) {
       const qLower = query.toLowerCase();
       const byCanonical = /* @__PURE__ */ new Map();
@@ -3929,7 +4432,9 @@ var require_term_suggest = __commonJS({
         return t2("suggest.alias", { form: item.matchedForm });
       return "";
     }
-    function suggestionsFor(plugin, query) {
+    function suggestionsFor(plugin, query, sourcePath) {
+      if (!suggestionsAllowed(plugin, query, sourcePath))
+        return [];
       return collectSuggestions(plugin, query, plugin.activeCanonical()).map((it) => ({
         label: it.canonical,
         note: noteFor(it),
@@ -3960,7 +4465,7 @@ var require_api = __commonJS({
     "use strict";
     var { Notice: Notice2 } = require("obsidian");
     var { t: t2 } = require_i18n();
-    var { LINKER_API } = require_discover();
+    var { createProseProvider, aliasHit } = require_provider();
     var { suggestionsFor } = require_term_suggest();
     module2.exports = {
       buildApi() {
@@ -3983,28 +4488,20 @@ var require_api = __commonJS({
           // Subscribe to index rebuilds; returns an unsubscribe function.
           onChange: (cb) => this.onIndexChange(cb),
           // The provider contract the sibling linkers read (consumed in shared/discover.js).
-          linker: {
-            apiVersion: LINKER_API,
+          linker: createProseProvider(plugin, {
             id: "glossary-linker",
             displayName: "Glossary Linker",
-            kind: "prose",
-            // A getter, so a settings change is seen without rebuilding the api object.
-            get precedence() {
-              return plugin.settings.linkPrecedence;
-            },
-            // Protected ranges are skipped, so the answer matches what we would decorate.
-            matches: (text) => plugin.findMatches(String(text || ""), null, { protect: true }).map((m) => ({ start: m.start, end: m.end, label: m.canonical, target: m.canonical })),
-            open: (target, sourcePath, newTab) => plugin.openTerm(target, sourcePath, newTab),
-            // Our own preview of one of our targets, anchored to someone else's element.
-            hover: (target, event, targetEl, sourcePath, hoverParent) => plugin.hoverTerm(event, targetEl, target, sourcePath, hoverParent),
-            suggest: (query) => suggestionsFor(plugin, String(query || "")),
-            // The popup's owner writes our link text but never composes it.
-            linkFor: (target, display, inTable) => plugin.wikiLink(target, display, inTable),
-            // Whether we would add a menu item of this verb for this text — asked before either
-            // plugin writes one, since the grouping has to be settled first.
-            offers: (kind, text) => kind === "exclude" && !!plugin.settings.menuExclude && (plugin.findMatches(String(text || ""), null).length > 0 || plugin.isExcluded("excludeWords", String(text || "")) || plugin.isExcluded("excludeTerms", String(text || ""))),
-            refresh: () => plugin.rerenderViews()
-          }
+            spanOf: (m) => ({ start: m.start, end: m.end, label: m.canonical, target: m.canonical }),
+            suggestionsFor,
+            excludes: (text) => plugin.isExcluded("excludeWords", text) || plugin.isExcluded("excludeTerms", text),
+            // A term is its note, so the target is already the title; the kind is what tells it
+            // apart from a heading offered on the same word.
+            describe: (target, display) => {
+              const term = (plugin.terms || []).find((x) => x.canonical === target);
+              const parts = [t2("kind.term"), aliasHit(plugin, term, target, display)];
+              return { title: String(target), note: parts.filter(Boolean).join(" \xB7 ") };
+            }
+          })
         };
       },
       getTerms() {
@@ -4568,225 +5065,6 @@ var require_menu_verbs = __commonJS({
       builder.flush();
     }
     module2.exports = { VERBS, MenuBuilder, buildMenu: buildMenu2 };
-  }
-});
-
-// src/shared/popover.js
-var require_popover = __commonJS({
-  "src/shared/popover.js"(exports2, module2) {
-    "use strict";
-    var SHOW_DELAY = 200;
-    var HIDE_GRACE = 250;
-    var EDGE_PAD = 12;
-    var Popover = class {
-      constructor(opts) {
-        this.cls = opts.cls;
-        this.hiddenCls = opts.hiddenCls;
-        this.showDelay = opts.showDelay == null ? SHOW_DELAY : opts.showDelay;
-        this.hideGrace = opts.hideGrace == null ? HIDE_GRACE : opts.hideGrace;
-        this.onHide = opts.onHide || null;
-        this.onDestroy = opts.onDestroy || null;
-        this.keepAlive = opts.keepAlive || null;
-        this.el = null;
-        this.timer = null;
-        this.hideTimer = null;
-        this.key = "";
-        this.pendingKey = "";
-        this.token = 0;
-      }
-      ensureEl() {
-        if (!this.el) {
-          this.el = document.body.createDiv({ cls: `${this.cls} ${this.hiddenCls}` });
-          this.el.addEventListener("mouseenter", () => this.cancelHide());
-          this.el.addEventListener("mouseleave", () => this.leave());
-        }
-        return this.el;
-      }
-      isVisible() {
-        return !!this.el && !this.el.classList.contains(this.hiddenCls);
-      }
-      contains(node) {
-        return !!this.el && !!node && this.el.contains(node);
-      }
-      cancelHide() {
-        clearTimeout(this.hideTimer);
-        this.hideTimer = null;
-      }
-      // Re-asking for what is already up, or already on its way, changes nothing — otherwise
-      // every mouse move would restart the timer.
-      schedule(key, x, y, build) {
-        this.cancelHide();
-        if (key === this.key && this.isVisible())
-          return;
-        if (key === this.pendingKey)
-          return;
-        this.pendingKey = key;
-        clearTimeout(this.timer);
-        this.timer = setTimeout(() => {
-          this.pendingKey = "";
-          this.show(key, x, y, build);
-        }, this.showDelay);
-      }
-      leave() {
-        if (this.hideTimer)
-          return;
-        this.hideTimer = setTimeout(() => {
-          this.hideTimer = null;
-          if (this.keepAlive && this.keepAlive()) {
-            this.leave();
-            return;
-          }
-          this.hide();
-        }, this.hideGrace);
-      }
-      async show(key, x, y, build) {
-        const token = ++this.token;
-        const ctx = { isCurrent: () => token === this.token };
-        const el = this.ensureEl();
-        el.empty();
-        const after = await build(el, ctx);
-        if (after === false || !ctx.isCurrent())
-          return;
-        this.key = key;
-        el.style.visibility = "hidden";
-        el.style.left = "-9999px";
-        el.style.top = "0px";
-        el.removeClass(this.hiddenCls);
-        if (typeof after === "function")
-          after();
-        const r = el.getBoundingClientRect();
-        let left = x + EDGE_PAD;
-        let top = y + EDGE_PAD;
-        if (left + r.width > window.innerWidth - EDGE_PAD)
-          left = Math.max(EDGE_PAD, x - EDGE_PAD - r.width);
-        if (top + r.height > window.innerHeight - EDGE_PAD)
-          top = Math.max(EDGE_PAD, y - EDGE_PAD - r.height);
-        el.style.left = left + "px";
-        el.style.top = top + "px";
-        el.style.visibility = "visible";
-      }
-      hide() {
-        clearTimeout(this.timer);
-        clearTimeout(this.hideTimer);
-        this.hideTimer = null;
-        this.pendingKey = "";
-        this.key = "";
-        this.token++;
-        if (this.onHide)
-          this.onHide();
-        if (this.el) {
-          this.el.addClass(this.hiddenCls);
-          this.el.empty();
-        }
-      }
-      destroy() {
-        clearTimeout(this.timer);
-        clearTimeout(this.hideTimer);
-        this.token++;
-        if (this.onDestroy)
-          this.onDestroy();
-        if (this.el) {
-          this.el.remove();
-          this.el = null;
-        }
-      }
-    };
-    module2.exports = { Popover, SHOW_DELAY, HIDE_GRACE };
-  }
-});
-
-// src/shared/prose/choices.js
-var require_choices = __commonJS({
-  "src/shared/prose/choices.js"(exports2, module2) {
-    "use strict";
-    var { Popover } = require_popover();
-    var { Component } = require("obsidian");
-    var labelOf = (c) => typeof c === "object" && c ? c.label : c;
-    var ChoicePopover2 = class {
-      // `hover(target, event, el, hoverParent)` previews one of our own targets; `open(target)`
-      // follows it.
-      constructor(opts) {
-        this.opts = opts;
-        this.component = null;
-        this.pop = new Popover({
-          cls: `${opts.cls}-choices`,
-          hiddenCls: `${opts.cls}-hidden`,
-          onHide: () => this.unloadComponent(),
-          onDestroy: () => this.unloadComponent(),
-          // The preview a row opens is Obsidian's own element in the body, not a child of ours,
-          // so moving the pointer into it reads as leaving the list.
-          keepAlive: () => !!document.querySelector(".hover-popover:hover")
-        });
-      }
-      isVisible() {
-        return this.pop.isVisible();
-      }
-      contains(node) {
-        return this.pop.contains(node);
-      }
-      cancelHide() {
-        this.pop.cancelHide();
-      }
-      leave() {
-        this.pop.leave();
-      }
-      hide() {
-        this.pop.hide();
-      }
-      destroy() {
-        this.pop.destroy();
-      }
-      // Unloading the component closes any preview still hanging off it.
-      unloadComponent() {
-        if (this.component) {
-          this.component.unload();
-          this.component = null;
-        }
-      }
-      schedule(candidates, x, y) {
-        if (!candidates || candidates.length < 2)
-          return;
-        const key = candidates.map(labelOf).join("\0");
-        this.pop.schedule(key, x, y, (el) => this.build(candidates, el));
-      }
-      // A fresh component per preview, so opening one closes the last instead of stacking one
-      // preview per row the pointer crossed.
-      newComponent() {
-        this.unloadComponent();
-        this.component = new Component();
-        this.component.load();
-        return this.component;
-      }
-      build(candidates, el) {
-        this.unloadComponent();
-        const cls = this.opts.cls;
-        el.createDiv({ cls: `${cls}-choices-title`, text: this.opts.title });
-        const list = el.createDiv({ cls: `${cls}-choices-list` });
-        for (const c of candidates) {
-          const foreign = typeof c === "object" && c !== null;
-          const row = list.createDiv({ cls: `${cls}-choices-item`, text: labelOf(c) });
-          row.addEventListener("mouseenter", (event) => {
-            const parent = this.newComponent();
-            if (foreign) {
-              if (typeof c.hover === "function")
-                c.hover(event, row, parent);
-            } else {
-              this.opts.hover(c, event, row, parent);
-            }
-          });
-          row.addEventListener("click", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            this.hide();
-            if (foreign)
-              c.open();
-            else
-              this.opts.open(c);
-          });
-        }
-      }
-    };
-    module2.exports = { ChoicePopover: ChoicePopover2 };
   }
 });
 
@@ -6080,7 +6358,8 @@ var GlossaryLinkerPlugin = class extends Plugin {
       cls: "glossary",
       title: t("modal.choose.title"),
       hover: (target, event, row, parent) => this.hoverTerm(event, row, target, this.activePath(), parent),
-      open: (target) => this.openTerm(target, this.activePath(), false)
+      open: (target) => this.openTerm(target, this.activePath(), false),
+      plugin: this
     });
     this.register(() => this.choices.destroy());
     this.registerMarkdownPostProcessor((el, ctx) => this.processReadingMode(el, ctx));

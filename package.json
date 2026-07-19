@@ -13,6 +13,7 @@
   "scripts": {
     "build": "node esbuild.config.mjs",
     "test": "node test/run.js",
+    "test:core": "node test/run.js --core",
     "plates": "node src/shared/branding/make-plates.mjs",
     "banner": "node src/shared/branding/make-banner.mjs"
   },

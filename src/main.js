@@ -238,6 +238,7 @@ class GlossaryLinkerPlugin extends Plugin {
       title: t('modal.choose.title'),
       hover: (target, event, row, parent) => this.hoverTerm(event, row, target, this.activePath(), parent),
       open: (target) => this.openTerm(target, this.activePath(), false),
+      plugin: this,
     });
     this.register(() => this.choices.destroy());
 

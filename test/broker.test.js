@@ -135,3 +135,56 @@ function writeWith(suggest, item) {
   suggest.selectSuggestion(item);
   return written;
 }
+
+describe('plain-text mode', () => {
+  // The reader asked for the word, not the link. The wording must be identical to what the
+  // link would have shown — an inflection stays the reader's, a prefix still completes — and
+  // each row follows the switch of the plugin that owns it, not of whoever holds the popup.
+  it('completes a prefix without making a link', () => {
+    const { plugin, suggest } = makeSuggest({});
+    plugin.settings.suggestPlainText = true;
+    assert.strictEqual(writeWith(suggest, { kind: 'prefix', canonical: 'Spawn', matchedForm: 'Spawn' }), 'Spawn');
+  });
+
+  it('keeps the reader’s own wording for an inflection', () => {
+    const { plugin, suggest } = makeSuggest({});
+    plugin.settings.suggestPlainText = true;
+    assert.strictEqual(writeWith(suggest, { kind: 'form', canonical: 'Spawn', matchedForm: 'Spawn' }), 'spawning');
+  });
+
+  // Two rules at once: our plain-text switch must not rewrite a sibling's row, and `peer()`
+  // publishes only linkFor — the way a sibling built before insertFor does — so its rows must
+  // still come out as links rather than falling through to nothing.
+  it('leaves a sibling’s row to the sibling, falling back to linkFor', () => {
+    const { plugin, suggest } = makeSuggest({
+      'other-linker': peer('other-linker', 10, [{ label: 'Spawning', note: '', target: 'Spawning', display: 'Spawning' }]),
+    });
+    plugin.settings.suggestPlainText = true;
+    const foreign = suggest.merged('spa').find((i) => i.label === 'Spawning');
+    assert.strictEqual(writeWith(suggest, foreign), '[[Spawning|Spawning]]<other-linker>',
+      'our switch rewrote a sibling’s row');
+  });
+
+  it('honours a sibling that is itself in plain-text mode', () => {
+    const plain = peer('other-linker', 10, [{ label: 'Spawning', note: '', target: 'Spawning', display: 'Spawning' }]);
+    plain.api.linker.insertFor = (target, display) => display;
+    const { plugin, suggest } = makeSuggest({ 'other-linker': plain });
+    plugin.settings.suggestPlainText = false;
+    const foreign = suggest.merged('spa').find((i) => i.label === 'Spawning');
+    assert.strictEqual(writeWith(suggest, foreign), 'Spawning', 'a sibling’s plain text was overridden');
+  });
+
+  it('falls back to what was typed when a sibling names no display', () => {
+    const { suggest } = makeSuggest({
+      'other-linker': peer('other-linker', 10, [{ label: 'Spawning', note: '', target: 'Spawning', display: null }]),
+    });
+    const foreign = suggest.merged('spa').find((i) => i.label === 'Spawning');
+    assert.strictEqual(writeWith(suggest, foreign), '[[Spawning|spawning]]<other-linker>');
+  });
+
+  it('still writes links when the switch is off', () => {
+    const { plugin, suggest } = makeSuggest({});
+    plugin.settings.suggestPlainText = false;
+    assert.ok(/^\[\[/.test(writeWith(suggest, { kind: 'prefix', canonical: 'Spawn', matchedForm: 'Spawn' })), 'plain text leaked into link mode');
+  });
+});

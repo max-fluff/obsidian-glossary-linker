@@ -62,4 +62,17 @@ describe('onload', () => {
     assert.deepStrictEqual(menu.groups(), [], 'wrapped the note actions in a submenu again');
     assert.ok(menu.titles().includes('Collect glossary aliases from links'));
   });
+
+  // The bug this guards: Obsidian gives the autocomplete popup to whichever suggester
+  // triggered first, and the other plugin's rows are inserted through this. Reading the
+  // popup owner's setting here made one plugin's toggle govern both plugins' suggestions.
+  it('composes its own suggestion by its own plain-text setting', async () => {
+    const plugin = await load();
+    const provider = plugin.api.linker;
+    plugin.settings.suggestPlainText = false;
+    assert.ok(provider.insertFor('Spawn', 'spawning', false).startsWith('[['), 'link mode stopped making links');
+    plugin.settings.suggestPlainText = true;
+    assert.strictEqual(provider.insertFor('Spawn', 'spawning', false), 'spawning');
+    assert.ok(provider.linkFor('Spawn', 'spawning', false).startsWith('[['), 'linkFor must keep making links for older peers');
+  });
 });

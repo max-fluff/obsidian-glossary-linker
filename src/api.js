@@ -2,7 +2,7 @@
 
 const { Notice } = require('obsidian');
 const { t } = require('./shared/i18n');
-const { LINKER_API } = require('./shared/discover');
+const { createProseProvider, aliasHit } = require('./shared/prose/provider');
 const { suggestionsFor } = require('./term-suggest');
 
 // Public API exposed as `app.plugins.plugins['glossary-linker'].api`, so other
@@ -37,31 +37,20 @@ module.exports = {
       onChange: (cb) => this.onIndexChange(cb),
 
       // The provider contract the sibling linkers read (consumed in shared/discover.js).
-      linker: {
-        apiVersion: LINKER_API,
+      linker: createProseProvider(plugin, {
         id: 'glossary-linker',
         displayName: 'Glossary Linker',
-        kind: 'prose',
-        // A getter, so a settings change is seen without rebuilding the api object.
-        get precedence() { return plugin.settings.linkPrecedence; },
-        // Protected ranges are skipped, so the answer matches what we would decorate.
-        matches: (text) => plugin.findMatches(String(text || ''), null, { protect: true })
-          .map((m) => ({ start: m.start, end: m.end, label: m.canonical, target: m.canonical })),
-        open: (target, sourcePath, newTab) => plugin.openTerm(target, sourcePath, newTab),
-        // Our own preview of one of our targets, anchored to someone else's element.
-        hover: (target, event, targetEl, sourcePath, hoverParent) =>
-          plugin.hoverTerm(event, targetEl, target, sourcePath, hoverParent),
-        suggest: (query) => suggestionsFor(plugin, String(query || '')),
-        // The popup's owner writes our link text but never composes it.
-        linkFor: (target, display, inTable) => plugin.wikiLink(target, display, inTable),
-        // Whether we would add a menu item of this verb for this text — asked before either
-        // plugin writes one, since the grouping has to be settled first.
-        offers: (kind, text) => kind === 'exclude' && !!plugin.settings.menuExclude
-          && (plugin.findMatches(String(text || ''), null).length > 0
-            || plugin.isExcluded('excludeWords', String(text || ''))
-            || plugin.isExcluded('excludeTerms', String(text || ''))),
-        refresh: () => plugin.rerenderViews(),
-      },
+        spanOf: (m) => ({ start: m.start, end: m.end, label: m.canonical, target: m.canonical }),
+        suggestionsFor,
+        excludes: (text) => plugin.isExcluded('excludeWords', text) || plugin.isExcluded('excludeTerms', text),
+        // A term is its note, so the target is already the title; the kind is what tells it
+        // apart from a heading offered on the same word.
+        describe: (target, display) => {
+          const term = (plugin.terms || []).find((x) => x.canonical === target);
+          const parts = [t('kind.term'), aliasHit(plugin, term, target, display)];
+          return { title: String(target), note: parts.filter(Boolean).join(' · ') };
+        },
+      }),
     };
   },
 

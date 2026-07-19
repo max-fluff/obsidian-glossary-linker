@@ -121,6 +121,8 @@ Turn on *Autocomplete → Suggest links while typing* and typing in an in-scope 
 
 When a word matches more than one glossary term (the same alias lives on two notes), it gets a distinct double underline, and hovering shows a tooltip listing every matching term instead of a single, misleading page preview. Acting on it — clicking to open, or *Link to term* / *Open* from the right-click menu — opens a small picker so you choose which term rather than silently following the first. A word that matches a single term acts immediately, as usual.
 
+Each row in the tooltip and the picker carries a second line saying what it is, and — when the word reached that term through one of its aliases rather than its title — which alias. That last part matters when an alias on one term collides with another term's title: you interact with "A", the list offers "A" and "B", and the line under "B" says it answers to "A" as well.
+
 <p align="center">
   <img src="docs/images/ambiguous-1.png" alt="A word with a distinct underline and a tooltip listing both matching terms" width="620">
   <br><sub>A word that fits two terms gets a distinct underline and a tooltip listing them.</sub>
@@ -163,7 +165,7 @@ The mode (`matchMode`) is a global switch for all languages: `stemmer`, `endingS
 
 The matcher splits text into words (Unicode `\p{L}`/`\p{Nd}`) and reduces each one by trimming endings, so it fits alphabetic scripts with word separators and suffix inflection: Latin, Cyrillic and Greek fit fully, and Indic abugidas and Korean fit where a module strips suffixes or particles. It does not fit spaceless CJK or root-and-pattern scripts like Arabic and Hebrew, which need word segmentation or substring search that the core doesn't do.
 
-Matching is case-insensitive. The visible text keeps the casing from your note, and collected aliases are stored lowercased.
+Matching ignores case, except for terms that look like acronyms — see *Smart case for acronyms* below. The visible text keeps the casing from your note, and collected aliases are stored lowercased.
 
 ### Adding a language
 
@@ -184,6 +186,13 @@ Every module is validated against the contract on load (`src/shared/morphology/l
 - **Create glossary term from selection** — creates a note in the glossary folder named after the selected text, and links the selection to it
 - **Open glossary overview** — the right-sidebar panel (see [Glossary overview](#glossary-overview))
 - **Rebuild glossary index**
+
+
+### Priority among linker plugins
+
+Install more than one linker and they will sometimes claim the same word or the same link. It goes to whichever sits highest in **Settings → Maintenance → Priority among linker plugins**, and the loser stands aside — no double highlight, one entry in the right-click menu, one merged list of suggestions while you type.
+
+The list appears only when another linker is installed. Each plugin moves itself, so reordering may take a move from more than one settings tab; every arrangement is reachable that way.
 
 You can also act on a highlighted term from its right-click menu: *Link to term*, *Link all "…" to term: this note*, *Link all "…" to term: all notes* (the last previews changes across the whole vault), plus *Add "…" to excluded words* / *Add "…" to excluded terms* to quickly suppress a false match. Each exclude item is reversible: right-click a word or link that's already excluded and the same item reads *Remove "…" from excluded words / terms*. Right-click an existing glossary **link** for *Glossary: unlink this term* (turn just that link back into plain text) and *Glossary: collect this alias* (add this one link's wording as an alias for its term). Right-click a plain-text **selection** for *Glossary: create term & link* (create the term note and replace the selection with a link), *Glossary: create term* (just create and open it), and *Glossary: add "…" to excluded words* (suppress that word, term or not). Right-click anywhere else in the editor — empty space or a link — for *Glossary: collect aliases from links (this note)*. Each of these groups can be toggled off under *Settings → Context menu*.
 
@@ -224,6 +233,7 @@ You can also manage these lists from the file explorer: right-click a file or fo
 |---|---|---|
 | **Morphology** | `Stemmer` | how an inflected word is matched: `Stemmer` reduces words to a root (units → unit, recommended); `Ending strip` only chops common endings (lighter); `Exact match` needs the exact spelling. The algorithm itself comes from the enabled language modules |
 | **Minimum term length** | `2` | ignore term titles and aliases shorter than this many characters, so single letters don't match everywhere |
+| **Smart case for acronyms** | on | a term written mostly in capitals ("IT", "NASA") only matches text spelled the same way, so it leaves the ordinary word alone. Decided per form: an acronym alias stays case-sensitive even when its term is an everyday word |
 | **Languages** | English + interface language | per-language toggle; reorder with ↑↓ to set priority (higher in the list wins when same-script languages overlap, deciding the lemma); on first run only English and your Obsidian interface language are enabled |
 | **Link first occurrence only** | off | link only the first occurrence of each term per page |
 | **Excluded terms** | — | term titles or aliases that drop the whole matching entry from the index; a shared alias (e.g. `_toc` on every index/MOC note) drops them all at once. Use *Excluded words* to suppress a single word |
@@ -250,6 +260,7 @@ The highlight's color and underline style — plus a separate underline for ambi
 | **Suggest links while typing** | off | offer a `[[link]]` to a matching term as you type in an in-scope note (prefix of a title/alias, or an inflected form); only triggers at the end of a word and only when there are matches |
 | **Minimum characters** | `3` | how many characters to type before suggestions appear |
 | **Skip after characters** | `@#$^` | stay quiet when the word follows one of these, so tags, math, and other plugins' autocompletes (e.g. Code Linker's `@@`) keep their slot; clear it to disable |
+| **Insert plain text** | off | pick a suggestion and get the word alone instead of a link — the completion without the brackets |
 
 **Collecting aliases**
 | Setting | Default | Description |

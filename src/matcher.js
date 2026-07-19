@@ -56,12 +56,12 @@ module.exports = Object.assign({}, core, {
 
       for (const form of forms) {
         if (form.trim().length < minTermLength) continue;
-        const words = this.tokenizeForm(form);
-        if (!words.length) continue;
-        if (words.length === 1 && words[0].keys.some((k) => this.excludeWordKeys.has(k))) continue;
+        const entry = this.formEntry(form);
+        if (!entry) continue;
+        if (entry.wordCount === 1 && entry.words[0].keys.some((k) => this.excludeWordKeys.has(k))) continue;
 
-        const matcher = { canonical, target, words, wordCount: words.length };
-        for (const k of words[0].keys) {
+        const matcher = Object.assign({ canonical, target }, entry);
+        for (const k of entry.words[0].keys) {
           if (!byKey.has(k)) byKey.set(k, []);
           byKey.get(k).push(matcher);
         }
