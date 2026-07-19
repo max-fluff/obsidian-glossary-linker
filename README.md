@@ -413,3 +413,7 @@ Also by the author — the rest of the linker family. Two of them highlight word
     <img src="docs/images/reference-linker-banner.svg" alt="Reference Linker — autocomplete document references, jump to the exact page" width="480">
   </a>
 </p>
+
+## License
+
+MIT, see [`LICENSE`](LICENSE). Bundled third-party notices are in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
