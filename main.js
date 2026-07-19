@@ -2712,11 +2712,8 @@ var require_highlight = __commonJS({
             return matches;
           return ownedMatches(this.app, provider, text, matches, where);
         },
-        // The editor keeps a span's foreign candidates in a DOM attribute, so they are rebuilt
-        // from JSON rather than handed over as closures. Everything is resolved against the peer
-        // at use time, not at draw time: it may have been disabled since the mark was drawn, and
-        // a row that captions itself from stale data would read differently here than in reading
-        // view.
+        // Rebuilt from a DOM attribute rather than handed over as closures, so the peer is
+        // resolved at use time — it may have been disabled since the mark was drawn.
         foreignFromAttr(raw, sourcePath, newTab) {
           if (!raw)
             return [];
