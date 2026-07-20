@@ -18,7 +18,7 @@ Available in the Obsidian community catalog: **[community.obsidian.md/plugins/gl
   <img src="docs/images/hero.png" alt="One note with glossary terms highlighted in several word forms and in two languages" width="700">
 </p>
 
-The plugin ships as `main.js`, `manifest.json` and `styles.css`. Six language modules are baked into `main.js`, so it works the moment you install it. You can add more languages as modules (see [Adding a language](#adding-a-language)). `main.js` is built from `src/` with esbuild (see [Development](#development)).
+The plugin ships as `main.js`, `manifest.json` and `styles.css`. Eight language modules are baked into `main.js`, so it works the moment you install it. You can add more languages as modules (see [Adding a language](#adding-a-language)). `main.js` is built from `src/` with esbuild (see [Development](#development)).
 
 ## Contents
 
@@ -322,7 +322,7 @@ dv.list(report.filter((r) => r.count === 0).map((r) => r.canonical));
 
 ## Licenses & credits
 
-Most bundled language modules port well-known, permissively-licensed stemming algorithms (`uk.js` is the plugin's own, under its MIT license). All are free for commercial and non-commercial use; the only obligation is keeping the attribution notices, which are already in each file's header.
+Most bundled language modules port well-known, permissively-licensed stemming algorithms (`uk.js` and `el.js` are the plugin's own, under its MIT license). All are free for commercial and non-commercial use; the only obligation is keeping the attribution notices, which are already in each file's header.
 
 | Module | Algorithm | License | Reference |
 |---|---|---|---|
@@ -332,6 +332,8 @@ Most bundled language modules port well-known, permissively-licensed stemming al
 | `es.js` | Apache Lucene `SpanishLightStemmer` (UniNE, J. Savoy) | Apache License 2.0 | [source](https://github.com/apache/lucene/blob/main/lucene/analysis/common/src/java/org/apache/lucene/analysis/es/SpanishLightStemmer.java) |
 | `de.js` | Apache Lucene `GermanLightStemmer` (UniNE, J. Savoy) | Apache License 2.0 | [source](https://github.com/apache/lucene/blob/main/lucene/analysis/common/src/java/org/apache/lucene/analysis/de/GermanLightStemmer.java) |
 | `fr.js` | Apache Lucene `FrenchLightStemmer` (UniNE, J. Savoy) | Apache License 2.0 | [source](https://github.com/apache/lucene/blob/main/lucene/analysis/common/src/java/org/apache/lucene/analysis/fr/FrenchLightStemmer.java) |
+| `la.js` | Schinke Latin stemmer (Schinke, Greengrass, Robertson & Willett, 1996) | Own implementation, MIT (this plugin) | [snowballstem.org](https://snowballstem.org/otherapps/schinke/) |
+| `el.js` | Light suffix stemmer with polytonic diacritic folding | MIT (this plugin) | — |
 
 The es/de/fr stemmers were translated to JavaScript and adapted to this plugin's module interface; per the Apache License the source files note that they are modified ports. Apache 2.0 full text: <https://www.apache.org/licenses/LICENSE-2.0>.
 

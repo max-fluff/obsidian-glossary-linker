@@ -538,11 +538,71 @@ var require_en = __commonJS({
         return w.slice(0, -1);
       return w;
     }
+    var CLASSICAL = [
+      ["cactus", "cacti"],
+      ["nucleus", "nuclei"],
+      ["radius", "radii"],
+      ["stimulus", "stimuli"],
+      ["fungus", "fungi"],
+      ["alumnus", "alumni"],
+      ["syllabus", "syllabi"],
+      ["bacillus", "bacilli"],
+      ["locus", "loci"],
+      ["terminus", "termini"],
+      ["datum", "data"],
+      ["bacterium", "bacteria"],
+      ["curriculum", "curricula"],
+      ["memorandum", "memoranda"],
+      ["stratum", "strata"],
+      ["spectrum", "spectra"],
+      ["erratum", "errata"],
+      ["symposium", "symposia"],
+      ["millennium", "millennia"],
+      ["ovum", "ova"],
+      ["quantum", "quanta"],
+      ["phenomenon", "phenomena"],
+      ["criterion", "criteria"],
+      ["ganglion", "ganglia"],
+      ["automaton", "automata"],
+      ["index", "indices", "indexes"],
+      ["matrix", "matrices"],
+      ["appendix", "appendices", "appendixes"],
+      ["vertex", "vertices", "vertexes"],
+      ["apex", "apices", "apexes"],
+      ["cortex", "cortices"],
+      ["helix", "helices"],
+      ["corpus", "corpora"],
+      ["genus", "genera"],
+      ["formula", "formulae"],
+      ["larva", "larvae"],
+      ["alga", "algae"],
+      ["vertebra", "vertebrae"],
+      ["nebula", "nebulae"],
+      ["antenna", "antennae"],
+      ["thesis", "theses"],
+      ["hypothesis", "hypotheses"],
+      ["analysis", "analyses"],
+      ["crisis", "crises"],
+      ["diagnosis", "diagnoses"],
+      ["parenthesis", "parentheses"],
+      ["ellipsis", "ellipses"],
+      ["synopsis", "synopses"],
+      ["schema", "schemata"],
+      ["stigma", "stigmata"],
+      ["dogma", "dogmata"]
+    ];
+    var IRREGULAR = /* @__PURE__ */ new Map();
+    for (const [sing, ...plurals] of CLASSICAL) {
+      IRREGULAR.set(sing, sing);
+      for (const p of plurals)
+        IRREGULAR.set(p, sing);
+    }
     function stemKeys(word) {
       return [stem(word)];
     }
     function lemma(word) {
-      return stem(word.toLowerCase());
+      const w = word.toLowerCase();
+      return IRREGULAR.get(w) || stem(w);
     }
     module2.exports = {
       id: "en",
@@ -553,6 +613,9 @@ var require_en = __commonJS({
         const w = word.toLowerCase();
         if (mode === "exact")
           return [w];
+        const canon = IRREGULAR.get(w);
+        if (canon)
+          return [canon];
         if (mode === "endingStrip")
           return [strip(w)];
         return stemKeys(w);
@@ -936,6 +999,190 @@ var require_fr = __commonJS({
   }
 });
 
+// src/shared/morphology/languages/la.js
+var require_la = __commonJS({
+  "src/shared/morphology/languages/la.js"(exports2, module2) {
+    "use strict";
+    var QUE_KEEP = /* @__PURE__ */ new Set([
+      "atque",
+      "quoque",
+      "neque",
+      "itaque",
+      "absque",
+      "apsque",
+      "abusque",
+      "adaeque",
+      "adusque",
+      "denique",
+      "deque",
+      "susque",
+      "oblique",
+      "peraeque",
+      "plenisque",
+      "quandoque",
+      "quisque",
+      "quaeque",
+      "cuiusque",
+      "cuique",
+      "quemque",
+      "quamque",
+      "quaque",
+      "quique",
+      "quorumque",
+      "quarumque",
+      "quibusque",
+      "quosque",
+      "quasque",
+      "quotusquisque",
+      "quousque",
+      "ubique",
+      "undique",
+      "usque",
+      "uterque",
+      "utique",
+      "utroque",
+      "utribique",
+      "torque",
+      "coque",
+      "concoque",
+      "contorque",
+      "detorque",
+      "decoque",
+      "excoque",
+      "extorque",
+      "obtorque",
+      "optorque",
+      "retorque",
+      "recoque",
+      "attorque",
+      "incoque",
+      "intorque",
+      "praetorque"
+    ]);
+    var NOUN_SUFFIXES = ["ibus", "ius", "ae", "am", "as", "em", "es", "ia", "is", "nt", "os", "ud", "um", "us", "a", "e", "i", "o", "u"];
+    var VERB_SUFFIXES = ["iuntur", "beris", "erunt", "untur", "iunt", "mini", "ntur", "stis", "bor", "ero", "mur", "mus", "ris", "sti", "tis", "tur", "unt", "bo", "ns", "nt", "ri", "m", "r", "s", "t"];
+    var VERB_REPLACE = { iuntur: "i", erunt: "i", untur: "i", iunt: "i", unt: "i", beris: "bi", bor: "bi", bo: "bi", ero: "eri" };
+    function normalize(word) {
+      return word.toLowerCase().replace(/j/g, "i").replace(/v/g, "u");
+    }
+    function longestSuffix(word, suffixes) {
+      let best = "";
+      for (const s of suffixes) {
+        if (s.length > best.length && word.length > s.length && word.endsWith(s))
+          best = s;
+      }
+      return best;
+    }
+    function nounStem(w) {
+      const s = longestSuffix(w, NOUN_SUFFIXES);
+      if (s) {
+        const t2 = w.slice(0, -s.length);
+        if (t2.length >= 2)
+          return t2;
+      }
+      return w;
+    }
+    function verbStem(w) {
+      const s = longestSuffix(w, VERB_SUFFIXES);
+      if (s) {
+        const t2 = w.slice(0, -s.length) + (VERB_REPLACE[s] || "");
+        if (t2.length >= 2)
+          return t2;
+      }
+      return w;
+    }
+    function deque(w) {
+      return w.endsWith("que") && !QUE_KEEP.has(w) ? w.slice(0, -3) : w;
+    }
+    module2.exports = {
+      id: "la",
+      name: "Latin",
+      priority: 0,
+      match: (word) => /[a-z]/i.test(word),
+      keys(word, mode) {
+        const w = word.toLowerCase();
+        if (mode === "exact")
+          return [w];
+        const base = deque(normalize(w));
+        if (mode === "endingStrip")
+          return [nounStem(base)];
+        return [.../* @__PURE__ */ new Set([nounStem(base), verbStem(base)])];
+      }
+    };
+  }
+});
+
+// src/shared/morphology/languages/el.js
+var require_el = __commonJS({
+  "src/shared/morphology/languages/el.js"(exports2, module2) {
+    "use strict";
+    var FINAL_SIGMA = String.fromCharCode(962);
+    var SIGMA = String.fromCharCode(963);
+    function fold(word) {
+      return word.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().split(FINAL_SIGMA).join(SIGMA);
+    }
+    var NEUTER = new RegExp("(" + ["\u03BC\u03B1\u03C4\u03BF\u03C2", "\u03BC\u03B1\u03C4\u03C9\u03BD", "\u03BC\u03B1\u03C4\u03B1", "\u03BC\u03B1\u03C3\u03B9\u03BD", "\u03BC\u03B1\u03C3\u03B9", "\u03BC\u03B1\u03C4\u03B9"].map(fold).join("|") + ")$");
+    var ENDINGS = [
+      "\u03BF\u03C5\u03C3\u03B9\u03BD",
+      "\u03BF\u03BD\u03C4\u03C9\u03BD",
+      "\u03BF\u03C5\u03C3\u03B9",
+      "\u03BF\u03BD\u03C4\u03BF\u03C2",
+      "\u03BF\u03BD\u03C4\u03B1",
+      "\u03BF\u03C5\u03C3\u03B1",
+      "\u03BC\u03B5\u03B8\u03B1",
+      "\u03BD\u03C4\u03B1\u03B9",
+      "\u03C3\u03B8\u03B5",
+      "\u03B5\u03C9\u03C2",
+      "\u03B5\u03C9\u03BD",
+      "\u03BF\u03B9\u03C2",
+      "\u03BF\u03C5\u03C2",
+      "\u03C4\u03B1\u03B9",
+      "\u03BD\u03B1\u03B9",
+      "\u03BC\u03B1\u03B9",
+      "\u03C3\u03B1\u03B9",
+      "\u03BF\u03C2",
+      "\u03BF\u03C5",
+      "\u03BF\u03BD",
+      "\u03BF\u03B9",
+      "\u03C9\u03BD",
+      "\u03B7\u03C2",
+      "\u03B7\u03BD",
+      "\u03B1\u03B9",
+      "\u03B1\u03C2",
+      "\u03B1\u03BD",
+      "\u03B5\u03B9\u03C2",
+      "\u03B5\u03B9",
+      "\u03B9\u03C2",
+      "\u03B1",
+      "\u03B5",
+      "\u03B7",
+      "\u03C9",
+      "\u03B9"
+    ].map(fold).sort((a, b) => b.length - a.length);
+    function strip(word) {
+      const w = fold(word).replace(NEUTER, "\u03BC\u03B1");
+      for (const e of ENDINGS) {
+        if (w.length - e.length >= 2 && w.endsWith(e))
+          return w.slice(0, -e.length);
+      }
+      return w;
+    }
+    module2.exports = {
+      id: "el",
+      name: "Greek",
+      priority: 0,
+      match: (word) => /[Ͱ-Ͽἀ-῿]/.test(word),
+      keys(word, mode) {
+        if (mode === "exact")
+          return [word.toLowerCase()];
+        if (mode === "endingStrip")
+          return [fold(word)];
+        return [strip(word)];
+      }
+    };
+  }
+});
+
 // src/shared/morphology/builtin-languages.js
 var require_builtin_languages = __commonJS({
   "src/shared/morphology/builtin-languages.js"(exports2, module2) {
@@ -946,7 +1193,9 @@ var require_builtin_languages = __commonJS({
       require_en(),
       require_es(),
       require_de(),
-      require_fr()
+      require_fr(),
+      require_la(),
+      require_el()
     ];
     module2.exports = { BUILTIN_LANGUAGES: BUILTIN_LANGUAGES2 };
   }
