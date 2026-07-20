@@ -1,4 +1,4 @@
-/* Glossary Linker 1.4.0 — bundled from src/ by esbuild. Do not edit directly; edit src/ and run "npm run build". */
+/* Glossary Linker 1.4.1 — bundled from src/ by esbuild. Do not edit directly; edit src/ and run "npm run build". */
 "use strict";
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __commonJS = (cb, mod) => function __require() {
