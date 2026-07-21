@@ -337,15 +337,14 @@ var require_ru = __commonJS({
       ["\u0441\u044B\u043D", "\u0441\u044B\u043D\u043E\u0432"],
       ["\u0443\u0445\u043E", "\u0443\u0448"],
       ["\u043E\u043A\u043E", "\u043E\u0447"],
-      ["\u0445\u043E\u0437\u044F\u0438\u043D", "\u0445\u043E\u0437\u044F\u0435\u0432"]
+      ["\u0445\u043E\u0437\u044F\u0438\u043D", "\u0445\u043E\u0437\u044F\u0435\u0432"],
+      ["\u0449\u0435\u043D\u043E\u043A", "\u0449\u0435\u043D\u044F\u0442"]
     ]);
     for (const w of ["\u0438\u043C\u044F", "\u0432\u0440\u0435\u043C\u044F", "\u0441\u0435\u043C\u044F", "\u0437\u043D\u0430\u043C\u044F", "\u043F\u043B\u0435\u043C\u044F", "\u0441\u0442\u0440\u0435\u043C\u044F", "\u0442\u0435\u043C\u044F", "\u0431\u0440\u0435\u043C\u044F", "\u0432\u044B\u043C\u044F", "\u043F\u043B\u0430\u043C\u044F"]) {
       IRREGULAR_STEMS.set(w, w.slice(0, -1) + "\u0435\u043D");
     }
     var KEEP_WHOLE = /* @__PURE__ */ new Set(["\u0443\u0440\u043E\u043A", "\u043F\u043E\u0440\u043E\u043A"]);
     function fleetingStems(word) {
-      if (KEEP_WHOLE.has(word))
-        return [];
       const out = [];
       let m = /^(.+)о([кцнлбмртвшжгх])$/.exec(word);
       if (m)
@@ -360,13 +359,27 @@ var require_ru = __commonJS({
         out.push(m[1] + "\u043D");
       return out;
     }
+    var NOT_YOUNG = /* @__PURE__ */ new Set(["\u0437\u0432\u043E\u043D\u043E\u043A"]);
+    function youngStems(word) {
+      if (NOT_YOUNG.has(word))
+        return [];
+      let m = /^(.+)енок$/.exec(word);
+      if (m)
+        return [m[1] + "\u044F\u0442"];
+      m = /^(.+)онок$/.exec(word);
+      if (m)
+        return [m[1] + "\u0430\u0442"];
+      return [];
+    }
     function derivedStems(word) {
       const w = word.replace(/ё/g, "\u0435");
       const out = [];
       const irregular = IRREGULAR_STEMS.get(w);
       if (irregular)
         out.push(irregular);
-      for (const c of fleetingStems(w))
+      if (KEEP_WHOLE.has(w))
+        return out;
+      for (const c of [...fleetingStems(w), ...youngStems(w)])
         if (c.length >= 3)
           out.push(c);
       return out;
@@ -477,7 +490,8 @@ var require_uk = __commonJS({
         const w = word.toLowerCase();
         if (mode === "exact")
           return [w];
-        const base = mode === "endingStrip" ? [strip(w)] : [.../* @__PURE__ */ new Set([strip(w), ...alternations(strip(w))])];
+        const stem = strip(w);
+        const base = mode === "endingStrip" ? [stem] : [.../* @__PURE__ */ new Set([stem, ...alternations(stem)])];
         const extra = IRREGULAR.get(bareApostrophe(w));
         return extra && !base.includes(extra) ? [...base, extra] : base;
       },
