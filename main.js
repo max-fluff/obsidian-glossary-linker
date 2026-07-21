@@ -325,6 +325,52 @@ var require_ru = __commonJS({
         return [es, st];
       return [es];
     }
+    var IRREGULAR_STEMS = /* @__PURE__ */ new Map([
+      ["\u0447\u0435\u043B\u043E\u0432\u0435\u043A", "\u043B\u044E\u0434"],
+      ["\u0440\u0435\u0431\u0435\u043D\u043E\u043A", "\u0434\u0435\u0442"],
+      ["\u043C\u0430\u0442\u044C", "\u043C\u0430\u0442\u0435\u0440"],
+      ["\u0434\u043E\u0447\u044C", "\u0434\u043E\u0447\u0435\u0440"],
+      ["\u043D\u0435\u0431\u043E", "\u043D\u0435\u0431\u0435\u0441"],
+      ["\u0447\u0443\u0434\u043E", "\u0447\u0443\u0434\u0435\u0441"],
+      ["\u0442\u0435\u043B\u043E", "\u0442\u0435\u043B\u0435\u0441"],
+      ["\u0434\u0440\u0443\u0433", "\u0434\u0440\u0443\u0437"],
+      ["\u0441\u044B\u043D", "\u0441\u044B\u043D\u043E\u0432"],
+      ["\u0443\u0445\u043E", "\u0443\u0448"],
+      ["\u043E\u043A\u043E", "\u043E\u0447"],
+      ["\u0445\u043E\u0437\u044F\u0438\u043D", "\u0445\u043E\u0437\u044F\u0435\u0432"]
+    ]);
+    for (const w of ["\u0438\u043C\u044F", "\u0432\u0440\u0435\u043C\u044F", "\u0441\u0435\u043C\u044F", "\u0437\u043D\u0430\u043C\u044F", "\u043F\u043B\u0435\u043C\u044F", "\u0441\u0442\u0440\u0435\u043C\u044F", "\u0442\u0435\u043C\u044F", "\u0431\u0440\u0435\u043C\u044F", "\u0432\u044B\u043C\u044F", "\u043F\u043B\u0430\u043C\u044F"]) {
+      IRREGULAR_STEMS.set(w, w.slice(0, -1) + "\u0435\u043D");
+    }
+    var KEEP_WHOLE = /* @__PURE__ */ new Set(["\u0443\u0440\u043E\u043A", "\u043F\u043E\u0440\u043E\u043A"]);
+    function fleetingStems(word) {
+      if (KEEP_WHOLE.has(word))
+        return [];
+      const out = [];
+      let m = /^(.+)о([кцнлбмртвшжгх])$/.exec(word);
+      if (m)
+        out.push(m[1] + m[2]);
+      m = /^(.+)е([цкнлмртвшжб])$/.exec(word);
+      if (m) {
+        out.push(m[1] + m[2]);
+        out.push(m[1] + (/[аеиоуыэюя]$/.test(m[1]) ? "\u0439" : "\u044C") + m[2]);
+      }
+      m = /^(.+)ень$/.exec(word);
+      if (m)
+        out.push(m[1] + "\u043D");
+      return out;
+    }
+    function derivedStems(word) {
+      const w = word.replace(/ё/g, "\u0435");
+      const out = [];
+      const irregular = IRREGULAR_STEMS.get(w);
+      if (irregular)
+        out.push(irregular);
+      for (const c of fleetingStems(w))
+        if (c.length >= 3)
+          out.push(c);
+      return out;
+    }
     function softStemNoun(word) {
       const w = word.toLowerCase().replace(/ё/g, "\u0435");
       if (w.length > 3 && w.endsWith("\u0435\u043C")) {
@@ -354,6 +400,9 @@ var require_ru = __commonJS({
             if (!ks.includes(sk))
               ks.push(sk);
         }
+        for (const extra of derivedStems(w))
+          if (!ks.includes(extra))
+            ks.push(extra);
         return ks;
       },
       lemma
@@ -409,6 +458,16 @@ var require_uk = __commonJS({
       const m = CLOSED_SYLLABLE.exec(stem);
       return m ? [m[1] + "\u043E" + m[2], m[1] + "\u0435" + m[2]] : [];
     }
+    var bareApostrophe = (w) => w.replace(/[’ʼ']/g, "");
+    var IRREGULAR = /* @__PURE__ */ new Map([
+      ["\u043B\u044E\u0434\u0438\u043D\u0430", "\u043B\u044E\u0434"],
+      ["\u0434\u0438\u0442\u0438\u043D\u0430", "\u0434\u0456\u0442"],
+      ["\u043C\u0430\u0442\u0438", "\u043C\u0430\u0442\u0435\u0440"],
+      ["\u043E\u043A\u043E", "\u043E\u0447\u0456"],
+      ["\u0456\u043C\u044F", "\u0456\u043C\u0435\u043D"],
+      ["\u043F\u043B\u0435\u043C\u044F", "\u043F\u043B\u0435\u043C\u0435\u043D"],
+      ["\u0432\u0438\u043C\u044F", "\u0432\u0438\u043C\u0435\u043D"]
+    ]);
     module2.exports = {
       id: "uk",
       name: "Ukrainian",
@@ -418,10 +477,9 @@ var require_uk = __commonJS({
         const w = word.toLowerCase();
         if (mode === "exact")
           return [w];
-        if (mode === "endingStrip")
-          return [strip(w)];
-        const stem = strip(w);
-        return [.../* @__PURE__ */ new Set([stem, ...alternations(stem)])];
+        const base = mode === "endingStrip" ? [strip(w)] : [.../* @__PURE__ */ new Set([strip(w), ...alternations(strip(w))])];
+        const extra = IRREGULAR.get(bareApostrophe(w));
+        return extra && !base.includes(extra) ? [...base, extra] : base;
       },
       lemma: (word) => strip(word)
     };
@@ -1021,6 +1079,19 @@ var require_fr = __commonJS({
     function lemma(word) {
       return strip(word);
     }
+    var IRREGULAR = /* @__PURE__ */ new Map([
+      ["travail", "travau"],
+      ["vitrail", "vitrau"],
+      ["corail", "corau"],
+      ["bail", "bau"],
+      ["email", "emau"],
+      ["soupirail", "soupirau"],
+      ["vantail", "vantau"],
+      ["oeil", "yeu"],
+      ["\u0153il", "yeu"],
+      ["ciel", "cieu"],
+      ["aieul", "aieu"]
+    ]);
     module2.exports = {
       id: "fr",
       name: "French",
@@ -1030,9 +1101,9 @@ var require_fr = __commonJS({
         const w = word.toLowerCase();
         if (mode === "exact")
           return [w];
-        if (mode === "endingStrip")
-          return [strip(w)];
-        return stemKeys(w);
+        const base = mode === "endingStrip" ? [strip(w)] : stemKeys(w);
+        const extra = IRREGULAR.get(fold(w));
+        return extra && !base.includes(extra) ? [...base, extra] : base;
       },
       lemma
     };
