@@ -591,14 +591,55 @@ var require_en = __commonJS({
       ["stigma", "stigmata"],
       ["dogma", "dogmata"]
     ];
+    var GERMANIC = [
+      ["mouse", "mice"],
+      ["louse", "lice"],
+      ["foot", "feet"],
+      ["tooth", "teeth"],
+      ["goose", "geese"],
+      ["man", "men"],
+      ["woman", "women"],
+      ["child", "children"],
+      ["ox", "oxen"],
+      ["person", "people"]
+    ];
+    var FVES = [
+      ["wolf", "wolves"],
+      ["calf", "calves"],
+      ["half", "halves"],
+      ["shelf", "shelves"],
+      ["elf", "elves"],
+      ["loaf", "loaves"],
+      ["thief", "thieves"],
+      ["self", "selves"],
+      ["scarf", "scarves"],
+      ["wharf", "wharves"],
+      ["hoof", "hooves"],
+      ["knife", "knives"],
+      ["life", "lives"],
+      ["wife", "wives"]
+    ];
     var IRREGULAR = /* @__PURE__ */ new Map();
-    for (const [sing, ...plurals] of CLASSICAL) {
+    for (const [sing, ...plurals] of [...CLASSICAL, ...GERMANIC, ...FVES]) {
       IRREGULAR.set(sing, sing);
       for (const p of plurals)
         IRREGULAR.set(p, sing);
     }
-    function stemKeys(word) {
-      return [stem(word)];
+    var KEEP_WHOLE = /* @__PURE__ */ new Set(["omen", "amen", "ramen", "carmen", "dolmen", "nova", "bases", "phases"]);
+    var COMPOUND = new RegExp(
+      "^(.+)(" + [...IRREGULAR.keys()].filter((form) => IRREGULAR.get(form) !== form).sort((a, b) => b.length - a.length).join("|") + ")$"
+    );
+    var GREEK_PLURAL = /.ses$/;
+    function derivedKeys(word, reduce) {
+      if (KEEP_WHOLE.has(word))
+        return [];
+      const derived = /* @__PURE__ */ new Set();
+      const m = COMPOUND.exec(word);
+      if (m)
+        derived.add(m[1] + IRREGULAR.get(m[2]));
+      if (GREEK_PLURAL.test(word))
+        derived.add(word.slice(0, -3) + "sis");
+      return [...derived].map(reduce);
     }
     function lemma(word) {
       const w = word.toLowerCase();
@@ -616,9 +657,8 @@ var require_en = __commonJS({
         const canon = IRREGULAR.get(w);
         if (canon)
           return [canon];
-        if (mode === "endingStrip")
-          return [strip(w)];
-        return stemKeys(w);
+        const reduce = mode === "endingStrip" ? strip : stem;
+        return [.../* @__PURE__ */ new Set([reduce(w), ...derivedKeys(w, reduce)])];
       },
       lemma
     };

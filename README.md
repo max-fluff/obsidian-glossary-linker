@@ -148,14 +148,15 @@ Both lists come from scanning your notes, so they refresh on demand — hit *Res
 
 ## Morphology and languages
 
-Morphology is modular. Six language modules are bundled in by default, and you can add more and rebuild (see [Adding a language](#adding-a-language)). Each one is validated against the module contract on load and gets a toggle in settings (*Matching → Languages*). For a given word, the keys from every enabled language that claims it are combined, so same-script languages like English, Spanish, German and French all contribute on a Latin word. If no language claims a word, it's matched exactly (lowercased), with no morphology.
+Morphology is modular. Eight language modules are bundled in, and you can add more and rebuild (see [Adding a language](#adding-a-language)). Each one is validated against the module contract on load and gets a toggle in settings (*Matching → Languages*). For a given word, the keys from every enabled language that claims it are combined, so same-script languages like English, Spanish, German and French all contribute on a Latin word. If no language claims a word, it's matched exactly (lowercased), with no morphology.
 
 The built-in modules are stemmer code compiled into the plugin:
 
 - `ru.js` (Russian) — Porter stemmer (Snowball, public domain). The keys are the union of the Porter stem and an ending strip, dropping an over-short stem. That covers both awkward cases: `юнит/юнитов` (the stemmer over-truncates to `юн`, the ending strip rescues `юнит`) and `рой/роем`, while `юный/юнга/юности` don't stick to `Юнит`.
 - `uk.js` (Ukrainian) — the plugin's own light stemmer, handling the о/і and е/і vowel alternation in closed syllables (`кіт/кота`, `ніч/ночі`).
-- `en.js` (English) — Porter stemmer (Porter 1980, public domain): `units → unit`, `running → run`.
+- `en.js` (English) — Porter stemmer (Porter 1980, public domain): `units → unit`, `running → run`. On top of it, tables for the plurals no stemmer reduces: classical (`cacti → cactus`, `indices → index`), native (`mice → mouse`, `children → child`) and `-f/-ves` (`wolves → wolf`, `lives → life`). The tables apply to a compound's last word too, so `grandchildren → grandchild` and `salespeople → salesperson`. Greek `-sis` nouns are too many to list, so they follow a rule instead: `prognoses → prognosis`, `neurogeneses → neurogenesis`. An invariant plural like `moose` needs nothing.
 - `es.js` / `de.js` / `fr.js` (Spanish / German / French) — ports of the UniNE / Apache Lucene light stemmers (Apache License 2.0, J. Savoy): `unidades → unidad`, `Einheiten → einheit`, `chevaux → cheval`. Lighter than full Snowball, but enough to link a term across its word forms.
+- `la.js` / `el.js` (Latin / Greek) — the plugin's own: a Schinke case stemmer for Latin (`rosae → rosa`), and for Greek a light stemmer that folds polytonic diacritics so accented case forms meet (`λόγου → λόγος`). Both stay off by default; English already covers the latinised plurals an English note actually uses.
 
 > Enable only the languages your vault actually uses. Since same-script languages combine, leaving German on in an English-only vault can occasionally over-stem a word. On first run the plugin enables English plus your Obsidian interface language (if a module exists for it); switch on any others you need.
 
@@ -328,7 +329,7 @@ Most bundled language modules port well-known, permissively-licensed stemming al
 |---|---|---|---|
 | `ru.js` | Snowball Russian stemmer (Porter framework) | BSD (© 2001–2006 M. Porter & R. Boulton) | [snowballstem.org](https://snowballstem.org/algorithms/russian/stemmer.html) · [license](https://snowballstem.org/license.html) |
 | `uk.js` | Light suffix stemmer with vowel alternation | MIT (this plugin) | — |
-| `en.js` | Porter stemmer (M. F. Porter, 1980) | Free use, released by the author | [tartarus.org](https://tartarus.org/martin/PorterStemmer/) |
+| `en.js` | Porter stemmer (M. F. Porter, 1980), plus irregular-plural tables of the plugin's own | Free use for the stemmer, MIT for the tables | [tartarus.org](https://tartarus.org/martin/PorterStemmer/) |
 | `es.js` | Apache Lucene `SpanishLightStemmer` (UniNE, J. Savoy) | Apache License 2.0 | [source](https://github.com/apache/lucene/blob/main/lucene/analysis/common/src/java/org/apache/lucene/analysis/es/SpanishLightStemmer.java) |
 | `de.js` | Apache Lucene `GermanLightStemmer` (UniNE, J. Savoy) | Apache License 2.0 | [source](https://github.com/apache/lucene/blob/main/lucene/analysis/common/src/java/org/apache/lucene/analysis/de/GermanLightStemmer.java) |
 | `fr.js` | Apache Lucene `FrenchLightStemmer` (UniNE, J. Savoy) | Apache License 2.0 | [source](https://github.com/apache/lucene/blob/main/lucene/analysis/common/src/java/org/apache/lucene/analysis/fr/FrenchLightStemmer.java) |
