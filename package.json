@@ -12,6 +12,7 @@
   "private": true,
   "scripts": {
     "build": "node esbuild.config.mjs",
+    "bump": "node src/shared/version-bump.mjs",
     "test": "node test/run.js",
     "test:core": "node test/run.js --core",
     "plates": "node src/shared/branding/make-plates.mjs",
