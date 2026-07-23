@@ -512,8 +512,14 @@ class GlossaryLinkerPlugin extends Plugin {
     this.updateStatusBar();
   }
 
+  // By path, not title: a bare title resolves case-insensitively, so Term and term open one note.
+  linktextFor(canonical) {
+    const term = (this.terms || []).find((t) => t.canonical === canonical);
+    return term ? term.path : canonical;
+  }
+
   openTerm(canonical, sourcePath, newTab) {
-    this.app.workspace.openLinkText(canonical, sourcePath || '', newTab);
+    this.app.workspace.openLinkText(this.linktextFor(canonical), sourcePath || '', newTab);
   }
 
   activePath() {
@@ -529,7 +535,7 @@ class GlossaryLinkerPlugin extends Plugin {
       source: hoverParent ? 'glossary-linker-choice' : 'glossary-linker',
       hoverParent: hoverParent || this,
       targetEl,
-      linktext: canonical,
+      linktext: this.linktextFor(canonical),
       sourcePath: sourcePath || '',
     });
   }
