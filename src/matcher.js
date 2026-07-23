@@ -17,10 +17,12 @@ const core = createMatcher({
 });
 
 module.exports = Object.assign({}, core, {
-  // Base form for collected aliases: the first claiming language wins (by priority).
+  // Base form for collected aliases: the first claiming language that has one wins. A
+  // language without lemma() is skipped — Latin claims all Latin script and would answer
+  // for English, dropping the harvest to the literal form.
   lemmaFor(word) {
     for (const lang of this.activeLanguages) {
-      if (lang.match(word)) return lang.lemma ? lang.lemma(word) : word.toLowerCase();
+      if (lang.match(word) && lang.lemma) return lang.lemma(word);
     }
     return word.toLowerCase();
   },
