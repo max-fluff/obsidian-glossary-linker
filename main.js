@@ -1,4 +1,4 @@
-/* Glossary Linker 1.4.1 — bundled from src/ by esbuild. Do not edit directly; edit src/ and run "npm run build". */
+/* Glossary Linker 1.5.0 — bundled from src/ by esbuild. Do not edit directly; edit src/ and run "npm run build". */
 "use strict";
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __commonJS = (cb, mod) => function __require() {
@@ -265,6 +265,10 @@ var require_ru = __commonJS({
       "\u0435\u0439",
       "\u0438\u0439",
       "\u044B\u0439",
+      "\u044B\u043C",
+      "\u044B\u0445",
+      "\u0438\u0445",
+      "\u0438\u043C",
       "\u0443\u044E",
       "\u044E\u044E",
       "\u0430",
@@ -313,7 +317,7 @@ var require_ru = __commonJS({
     function strip(word) {
       word = word.toLowerCase().replace(/ё/g, "\u0435");
       for (const e of ENDINGS) {
-        if (word.length - e.length >= 3 && word.endsWith(e))
+        if (word.length - e.length >= 2 && word.endsWith(e))
           return word.slice(0, -e.length);
       }
       return word;
@@ -359,28 +363,35 @@ var require_ru = __commonJS({
         out.push(m[1] + "\u043D");
       return out;
     }
-    var NOT_YOUNG = /* @__PURE__ */ new Set(["\u0437\u0432\u043E\u043D\u043E\u043A"]);
+    var NOT_YOUNG = /* @__PURE__ */ new Set(["\u0437\u0432\u043E\u043D\u043E\u043A", "\u0437\u0432\u043E\u043D\u043A"]);
     function youngStems(word) {
       if (NOT_YOUNG.has(word))
         return [];
-      let m = /^(.+)енок$/.exec(word);
+      let m = /^(.+)ен(?:ок|к)$/.exec(word);
       if (m)
         return [m[1] + "\u044F\u0442"];
-      m = /^(.+)онок$/.exec(word);
+      m = /^(.+)он(?:ок|к)$/.exec(word);
       if (m)
         return [m[1] + "\u0430\u0442"];
       return [];
     }
+    var IRREGULAR_BY_STEM = /* @__PURE__ */ new Map();
+    for (const [form, target] of IRREGULAR_STEMS) {
+      for (const k of [strip(form), ...fleetingStems(form)])
+        if (!IRREGULAR_BY_STEM.has(k))
+          IRREGULAR_BY_STEM.set(k, target);
+    }
     function derivedStems(word) {
       const w = word.replace(/ё/g, "\u0435");
       const out = [];
-      const irregular = IRREGULAR_STEMS.get(w);
+      const es = strip(w);
+      const irregular = IRREGULAR_STEMS.get(w) || IRREGULAR_BY_STEM.get(es);
       if (irregular)
         out.push(irregular);
       if (KEEP_WHOLE.has(w))
         return out;
-      for (const c of [...fleetingStems(w), ...youngStems(w)])
-        if (c.length >= 3)
+      for (const c of [...fleetingStems(w), ...youngStems(w), ...youngStems(es)])
+        if (c.length >= 2)
           out.push(c);
       return out;
     }
@@ -407,6 +418,14 @@ var require_ru = __commonJS({
           return [w];
         const keyer = (x) => mode === "endingStrip" ? [strip(x)] : stemKeys(x);
         const ks = keyer(w);
+        const folded = w.replace(/ё/g, "\u0435");
+        if (/[^аеиоуыэюяйь]$/.test(folded) && !ks.includes(folded))
+          ks.push(folded);
+        if (/[ео]му$/.test(folded)) {
+          const noun = folded.slice(0, -1);
+          if (!ks.includes(noun))
+            ks.push(noun);
+        }
         const soft = softStemNoun(w);
         if (soft) {
           for (const sk of keyer(soft))
@@ -444,6 +463,7 @@ var require_uk = __commonJS({
       "\u0435\u044E",
       "\u043E\u043C",
       "\u0435\u043C",
+      "\u044F\u043C",
       "\u0435\u0439",
       "\u0438\u0439",
       "\u0456\u0439",
@@ -462,7 +482,7 @@ var require_uk = __commonJS({
     function strip(word) {
       const w = word.toLowerCase();
       for (const e of ENDINGS) {
-        if (w.length - e.length >= 3 && w.endsWith(e))
+        if (w.length - e.length >= 2 && w.endsWith(e))
           return w.slice(0, -e.length);
       }
       return w;
@@ -471,12 +491,25 @@ var require_uk = __commonJS({
       const m = CLOSED_SYLLABLE.exec(stem);
       return m ? [m[1] + "\u043E" + m[2], m[1] + "\u0435" + m[2]] : [];
     }
+    function fleetingStems(word) {
+      const out = [];
+      let m = /^(.+)о([кцнлбмртвшжгх])$/.exec(word);
+      if (m)
+        out.push(m[1] + m[2]);
+      m = /^(.+)е([цкнлмртвшжб])$/.exec(word);
+      if (m)
+        out.push(m[1] + m[2]);
+      m = /^(.+)ень$/.exec(word);
+      if (m)
+        out.push(m[1] + "\u043D");
+      return out.filter((s) => s.length >= 2);
+    }
     var bareApostrophe = (w) => w.replace(/[’ʼ']/g, "");
     var IRREGULAR = /* @__PURE__ */ new Map([
       ["\u043B\u044E\u0434\u0438\u043D\u0430", "\u043B\u044E\u0434"],
       ["\u0434\u0438\u0442\u0438\u043D\u0430", "\u0434\u0456\u0442"],
       ["\u043C\u0430\u0442\u0438", "\u043C\u0430\u0442\u0435\u0440"],
-      ["\u043E\u043A\u043E", "\u043E\u0447\u0456"],
+      ["\u043E\u043A\u043E", "\u043E\u0447"],
       ["\u0456\u043C\u044F", "\u0456\u043C\u0435\u043D"],
       ["\u043F\u043B\u0435\u043C\u044F", "\u043F\u043B\u0435\u043C\u0435\u043D"],
       ["\u0432\u0438\u043C\u044F", "\u0432\u0438\u043C\u0435\u043D"]
@@ -491,9 +524,11 @@ var require_uk = __commonJS({
         if (mode === "exact")
           return [w];
         const stem = strip(w);
-        const base = mode === "endingStrip" ? [stem] : [.../* @__PURE__ */ new Set([stem, ...alternations(stem)])];
+        const ks = [.../* @__PURE__ */ new Set([stem, ...alternations(stem), ...fleetingStems(w)])];
         const extra = IRREGULAR.get(bareApostrophe(w));
-        return extra && !base.includes(extra) ? [...base, extra] : base;
+        if (extra && !ks.includes(extra))
+          ks.push(extra);
+        return ks;
       },
       lemma: (word) => strip(word)
     };
@@ -504,111 +539,214 @@ var require_uk = __commonJS({
 var require_en = __commonJS({
   "src/shared/morphology/languages/en.js"(exports2, module2) {
     "use strict";
-    var STEP2 = { ational: "ate", tional: "tion", enci: "ence", anci: "ance", izer: "ize", bli: "ble", alli: "al", entli: "ent", eli: "e", ousli: "ous", ization: "ize", ation: "ate", ator: "ate", alism: "al", iveness: "ive", fulness: "ful", ousness: "ous", aliti: "al", iviti: "ive", biliti: "ble", logi: "log" };
-    var STEP3 = { icate: "ic", ative: "", alize: "al", iciti: "ic", ical: "ic", ful: "", ness: "" };
-    var C = "[^aeiou]";
-    var V = "[aeiouy]";
-    var CC = C + "[^aeiouy]*";
-    var VV = V + "[aeiou]*";
-    var MGR0 = new RegExp("^(" + CC + ")?" + VV + CC);
-    var MEQ1 = new RegExp("^(" + CC + ")?" + VV + CC + "(" + VV + ")?$");
-    var MGR1 = new RegExp("^(" + CC + ")?" + VV + CC + VV + CC);
-    var S_V = new RegExp("^(" + CC + ")?" + V);
+    var VOWELS = "aeiouy";
+    var isV = (c) => VOWELS.includes(c);
+    var notV = (c) => !isV(c);
+    var DOUBLES = ["bb", "dd", "ff", "gg", "mm", "nn", "pp", "rr", "tt"];
+    var VALID_LI = "cdeghkmnrt";
+    var PREFIXES = ["gener", "commun", "arsen", "past", "univers", "later", "emerg", "organ", "inter"];
+    var EXCEPTION1 = {
+      skis: "ski",
+      skies: "sky",
+      idly: "idl",
+      gently: "gentl",
+      ugly: "ugli",
+      early: "earli",
+      only: "onli",
+      singly: "singl",
+      sky: "sky",
+      news: "news",
+      howe: "howe",
+      atlas: "atlas",
+      cosmos: "cosmos",
+      bias: "bias",
+      andes: "andes"
+    };
+    var ING_KEEP = ["inn", "out", "cann", "herr", "earr", "even"];
+    var gopast = (w, from, test) => {
+      let i = from;
+      while (i < w.length && !test(w[i]))
+        i++;
+      return i < w.length ? i + 1 : w.length;
+    };
+    function markRegions(w) {
+      const prefix = PREFIXES.find((p) => w.startsWith(p));
+      const p1 = prefix ? prefix.length : gopast(w, gopast(w, 0, isV), notV);
+      return [p1, gopast(w, gopast(w, p1, isV), notV)];
+    }
+    function shortv(w) {
+      const n = w.length;
+      if (n >= 3 && !isV(w[n - 1]) && w[n - 1] !== "w" && w[n - 1] !== "x" && w[n - 1] !== "Y" && isV(w[n - 2]) && !isV(w[n - 3]))
+        return true;
+      if (n === 2 && isV(w[0]) && !isV(w[1]))
+        return true;
+      return w.endsWith("past");
+    }
+    var longestOf = (w, list) => list.filter((s) => w.endsWith(s)).sort((a, b) => b.length - a.length)[0];
+    var STEP2 = [
+      ["ational", "ate"],
+      ["tional", "tion"],
+      ["ization", "ize"],
+      ["ousness", "ous"],
+      ["iveness", "ive"],
+      ["fulness", "ful"],
+      ["ogist", "og"],
+      ["lessli", "less"],
+      ["biliti", "ble"],
+      ["alism", "al"],
+      ["aliti", "al"],
+      ["ation", "ate"],
+      ["entli", "ent"],
+      ["ousli", "ous"],
+      ["iviti", "ive"],
+      ["fulli", "ful"],
+      ["enci", "ence"],
+      ["anci", "ance"],
+      ["abli", "able"],
+      ["izer", "ize"],
+      ["ator", "ate"],
+      ["alli", "al"],
+      ["ogi", "og"],
+      ["bli", "ble"],
+      ["li", null]
+    ];
+    var STEP3 = [
+      ["ational", "ate"],
+      ["tional", "tion"],
+      ["alize", "al"],
+      ["icate", "ic"],
+      ["iciti", "ic"],
+      ["ical", "ic"],
+      ["ness", ""],
+      ["ful", ""],
+      ["ative", null]
+    ];
+    var STEP4 = [
+      "ement",
+      "ance",
+      "ence",
+      "able",
+      "ible",
+      "ment",
+      "ant",
+      "ent",
+      "ism",
+      "ate",
+      "iti",
+      "ous",
+      "ive",
+      "ize",
+      "ion",
+      "al",
+      "er",
+      "ic"
+    ];
     function stem(word) {
-      let w = word.toLowerCase();
-      if (w.length < 3)
-        return w;
-      let st, suffix, fp, re, re2, re3, re4;
-      const firstch = w.substr(0, 1);
-      if (firstch === "y")
-        w = firstch.toUpperCase() + w.substr(1);
-      re = /^(.+?)(ss|i)es$/;
-      re2 = /^(.+?)([^s])s$/;
-      if (re.test(w))
-        w = w.replace(re, "$1$2");
-      else if (re2.test(w))
-        w = w.replace(re2, "$1$2");
-      re = /^(.+?)eed$/;
-      re2 = /^(.+?)(ed|ing)$/;
-      if (re.test(w)) {
-        fp = re.exec(w);
-        if (MGR0.test(fp[1]))
-          w = w.replace(/.$/, "");
-      } else if (re2.test(w)) {
-        fp = re2.exec(w);
-        st = fp[1];
-        if (S_V.test(st)) {
-          w = st;
-          re2 = /(at|bl|iz)$/;
-          re3 = /([^aeiouylsz])\1$/;
-          re4 = new RegExp("^" + CC + V + "[^aeiouwxy]$");
-          if (re2.test(w))
-            w = w + "e";
-          else if (re3.test(w))
-            w = w.replace(/.$/, "");
-          else if (re4.test(w))
-            w = w + "e";
+      const lower = word.toLowerCase();
+      if (EXCEPTION1[lower] !== void 0)
+        return EXCEPTION1[lower];
+      if (lower.length < 3)
+        return lower;
+      let w = lower.startsWith("'") ? lower.slice(1) : lower;
+      let yFound = false;
+      let marked = "";
+      for (let i = 0; i < w.length; i++) {
+        if (w[i] === "y" && (i === 0 || isV(w[i - 1]))) {
+          marked += "Y";
+          yFound = true;
+        } else
+          marked += w[i];
+      }
+      w = marked;
+      const [p1, p2] = markRegions(w);
+      const inR1 = (n) => p1 <= w.length - n;
+      const inR2 = (n) => p2 <= w.length - n;
+      const apo = longestOf(w, ["'s'", "'s", "'"]);
+      if (apo)
+        w = w.slice(0, -apo.length);
+      const s1a = longestOf(w, ["sses", "ied", "ies", "us", "ss", "s"]);
+      if (s1a === "sses")
+        w = w.slice(0, -2);
+      else if (s1a === "ied" || s1a === "ies")
+        w = w.length > 4 ? w.slice(0, -2) : w.slice(0, -1);
+      else if (s1a === "s" && [...w.slice(0, -2)].some(isV))
+        w = w.slice(0, -1);
+      const s1b = longestOf(w, ["eedly", "eed", "ingly", "edly", "ing", "ed"]);
+      let general = false;
+      if (s1b === "eedly" || s1b === "eed") {
+        const rest = w.slice(0, -s1b.length);
+        if (inR1(s1b.length) && !["proc", "exc", "succ"].includes(rest))
+          w = rest + "ee";
+      } else if (s1b === "ing") {
+        const rest = w.slice(0, -3);
+        if (rest.length === 2 && rest.endsWith("y") && !isV(rest[0]))
+          w = rest[0] + "ie";
+        else if (!ING_KEEP.includes(rest))
+          general = true;
+      } else if (s1b)
+        general = true;
+      if (general) {
+        const rest = w.slice(0, -s1b.length);
+        if ([...rest].some(isV)) {
+          w = rest;
+          if (w.endsWith("at") || w.endsWith("bl") || w.endsWith("iz"))
+            w += "e";
+          else if (DOUBLES.some((d) => w.endsWith(d))) {
+            if (!(w.length === 3 && "aeo".includes(w[0])))
+              w = w.slice(0, -1);
+          } else if (w.length === p1 && shortv(w))
+            w += "e";
         }
       }
-      re = /^(.+?)y$/;
-      if (re.test(w)) {
-        fp = re.exec(w);
-        st = fp[1];
-        if (S_V.test(st))
-          w = st + "i";
+      if (w.length > 2 && (w.endsWith("y") || w.endsWith("Y")) && !isV(w[w.length - 2])) {
+        w = w.slice(0, -1) + "i";
       }
-      re = /^(.+?)(ational|tional|enci|anci|izer|bli|alli|entli|eli|ousli|ization|ation|ator|alism|iveness|fulness|ousness|aliti|iviti|biliti|logi)$/;
-      if (re.test(w)) {
-        fp = re.exec(w);
-        st = fp[1];
-        suffix = fp[2];
-        if (MGR0.test(st))
-          w = st + STEP2[suffix];
+      const s2 = STEP2.find(([suf]) => w.endsWith(suf));
+      if (s2 && inR1(s2[0].length)) {
+        if (s2[0] === "ogi") {
+          if (w[w.length - 4] === "l")
+            w = w.slice(0, -1);
+        } else if (s2[0] === "li") {
+          if (VALID_LI.includes(w[w.length - 3]))
+            w = w.slice(0, -2);
+        } else
+          w = w.slice(0, -s2[0].length) + s2[1];
       }
-      re = /^(.+?)(icate|ative|alize|iciti|ical|ful|ness)$/;
-      if (re.test(w)) {
-        fp = re.exec(w);
-        st = fp[1];
-        suffix = fp[2];
-        if (MGR0.test(st))
-          w = st + STEP3[suffix];
+      const s3 = STEP3.find(([suf]) => w.endsWith(suf));
+      if (s3 && inR1(s3[0].length)) {
+        if (s3[0] === "ative") {
+          if (inR2(5))
+            w = w.slice(0, -5);
+        } else
+          w = w.slice(0, -s3[0].length) + s3[1];
       }
-      re = /^(.+?)(al|ance|ence|er|ic|able|ible|ant|ement|ment|ent|ou|ism|ate|iti|ous|ive|ize)$/;
-      re2 = /^(.+?)(s|t)(ion)$/;
-      if (re.test(w)) {
-        fp = re.exec(w);
-        st = fp[1];
-        if (MGR1.test(st))
-          w = st;
-      } else if (re2.test(w)) {
-        fp = re2.exec(w);
-        st = fp[1] + fp[2];
-        if (MGR1.test(st))
-          w = st;
+      const s4 = longestOf(w, STEP4);
+      if (s4 && inR2(s4.length)) {
+        if (s4 === "ion") {
+          const p = w[w.length - 4];
+          if (p === "s" || p === "t")
+            w = w.slice(0, -3);
+        } else
+          w = w.slice(0, -s4.length);
       }
-      re = /^(.+?)e$/;
-      if (re.test(w)) {
-        fp = re.exec(w);
-        st = fp[1];
-        re3 = new RegExp("^" + CC + V + "[^aeiouwxy]$");
-        if (MGR1.test(st) || MEQ1.test(st) && !re3.test(st))
-          w = st;
-      }
-      if (/ll$/.test(w) && MGR1.test(w))
-        w = w.replace(/.$/, "");
-      if (firstch === "y")
-        w = firstch.toLowerCase() + w.substr(1);
-      return w;
+      if (w.endsWith("e")) {
+        if (inR2(1) || inR1(1) && !shortv(w.slice(0, -1)))
+          w = w.slice(0, -1);
+      } else if (w.endsWith("l") && inR2(1) && w[w.length - 2] === "l")
+        w = w.slice(0, -1);
+      return yFound ? w.replace(/Y/g, "y") : w;
     }
+    var SIBILANT_ES = /(?:s|x|z|ch|sh|[^aeiou]o)es$/;
     function strip(word) {
       const w = word.toLowerCase();
+      const out = [w];
       if (w.length > 4 && w.endsWith("ies"))
-        return w.slice(0, -3) + "y";
-      if (w.length > 3 && w.endsWith("es"))
-        return w.slice(0, -2);
+        out.push(w.slice(0, -3) + "y");
+      else if (w.length > 4 && SIBILANT_ES.test(w))
+        out.push(w.slice(0, -2));
       if (w.length > 3 && w.endsWith("s") && !w.endsWith("ss"))
-        return w.slice(0, -1);
-      return w;
+        out.push(w.slice(0, -1));
+      return out;
     }
     var CLASSICAL = [
       ["cactus", "cacti"],
@@ -711,7 +849,10 @@ var require_en = __commonJS({
         derived.add(m[1] + IRREGULAR.get(m[2]));
       if (GREEK_PLURAL.test(word))
         derived.add(word.slice(0, -3) + "sis");
-      return [...derived].map(reduce);
+      const out = [];
+      for (const d of derived)
+        out.push(...reduce(d));
+      return out;
     }
     function lemma(word) {
       const w = word.toLowerCase();
@@ -729,8 +870,8 @@ var require_en = __commonJS({
         const canon = IRREGULAR.get(w);
         if (canon)
           return [canon];
-        const reduce = mode === "endingStrip" ? strip : stem;
-        return [.../* @__PURE__ */ new Set([reduce(w), ...derivedKeys(w, reduce)])];
+        const reduce = mode === "endingStrip" ? strip : (x) => [stem(x)];
+        return [.../* @__PURE__ */ new Set([...reduce(w), ...derivedKeys(w, reduce)])];
       },
       lemma
     };
@@ -772,10 +913,19 @@ var require_es = __commonJS({
         return s.slice(0, -1);
       return s;
     }
+    function stripKeys(word) {
+      const s = fold(word);
+      const out = [s];
+      if (s.length > 4 && s.endsWith("ces"))
+        out.push(s.slice(0, -3) + "z");
+      if (s.length > 3 && s.endsWith("es"))
+        out.push(s.slice(0, -2));
+      if (s.length > 3 && s.endsWith("s"))
+        out.push(s.slice(0, -1));
+      return [...new Set(out)];
+    }
     function stemKeys(word) {
-      const a = stem(word);
-      const b = strip(word);
-      return a === b ? [a] : [a, b];
+      return [.../* @__PURE__ */ new Set([stem(word), ...stripKeys(word)])];
     }
     function lemma(word) {
       return strip(word);
@@ -790,7 +940,7 @@ var require_es = __commonJS({
         if (mode === "exact")
           return [w];
         if (mode === "endingStrip")
-          return [strip(w)];
+          return stripKeys(w);
         return stemKeys(w);
       },
       lemma
@@ -846,13 +996,46 @@ var require_de = __commonJS({
       }
       return s;
     }
+    function stripKeys(word) {
+      const s = fold(word);
+      const cut = strip(word);
+      return cut === s ? [s] : [s, cut];
+    }
     function stemKeys(word) {
       const a = stem(word);
       const b = strip(word);
       return a === b ? [a] : [a, b];
     }
+    var cistemPark = (w) => w.replace(/sch/g, "$").replace(/ei/g, "%").replace(/ie/g, "&").replace(/(.)\1/g, "$1*");
+    var cistemUnpark = (w) => w.replace(/(.)\*/g, "$1$1").replace(/%/g, "ei").replace(/&/g, "ie").replace(/\$/g, "sch");
+    function cistem(word) {
+      const chars = [...cistemPark(fold(word))];
+      while (chars.length > 3) {
+        const j = chars.length - 1;
+        if (chars.length > 5) {
+          if ((chars[j] === "m" || chars[j] === "r") && chars[j - 1] === "e") {
+            chars.length -= 2;
+            continue;
+          }
+          if (chars[j] === "d" && chars[j - 1] === "n") {
+            chars.length -= 2;
+            continue;
+          }
+        }
+        if (chars[j] === "t" || chars[j] === "e" || chars[j] === "s" || chars[j] === "n") {
+          chars.length -= 1;
+          continue;
+        }
+        break;
+      }
+      return cistemUnpark(chars.join(""));
+    }
+    var feminine = (word) => {
+      const s = fold(word);
+      return s.length > 6 && s.endsWith("innen") ? s.slice(0, -3) : null;
+    };
     function lemma(word) {
-      return strip(word);
+      return feminine(word) || strip(word);
     }
     module2.exports = {
       id: "de",
@@ -863,9 +1046,20 @@ var require_de = __commonJS({
         const w = word.toLowerCase();
         if (mode === "exact")
           return [w];
-        if (mode === "endingStrip")
-          return [strip(w)];
-        return stemKeys(w);
+        const reduce = mode === "endingStrip" ? stripKeys : stemKeys;
+        const singular = feminine(w);
+        const ks = reduce(w);
+        if (singular) {
+          for (const k of reduce(singular))
+            if (!ks.includes(k))
+              ks.push(k);
+        }
+        if (mode === "stemmer") {
+          const c = cistem(w);
+          if (!ks.includes(c))
+            ks.push(c);
+        }
+        return ks;
       },
       lemma
     };
@@ -1085,6 +1279,13 @@ var require_fr = __commonJS({
         return s.slice(0, -1);
       return s;
     }
+    function stripKeys(word) {
+      const s = fold(word);
+      const out = [s, strip(word)];
+      if (s.length > 4 && s.endsWith("aux"))
+        out.push(s.slice(0, -3) + "al");
+      return [...new Set(out)];
+    }
     function stemKeys(word) {
       const a = stem(word);
       const b = strip(word);
@@ -1115,7 +1316,7 @@ var require_fr = __commonJS({
         const w = word.toLowerCase();
         if (mode === "exact")
           return [w];
-        const base = mode === "endingStrip" ? [strip(w)] : stemKeys(w);
+        const base = mode === "endingStrip" ? stripKeys(w) : stemKeys(w);
         const extra = IRREGULAR.get(fold(w));
         return extra && !base.includes(extra) ? [...base, extra] : base;
       },
@@ -1278,12 +1479,15 @@ var require_el = __commonJS({
       "\u03B5\u03B9\u03C2",
       "\u03B5\u03B9",
       "\u03B9\u03C2",
+      "\u03B5\u03C2",
       "\u03B1",
       "\u03B5",
       "\u03B7",
       "\u03C9",
-      "\u03B9"
+      "\u03B9",
+      "\u03BF"
     ].map(fold).sort((a, b) => b.length - a.length);
+    var NEUTER_I = /[^αεηιουω]ι$/;
     function strip(word) {
       const w = fold(word).replace(NEUTER, "\u03BC\u03B1");
       for (const e of ENDINGS) {
@@ -1300,10 +1504,13 @@ var require_el = __commonJS({
       keys(word, mode) {
         if (mode === "exact")
           return [word.toLowerCase()];
+        const cut = strip(word);
         if (mode === "endingStrip")
-          return [fold(word)];
-        return [strip(word)];
-      }
+          return [cut];
+        const w = fold(word);
+        return w !== cut && NEUTER_I.test(w) ? [cut, w] : [cut];
+      },
+      lemma: (word) => strip(word)
     };
   }
 });
@@ -3006,11 +3213,13 @@ var require_matcher2 = __commonJS({
       accepts: (plugin, matched, token) => !(matched.wc === 1 && token.keys.some((k) => plugin.excludeWordKeys.has(k)))
     });
     module2.exports = Object.assign({}, core, {
-      // Base form for collected aliases: the first claiming language wins (by priority).
+      // Base form for collected aliases: the first claiming language that has one wins. A
+      // language without lemma() is skipped — Latin claims all Latin script and would answer
+      // for English, dropping the harvest to the literal form.
       lemmaFor(word) {
         for (const lang of this.activeLanguages) {
-          if (lang.match(word))
-            return lang.lemma ? lang.lemma(word) : word.toLowerCase();
+          if (lang.match(word) && lang.lemma)
+            return lang.lemma(word);
         }
         return word.toLowerCase();
       },
@@ -7003,8 +7212,13 @@ var GlossaryLinkerPlugin = class extends Plugin {
     new Notice(t("notice.unlinked"));
     this.updateStatusBar();
   }
+  // By path, not title: a bare title resolves case-insensitively, so Term and term open one note.
+  linktextFor(canonical) {
+    const term = (this.terms || []).find((t2) => t2.canonical === canonical);
+    return term ? term.path : canonical;
+  }
   openTerm(canonical, sourcePath, newTab) {
-    this.app.workspace.openLinkText(canonical, sourcePath || "", newTab);
+    this.app.workspace.openLinkText(this.linktextFor(canonical), sourcePath || "", newTab);
   }
   activePath() {
     const f = this.app.workspace.getActiveFile();
@@ -7018,7 +7232,7 @@ var GlossaryLinkerPlugin = class extends Plugin {
       source: hoverParent ? "glossary-linker-choice" : "glossary-linker",
       hoverParent: hoverParent || this,
       targetEl,
-      linktext: canonical,
+      linktext: this.linktextFor(canonical),
       sourcePath: sourcePath || ""
     });
   }
