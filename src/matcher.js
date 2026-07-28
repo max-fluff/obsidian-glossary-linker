@@ -71,6 +71,8 @@ module.exports = Object.assign({}, core, {
     }
     this.index = { byKey, termCount: canonicals.size };
     this.terms = terms;
+    // Bumped so the usage/candidate caches drop results scanned against the old term set.
+    this.indexVersion = (this.indexVersion || 0) + 1;
     this.notifyIndexChange();
   },
 });

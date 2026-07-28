@@ -3,6 +3,7 @@
 const { Notice } = require('obsidian');
 const { t } = require('./shared/i18n');
 const { createProseProvider, aliasHit } = require('./shared/prose/provider');
+const { createUsageCache } = require('./shared/prose/usage');
 const { suggestionsFor } = require('./term-suggest');
 
 // Public API exposed as `app.plugins.plugins['glossary-linker'].api`, so other
@@ -68,28 +69,42 @@ module.exports = {
     return null;
   },
 
+  // Read one note for the usage report: how often each term appears in it as plain text,
+  // plus, with includeLinks, its direct [[Term]] links. Cached per note by the harness.
+  async usageInFile(file, includeLinks) {
+    const here = new Map();
+    try {
+      const text = await this.app.vault.cachedRead(file);
+      for (const m of this.findMatches(text, this.canonicalForPath(file.path), { protect: true })) {
+        here.set(m.canonical, (here.get(m.canonical) || 0) + 1);
+      }
+    } catch (e) { /* unreadable file: links below may still apply */ }
+    if (includeLinks) {
+      const cache = this.app.metadataCache.getFileCache(file);
+      for (const link of (cache && cache.links) || []) {
+        const dest = this.app.metadataCache.getFirstLinkpathDest(link.link, file.path);
+        if (dest && this.isGlossaryFile(dest)) here.set(dest.basename, (here.get(dest.basename) || 0) + 1);
+      }
+    }
+    return here;
+  },
+
+  // The notes a report scans: the whole vault, or just the linker's scope.
+  reportFiles(opts) {
+    return opts.wholeVault ? this.app.vault.getMarkdownFiles() : this.getScopeFiles();
+  },
+
   // For every term, how many times it is used across in-scope notes and in which
   // files. Counts plain-text mentions; with opts.includeLinks, also direct
   // [[Term]] / [[Term|alias]] links. Terms with count 0 are orphans.
   async getUsageReport(opts = {}) {
     const counts = new Map();
     for (const t of this.terms || []) counts.set(t.canonical, { canonical: t.canonical, path: t.path, count: 0, files: [] });
-    const files = opts.wholeVault ? this.app.vault.getMarkdownFiles() : this.getScopeFiles();
-    for (const file of files) {
-      const here = new Map();
-      try {
-        const text = await this.app.vault.cachedRead(file);
-        for (const m of this.findMatches(text, this.canonicalForPath(file.path), { protect: true })) {
-          here.set(m.canonical, (here.get(m.canonical) || 0) + 1);
-        }
-      } catch (e) { /* unreadable file: links below may still apply */ }
-      if (opts.includeLinks) {
-        const cache = this.app.metadataCache.getFileCache(file);
-        for (const link of (cache && cache.links) || []) {
-          const dest = this.app.metadataCache.getFirstLinkpathDest(link.link, file.path);
-          if (dest && this.isGlossaryFile(dest)) here.set(dest.basename, (here.get(dest.basename) || 0) + 1);
-        }
-      }
+    const files = this.reportFiles(opts);
+    if (!this.usageCache) this.usageCache = createUsageCache();
+    const signature = `${this.indexVersion || 0}|${opts.includeLinks ? 'L' : ''}`;
+    const results = await this.usageCache.run(files, signature, (file) => this.usageInFile(file, !!opts.includeLinks));
+    for (const { file, value: here } of results) {
       for (const [canonical, n] of here) {
         const entry = counts.get(canonical);
         if (!entry) continue;
@@ -100,46 +115,68 @@ module.exports = {
     return [...counts.values()];
   },
 
+  // Read one note for the candidate scan: how often each not-yet-a-term lemma appears in
+  // it, with the surface forms behind it. Cached per note by the harness.
+  async candidatesInFile(file, minLen) {
+    const here = new Map(); // lemma -> { forms: Map<surface, count>, total }
+    let text;
+    try { text = await this.app.vault.cachedRead(file); } catch (e) { return here; }
+    const protect = this.computeProtected(text);
+    for (const m of text.matchAll(/[\p{L}\p{Nd}]+/gu)) {
+      const raw = m[0];
+      if (/^\p{Nd}+$/u.test(raw)) continue;
+      if (this.overlapsProtected(protect, m.index, m.index + raw.length)) continue;
+      if (this.keysFor(raw).some((k) => this.index.byKey.has(k) || this.excludeWordKeys.has(k))) continue;
+      const lemma = this.lemmaFor(raw);
+      if (lemma.length < minLen) continue;
+      let g = here.get(lemma);
+      if (!g) { g = { forms: new Map(), total: 0 }; here.set(lemma, g); }
+      g.forms.set(raw, (g.forms.get(raw) || 0) + 1);
+      g.total++;
+    }
+    return here;
+  },
+
   // Frequent in-scope words that are not yet terms — candidates worth defining.
   // Pure frequency: a word is kept when its lemma appears in at least
   // candidateMinNotes notes. Inflected forms collapse onto one lemma.
   async collectCandidates(opts = {}) {
     const minLen = Math.max(1, this.settings.minTermLength || 1);
     const minNotes = Math.max(1, this.settings.candidateMinNotes || 1);
-    const groups = new Map(); // lemma -> { forms: Map<surface, count>, total, files: Set }
-    const files = opts.wholeVault ? this.app.vault.getMarkdownFiles() : this.getScopeFiles();
+    const files = this.reportFiles(opts);
+    if (!this.candidateCache) this.candidateCache = createUsageCache();
+    // minLen changes what a note contributes, so it joins the index version in the key.
+    const signature = `${this.indexVersion || 0}|${minLen}`;
     const notice = new Notice(t('notice.scanning'), 0);
+    let results;
     try {
-      for (let i = 0; i < files.length; i++) {
-        if (i % 25 === 0) notice.setMessage(t('notice.scanningProgress', { current: i + 1, total: files.length }));
-        let text;
-        try { text = await this.app.vault.cachedRead(files[i]); } catch (e) { continue; }
-        const protect = this.computeProtected(text);
-        for (const m of text.matchAll(/[\p{L}\p{Nd}]+/gu)) {
-          const raw = m[0];
-          if (/^\p{Nd}+$/u.test(raw)) continue;
-          if (this.overlapsProtected(protect, m.index, m.index + raw.length)) continue;
-          if (this.keysFor(raw).some((k) => this.index.byKey.has(k) || this.excludeWordKeys.has(k))) continue;
-          const lemma = this.lemmaFor(raw);
-          if (lemma.length < minLen) continue;
-          let g = groups.get(lemma);
-          if (!g) { g = { forms: new Map(), total: 0, files: new Set() }; groups.set(lemma, g); }
-          g.forms.set(raw, (g.forms.get(raw) || 0) + 1);
-          g.total++;
-          g.files.add(files[i].path);
-        }
-      }
+      results = await this.candidateCache.run(
+        files, signature,
+        (file) => this.candidatesInFile(file, minLen),
+        (i, total) => { if (i % 25 === 0) notice.setMessage(t('notice.scanningProgress', { current: i + 1, total })); },
+      );
     } finally {
       notice.hide();
     }
 
+    const groups = new Map(); // lemma -> { forms: Map<surface, count>, total, docFreq }
+    for (const { value: here } of results) {
+      for (const [lemma, g] of here) {
+        let all = groups.get(lemma);
+        if (!all) { all = { forms: new Map(), total: 0, docFreq: 0 }; groups.set(lemma, all); }
+        for (const [form, n] of g.forms) all.forms.set(form, (all.forms.get(form) || 0) + n);
+        all.total += g.total;
+        all.docFreq++;
+      }
+    }
+
     const out = [];
     for (const [lemma, g] of groups) {
-      if (g.files.size < minNotes) continue;
+      if (g.docFreq < minNotes) continue;
       // Show the most common surface form rather than the (sometimes odd) stem.
       let display = lemma, best = -1;
       for (const [form, n] of g.forms) if (n > best) { best = n; display = form; }
-      out.push({ lemma, display, count: g.total, docFreq: g.files.size });
+      out.push({ lemma, display, count: g.total, docFreq: g.docFreq });
     }
     out.sort((a, b) => b.docFreq - a.docFreq || b.count - a.count);
     return out.slice(0, 100);
