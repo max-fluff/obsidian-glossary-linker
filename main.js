@@ -1577,76 +1577,74 @@ var require_language_api = __commonJS({
   }
 });
 
-// src/shared/prose/folder-suggest.js
-var require_folder_suggest = __commonJS({
-  "src/shared/prose/folder-suggest.js"(exports2, module2) {
+// src/shared/suggest-base.js
+var require_suggest_base = __commonJS({
+  "src/shared/suggest-base.js"(exports2, module2) {
     "use strict";
-    var obsidian = require("obsidian");
-    var { AbstractInputSuggest, TFolder: TFolder2 } = obsidian;
-    var FolderSuggest = class extends AbstractInputSuggest {
-      constructor(app, inputEl) {
-        super(app, inputEl);
-        this.inputEl = inputEl;
-      }
-      getSuggestions(query) {
-        const q = query.toLowerCase();
-        return this.app.vault.getAllLoadedFiles().filter((f) => f instanceof TFolder2 && f.path.toLowerCase().includes(q));
-      }
-      renderSuggestion(folder, el) {
-        el.setText(folder.path || "/");
-      }
-      selectSuggestion(folder) {
-        this.setValue(folder.path);
-        this.inputEl.trigger("input");
-        this.close();
-      }
-    };
-    var FileSuggest = class extends AbstractInputSuggest {
-      constructor(app, inputEl) {
-        super(app, inputEl);
-        this.inputEl = inputEl;
-      }
-      getSuggestions(query) {
-        const q = query.toLowerCase();
-        return this.app.vault.getMarkdownFiles().filter((f) => f.path.toLowerCase().includes(q)).slice(0, 50);
-      }
-      renderSuggestion(file, el) {
-        el.setText(file.path);
-      }
-      selectSuggestion(file) {
-        this.setValue(file.path);
-        this.inputEl.trigger("input");
-        this.close();
-      }
-    };
-    var PathSuggest = class extends AbstractInputSuggest {
+    var { AbstractInputSuggest } = require("obsidian");
+    var PathSuggestBase = class extends AbstractInputSuggest {
       constructor(app, inputEl, onSelect) {
         super(app, inputEl);
+        this.app = app;
         this.inputEl = inputEl;
         this.onSelect = onSelect;
       }
-      getSuggestions(query) {
-        const q = query.toLowerCase();
-        const isFolder = (f) => f instanceof TFolder2;
-        return this.app.vault.getAllLoadedFiles().filter((f) => f.path && f.path.toLowerCase().includes(q)).sort((a, b) => isFolder(a) === isFolder(b) ? a.path.localeCompare(b.path) : isFolder(a) ? -1 : 1).slice(0, 50);
+      // A vault completer deals in TFile/TFolder, a disk one in plain paths.
+      pathOf(item) {
+        return typeof item === "string" ? item : item.path;
       }
-      renderSuggestion(f, el) {
-        el.setText(f.path || "/");
+      match(items, query, limit) {
+        const q = String(query == null ? "" : query).replace(/\\/g, "/").toLowerCase();
+        const hit = items.filter((i) => this.pathOf(i).toLowerCase().includes(q));
+        return limit ? hit.slice(0, limit) : hit;
       }
-      selectSuggestion(f) {
+      renderSuggestion(item, el) {
+        el.setText(this.pathOf(item) || "/");
+      }
+      // onSelect clears the box instead of keeping the pick: the folder-list editor adds it as a
+      // row rather than binding the input to one value.
+      selectSuggestion(item) {
+        const path = this.pathOf(item);
         if (this.onSelect) {
-          this.onSelect(f.path);
+          this.onSelect(path);
           this.setValue("");
           this.close();
           return;
         }
-        this.setValue(f.path);
+        this.setValue(path);
         this.inputEl.trigger("input");
         this.close();
       }
     };
-    var folderSuggestAvailable = () => typeof AbstractInputSuggest === "function";
-    module2.exports = { FolderSuggest, FileSuggest, PathSuggest, folderSuggestAvailable };
+    var suggestAvailable2 = () => typeof AbstractInputSuggest === "function";
+    var SUGGEST_LIMIT = 50;
+    module2.exports = { PathSuggestBase, suggestAvailable: suggestAvailable2, SUGGEST_LIMIT };
+  }
+});
+
+// src/shared/prose/vault-suggest.js
+var require_vault_suggest = __commonJS({
+  "src/shared/prose/vault-suggest.js"(exports2, module2) {
+    "use strict";
+    var { TFolder: TFolder2 } = require("obsidian");
+    var { PathSuggestBase, suggestAvailable: suggestAvailable2, SUGGEST_LIMIT } = require_suggest_base();
+    var isFolder = (f) => f instanceof TFolder2;
+    var VaultFolderSuggest = class extends PathSuggestBase {
+      getSuggestions(query) {
+        return this.match(this.app.vault.getAllLoadedFiles().filter(isFolder), query, SUGGEST_LIMIT);
+      }
+    };
+    var VaultFileSuggest = class extends PathSuggestBase {
+      getSuggestions(query) {
+        return this.match(this.app.vault.getMarkdownFiles(), query, SUGGEST_LIMIT);
+      }
+    };
+    var VaultPathSuggest = class extends PathSuggestBase {
+      getSuggestions(query) {
+        return this.match(this.app.vault.getAllLoadedFiles().filter((f) => f.path), query, 0).sort((a, b) => isFolder(a) === isFolder(b) ? a.path.localeCompare(b.path) : isFolder(a) ? -1 : 1).slice(0, SUGGEST_LIMIT);
+      }
+    };
+    module2.exports = { VaultFolderSuggest, VaultFileSuggest, VaultPathSuggest, suggestAvailable: suggestAvailable2 };
   }
 });
 
@@ -2790,7 +2788,7 @@ var require_settings_tab = __commonJS({
     "use strict";
     var { PluginSettingTab, Setting, Notice: Notice2, TFolder: TFolder2 } = require("obsidian");
     var { sanitizeFolder: sanitizeFolder2 } = require_constants();
-    var { FolderSuggest, FileSuggest, PathSuggest, folderSuggestAvailable } = require_folder_suggest();
+    var { VaultFolderSuggest, VaultFileSuggest, VaultPathSuggest, suggestAvailable: suggestAvailable2 } = require_vault_suggest();
     var { t: t2, plural: plural2 } = require_i18n();
     var { renderPrecedenceSetting } = require_precedence();
     var { createProseSettings } = require_settings();
@@ -2826,16 +2824,16 @@ var require_settings_tab = __commonJS({
             this.renderFolderStatus();
             this.plugin.refreshOverviewDebounced();
           });
-          if (folderSuggestAvailable())
-            new FolderSuggest(this.app, c.inputEl);
+          if (suggestAvailable2())
+            new VaultFolderSuggest(this.app, c.inputEl);
         });
         new Setting(containerEl).setName(t2("set.termTemplate.name")).setDesc(t2("set.termTemplate.desc")).addText((c) => {
           c.setValue(s.termTemplate).onChange(async (v) => {
             s.termTemplate = v.trim();
             await save(false);
           });
-          if (folderSuggestAvailable())
-            new FileSuggest(this.app, c.inputEl);
+          if (suggestAvailable2())
+            new VaultFileSuggest(this.app, c.inputEl);
         });
         sections.scopeMode(containerEl, saveScope);
         const folderList = (name, desc, key) => sections.pathList(containerEl, {
@@ -2844,7 +2842,7 @@ var require_settings_tab = __commonJS({
           key,
           labels: "folderList",
           normalize: sanitizeFolder2,
-          attachSuggest: folderSuggestAvailable() ? (inputEl, onPick) => new PathSuggest(this.app, inputEl, onPick) : null,
+          attachSuggest: suggestAvailable2() ? (inputEl, onPick) => new VaultPathSuggest(this.app, inputEl, onPick) : null,
           save: saveScope
         });
         if (s.scopeMode === "folders") {

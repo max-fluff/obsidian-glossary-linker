@@ -2,7 +2,7 @@
 
 const { PluginSettingTab, Setting, Notice, TFolder } = require('obsidian');
 const { sanitizeFolder } = require('./constants');
-const { FolderSuggest, FileSuggest, PathSuggest, folderSuggestAvailable } = require('./shared/prose/folder-suggest');
+const { VaultFolderSuggest, VaultFileSuggest, VaultPathSuggest, suggestAvailable } = require('./shared/prose/vault-suggest');
 const { t, plural } = require('./shared/i18n');
 const { renderPrecedenceSetting } = require('./shared/precedence');
 const { createProseSettings } = require('./shared/prose/settings');
@@ -31,7 +31,7 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
       .setDesc(t('set.glossaryFolder.desc'))
       .addText((c) => {
         c.setValue(s.glossaryFolder).onChange(async (v) => { s.glossaryFolder = sanitizeFolder(v); await save(true); this.renderFolderStatus(); this.plugin.refreshOverviewDebounced(); });
-        if (folderSuggestAvailable()) new FolderSuggest(this.app, c.inputEl);
+        if (suggestAvailable()) new VaultFolderSuggest(this.app, c.inputEl);
       });
 
     new Setting(containerEl)
@@ -39,7 +39,7 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
       .setDesc(t('set.termTemplate.desc'))
       .addText((c) => {
         c.setValue(s.termTemplate).onChange(async (v) => { s.termTemplate = v.trim(); await save(false); });
-        if (folderSuggestAvailable()) new FileSuggest(this.app, c.inputEl);
+        if (suggestAvailable()) new VaultFileSuggest(this.app, c.inputEl);
       });
 
     sections.scopeMode(containerEl, saveScope);
@@ -50,8 +50,8 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
       key,
       labels: 'folderList',
       normalize: sanitizeFolder,
-      attachSuggest: folderSuggestAvailable()
-        ? (inputEl, onPick) => new PathSuggest(this.app, inputEl, onPick)
+      attachSuggest: suggestAvailable()
+        ? (inputEl, onPick) => new VaultPathSuggest(this.app, inputEl, onPick)
         : null,
       save: saveScope,
     });

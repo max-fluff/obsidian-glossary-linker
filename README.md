@@ -12,6 +12,8 @@
 
 Highlights glossary terms in your notes in any word form (declensions, plurals), lets you turn them into real links, and picks up new aliases from links you've already made by hand. It was inspired by Virtual Linker, but it matches inflected forms instead of exact spellings only.
 
+> **Links whole notes as terms — not the headings inside them.** If you want a word to link to an individual **heading** in a file, that's the one thing this plugin leaves out, and its sibling [Heading Linker](https://community.obsidian.md/plugins/heading-linker) does exactly that, on the same matching engine. The two are made to work together.
+
 Available in the Obsidian community catalog: **[community.obsidian.md/plugins/glossary-linker](https://community.obsidian.md/plugins/glossary-linker)**.
 
 <p align="center">
@@ -365,7 +367,7 @@ In an existing clone without the submodule, run `git submodule update --init` fi
 - `api.js` — the public API mixin (`app.plugins.plugins['glossary-linker'].api`).
 - `modals.js` — the preview dialogs and the confirm dialog.
 - `settings-tab.js` — the settings UI.
-- `folder-suggest.js` — folder autocomplete for the glossary-folder field (feature-detected).
+- `vault-suggest.js` — vault folder/file autocomplete for the settings fields (feature-detected).
 - `term-suggest.js` — the editor autocomplete (`EditorSuggest`, feature-detected).
 - `shared/` — git submodule shared with the sibling linker plugins: markdown helpers, the i18n engine, the folder-list settings editor, and `morphology/` (the language modules, their contract and `validateLanguage()`). Interface strings live per-plugin in `locales/`.
 
