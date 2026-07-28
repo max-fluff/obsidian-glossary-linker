@@ -300,6 +300,8 @@ Code blocks (``` and `~~~`), inline code, frontmatter, existing `[[...]]` and `[
 
 The index is built on load and rebuilt when glossary notes change (debounced). Word-form keys are cached in the index, and per-word stemmer results are memoised across a render pass (invalidated on rebuild). Scanning is token-based with longest-match-first. The editor's right-click menu reads the term straight from the clicked decoration instead of re-scanning the document.
 
+The [glossary overview](#glossary-overview)'s usage and candidate scans are cached per note: a *Rescan* only re-reads notes whose file changed since the last one, and the cache drops itself whenever the term index is rebuilt (so counts never lag the glossary). The first scan of a large vault still reads every note; later ones are near-instant.
+
 ## Public API
 
 The plugin exposes a small read-only API at `app.plugins.plugins['glossary-linker'].api`, so other plugins and DataviewJS can query the glossary:
