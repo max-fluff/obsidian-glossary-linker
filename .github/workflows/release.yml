@@ -1,16 +1,20 @@
 name: Release
 
-# Builds the plugin and attaches attested main.js, manifest.json and styles.css
-# to a published release.
+# Pushing a version tag opens a draft release with the built, attested assets attached;
+# publishing it is manual, so a release is never live before its assets are there.
+#
+# This mirrors Obsidian's own reference workflow (obsidian-sample-plugin#189) step for
+# step — same attest action major, same release action — because their community review
+# verifies the attestation and we have no way to see what it accepts.
 
 on:
-  release:
-    types: [published]
+  push:
+    tags: ["[0-9]+.[0-9]+.[0-9]+"]
 
 permissions:
-  contents: write
-  id-token: write
-  attestations: write
+  contents: write # create the release
+  id-token: write # mint the OIDC token for Sigstore
+  attestations: write # publish the attestation
 
 jobs:
   release:
@@ -22,22 +26,27 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "lts/*"
+          cache: "npm"
 
       - run: npm ci
       - run: npm run build
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             main.js
             manifest.json
             styles.css
 
-      - name: Upload assets to the release
+      - name: Open a draft release with the assets attached
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            main.js
+            manifest.json
+            styles.css
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: >
-          gh release upload "${{ github.event.release.tag_name }}"
-          main.js manifest.json styles.css --clobber
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
