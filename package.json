@@ -1,6 +1,6 @@
 {
   "name": "obsidian-glossary-linker",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "Obsidian plugin: highlight glossary terms in any word form, turn them into links, collect aliases.",
   "author": "max-fluff",
   "license": "MIT",
