@@ -54,6 +54,11 @@ module.exports = {
   'exclude.terms': 'excluded terms',
   'exclude.add': 'Add "{value}" to {noun}',
   'exclude.remove': 'Remove "{value}" from {noun}',
+  'exclude.addForm': 'Add "{value}" to {noun}',
+  'exclude.removeForm': 'Remove "{value}" from {noun}',
+  'exclude.addStem': 'Add every form of "{value}" to {noun}',
+  'exclude.removeStem': 'Remove every form of "{value}" from {noun}',
+  'exclude.shortTerm': 'This term',
 
   // Notices
   'notice.indexRebuilt': 'Glossary Linker: index rebuilt',
@@ -112,7 +117,7 @@ module.exports = {
   'set.excludeTerms.name': 'Excluded terms',
   'set.excludeTerms.desc': 'Term titles or aliases, one per line — drops the whole matching entry from the index.',
   'set.excludeWords.name': 'Excluded words',
-  'set.excludeWords.desc': 'Surface words, one per line, that never trigger a link even if they match a term.',
+  'set.excludeWords.desc': 'Surface words, one per line, that never trigger a link even if they match a term. A line stops that spelling alone; end it with * to stop every form of the word.',
   'set.highlightInReading.desc': 'Underline detected terms as clickable links in Reading view (file unchanged).',
   'set.editingHighlight.desc': 'Underline terms in the editor (Live Preview / Source) too.',
   'set.editingHighlight.off': 'Off',

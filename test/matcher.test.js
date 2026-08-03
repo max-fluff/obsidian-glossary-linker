@@ -95,6 +95,24 @@ describe('excluded words', () => {
     assert.deepStrictEqual(p.findMatches('a spawn here', null), []);
   });
 
+  it('leaves the other forms of the term linking', () => {
+    // The list holds spellings: excluding "spawn" is not a wish to lose the term.
+    const p = makePlugin({ notes: [spawn], settings: { excludeWords: 'spawn' } });
+    assert.deepStrictEqual(p.findMatches('two spawns here', null).map((m) => m.canonical), ['Spawn']);
+  });
+
+  it('keeps a term whose stem an excluded word shares', () => {
+    // Reported against the heading linker as issue #1: "specifically" and "specification"
+    // reduce to one stem, and silencing the first must not cost the term.
+    const p = makePlugin({ notes: [{ title: 'Specification' }], settings: { excludeWords: 'specifically' } });
+    assert.deepStrictEqual(p.findMatches('specifically about the specification', null).map((m) => m.canonical), ['Specification']);
+  });
+
+  it('silences every form behind a starred line', () => {
+    const p = makePlugin({ notes: [spawn], settings: { excludeWords: 'spawn*' } });
+    assert.deepStrictEqual(p.findMatches('a spawn and two spawns', null), []);
+  });
+
   it('still links a longer term that contains it', () => {
     // Excluding "spawn" should not cost you "spawn point".
     const p = makePlugin({ notes: [{ title: 'Spawn point' }], settings: { excludeWords: 'spawn' } });

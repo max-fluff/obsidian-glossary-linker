@@ -84,18 +84,31 @@ describe('editor menu', () => {
     assert.ok(/words/.test(titles[0]), titles[0]);
   });
 
-  it('groups its own two lists even with no sibling installed', async () => {
-    // Words and terms are separate lists, so on a link we alone contribute two lines.
+  it('groups the two word lines and leaves the term flat', async () => {
+    // Both word items act on the wording, so they nest under it; the term is another object
+    // and keeps a title that names it.
     const plugin = await load();
     fakeApp.plugins.plugins = {};
     plugin.matchAtCursor = () => null;
     plugin.wordAtCursor = () => null;
-    plugin.glossaryLinkAt = () => ({ display: 'Spawn', targetFile: null });
+    plugin.glossaryLinkAt = () => ({ display: 'spawning', canonical: 'Spawn', targetFile: null });
 
-    const menu = menuFor();
-    assert.ok(menu.groups().includes('Exclude “Spawn”'), JSON.stringify(menu.groups()));
-    const inGroup = menu.titles().filter((x) => /^Exclude/.test(x));
-    assert.strictEqual(inGroup.length, 2, JSON.stringify(menu.titles()));
+    const titles = menuFor().titles();
+    assert.ok(titles.includes('Exclude “spawning” ▸ This spelling'), JSON.stringify(titles));
+    assert.ok(titles.includes('Exclude “spawning” ▸ Every form'), JSON.stringify(titles));
+    assert.ok(titles.includes('Add "Spawn" to excluded terms'), JSON.stringify(titles));
+  });
+
+  it('writes the base form when the reader asks for every form', async () => {
+    const plugin = await load();
+    plugin.matchAtCursor = () => ({
+      line: 0,
+      match: { start: 0, end: 8, display: 'spawning', alts: [], canonical: 'Spawn' },
+      foreign: [],
+    });
+
+    await menuFor().items.find((e) => e.title === 'Every form').click();
+    assert.strictEqual(plugin.settings.excludeWords, 'spawn*');
   });
 
   it('offers nothing on a word it neither matches nor excludes', async () => {

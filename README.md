@@ -144,7 +144,7 @@ A right-sidebar panel (the *Open glossary overview* command, or the ribbon icon)
 </p>
 
 - **Terms** — every indexed term with how often it's used across in-scope notes; sort by usage or by name. The count is plain-text mentions, plus existing `[[Term]]` links when *count links* is ticked (on by default — so a term you've already linked everywhere isn't mistaken for unused). Terms with no uses are flagged as orphans. Click a term to open it (middle-click for a new tab), or use *link all* to link its occurrences across the vault.
-- **Candidates** — frequent words that are *not* terms yet, so you can spot what's worth defining. Each shows how many notes it appears in and its total uses; sort by either, and set the *Min notes* threshold in the panel. Per candidate: create a term from it, or dismiss it with ✕ (which adds it to *Excluded words*, so it stays out of future scans). Collapse the section to skip the (heavier) candidate scan.
+- **Candidates** — frequent words that are *not* terms yet, so you can spot what's worth defining. Each shows how many notes it appears in and its total uses; sort by either, and set the *Min notes* threshold in the panel. Per candidate: create a term from it, or dismiss it with ✕ (which adds its base form to *Excluded words* as `word*`, so no form of it comes back on the next scan). Collapse the section to skip the (heavier) candidate scan.
 
 Both lists come from scanning your notes, so they refresh on demand — hit *Rescan* after a round of edits. By default the scan follows the linker's [Link scope](#settings); tick *whole vault* in the panel header to scan every note regardless of scope.
 
@@ -241,7 +241,7 @@ You can also manage these lists from the file explorer: right-click a file or fo
 | **Languages** | English + interface language | per-language toggle; reorder with ↑↓ to set priority (higher in the list wins when same-script languages overlap, deciding the lemma); on first run only English and your Obsidian interface language are enabled |
 | **Link first occurrence only** | off | link only the first occurrence of each term per page |
 | **Excluded terms** | — | term titles or aliases that drop the whole matching entry from the index; a shared alias (e.g. `_toc` on every index/MOC note) drops them all at once. Use *Excluded words* to suppress a single word |
-| **Excluded words** | — | surface words (and their inflections) that never trigger a link even if they match a term — for homonyms, e.g. a common word "lead" colliding with a term "Lead" |
+| **Excluded words** | — | surface words that never trigger a link even if they match a term — for homonyms, e.g. a common word "lead" colliding with a term "Lead". A line stops that spelling alone; `lead*` stops every form behind it. The term itself keeps linking either way |
 
 **Highlighting**
 | Setting | Default | Description |

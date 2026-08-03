@@ -17,6 +17,9 @@ const { initI18n, withFamily, t, plural } = require('./shared/i18n');
 const { buildMenu } = require('./shared/menu-verbs');
 const { ChoicePopover } = require('./shared/prose/choices');
 
+// Same tokens the matcher counts, so "one word" means the same thing on both sides.
+const oneWord = (text) => (text.match(/[\p{L}\p{Nd}]+/gu) || []).length === 1;
+
 class GlossaryLinkerPlugin extends Plugin {
   async onload() {
     initI18n(withFamily('prose', {
@@ -36,7 +39,8 @@ class GlossaryLinkerPlugin extends Plugin {
     this.activeLanguages = [];
     this.languageErrors = [];
     this.index = { byKey: new Map(), termCount: 0 };
-    this.excludeWordKeys = new Set();
+    this.excludedWords = new Set();
+    this.excludedStems = new Set();
     this.keysCache = new Map();
     this.terms = [];
     // path -> JSON(canonical+aliases) as of the last rebuild. Lets the 'changed'
@@ -106,9 +110,15 @@ class GlossaryLinkerPlugin extends Plugin {
       const file = this.app.workspace.getActiveFile();
       const sourcePath = file ? file.path : '';
 
-      const excludeItems = (value, ...listKeys) => {
+      // Three wishes on one word: stop this spelling, stop every form behind it, drop the
+      // term it reached. On the term's own wording only the term itself is worth offering.
+      const excludeItems = (display, canonical) => {
         if (!this.settings.menuExclude) return;
-        for (const key of listKeys) this.addExclusionMenuItem(menu, key, value);
+        if (display && oneWord(display) && (!canonical || display.toLowerCase() !== canonical.toLowerCase())) {
+          this.addExclusionMenuItem(menu, 'excludeWords', display, 'form');
+          this.addExclusionMenuItem(menu, 'excludeWords', display, 'stem');
+        }
+        if (canonical) this.addExclusionMenuItem(menu, 'excludeTerms', canonical);
       };
 
       // On one of our links: unlink, exclude, collect its wording as an alias.
@@ -121,7 +131,7 @@ class GlossaryLinkerPlugin extends Plugin {
           menu.addItem((i) => i.setTitle(t('menu.collectThisAlias')).setIcon('download')
             .onClick(() => this.harvestOneLink(link.targetFile, link.display)));
         }
-        excludeItems(link.display, 'excludeWords', 'excludeTerms');
+        excludeItems(link.display, link.canonical);
         return;
       }
 
@@ -137,7 +147,7 @@ class GlossaryLinkerPlugin extends Plugin {
           menu.addItem((i) => i.setTitle(t('menu.addAlias')).setIcon('text-cursor-input')
             .onClick(() => this.addAliasFromSelection(sel)));
         }
-        excludeItems(sel, 'excludeWords');
+        excludeItems(sel, null);
         return;
       }
 
@@ -170,7 +180,7 @@ class GlossaryLinkerPlugin extends Plugin {
           menu.addItem((i) => i.setTitle(t('menu.openThisWord', { display })).setIcon('file-text')
             .onClick(() => this.chooseTerm(candidates(), t('menu.openTitle'), (c) => this.openTerm(c, sourcePath, false))));
         }
-        excludeItems(display, 'excludeTerms');
+        excludeItems(display, canonical);
         return;
       }
 
@@ -178,17 +188,17 @@ class GlossaryLinkerPlugin extends Plugin {
       // still worth offering is the setting that makes us stop.
       const word = this.wordAtCursor(editor);
       if (word) {
-        excludeItems(word.canonical, 'excludeTerms');
+        excludeItems(word.display, word.canonical);
         return;
       }
       // Nothing matches — which is also what an already-excluded word looks like, since
       // exclusion takes it out of the index. Without this the item that put it there has no
       // counterpart and the reader cannot undo it from the menu at all.
       const raw = this.rawWordAtCursor(editor);
-      if (raw) {
-        const lists = ['excludeWords', 'excludeTerms'].filter((k) => this.isExcluded(k, raw));
-        if (lists.length) excludeItems(raw, ...lists);
-      }
+      if (!raw || !this.settings.menuExclude) return;
+      if (this.isExcluded('excludeWords', raw)) this.addExclusionMenuItem(menu, 'excludeWords', raw, 'form');
+      if (this.stemLineSilencing(raw)) this.addExclusionMenuItem(menu, 'excludeWords', raw, 'stem');
+      if (this.isExcluded('excludeTerms', raw)) this.addExclusionMenuItem(menu, 'excludeTerms', raw);
     })));
 
     this.registerEvent(this.app.workspace.on('file-menu', (menu, file, source) => {

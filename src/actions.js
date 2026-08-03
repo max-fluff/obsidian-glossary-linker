@@ -9,6 +9,9 @@ const {
 const { candidatesFor } = require('./shared/discover');
 const { t, plural } = require('./shared/i18n');
 
+const LONG = { term: '', form: 'Form', stem: 'Stem' };
+const SHORT = { term: 'exclude.shortTerm', form: 'exclude.shortForm', stem: 'exclude.shortStem' };
+
 // Turning terms into links + collecting aliases. Mixed into the plugin prototype.
 module.exports = {
   // Ambiguous matches keep their `alts` so the preview can let the user pick a term.
@@ -299,21 +302,47 @@ module.exports = {
     return splitLines(this.settings[listKey]).some((l) => l.toLowerCase() === v);
   },
 
-  // Add or remove exclusion item, toggled by current state. Tagged with the verb, so the
-  // builder collects it with whatever else offers to exclude the same word. excludeWords are
-  // stored lowercased.
-  addExclusionMenuItem(menu, listKey, value) {
+  // A starred line carries the word's base form under the current match mode — a stem, a
+  // stripped ending or the whole word — and stands for every form that reduces to it.
+  exclusionLine(kind, value) {
+    return kind === 'stem' ? `${this.keysFor(value)[0]}*` : value;
+  },
+
+  // The base of the starred line that silences this word, or null. Searched rather than
+  // built: the line may have been written from a different form of the same word.
+  stemLineSilencing(word) {
+    const keys = this.keysFor(word);
+    for (const line of splitLines(this.settings.excludeWords)) {
+      if (!line.endsWith('*')) continue;
+      const base = line.slice(0, -1);
+      if (this.keysFor(base).some((k) => keys.includes(k))) return base;
+    }
+    return null;
+  },
+
+  // Add or remove exclusion item, toggled by current state. `kind` is the wish behind it — a
+  // term ('term'), this spelling ('form') or every form behind it ('stem') — and picks the
+  // wording. Tagged with the verb, so the builder collects it with whatever else offers to
+  // exclude the same word. excludeWords are stored lowercased.
+  addExclusionMenuItem(menu, listKey, value, kind = 'term') {
     const words = listKey === 'excludeWords';
     const noun = words ? t('exclude.words') : t('exclude.terms');
-    const excluded = this.isExcluded(listKey, value);
-    const key = excluded ? 'exclude.remove' : 'exclude.add';
-    menu.tagged('exclude', { value }, (i, grouped) => i
-      // Inside the group the parent already names the word, so the title drops it.
-      .setTitle(t(grouped ? key + 'Short' : key, { value, noun }))
-      .setIcon(excluded ? 'rotate-ccw' : (words ? 'ban' : 'trash-2'))
+    // A starred line may have been written from another form of the word, so the line to
+    // toggle is looked up rather than rebuilt from the word under the cursor.
+    const silencing = kind === 'stem' ? this.stemLineSilencing(value) : null;
+    const line = silencing === null ? this.exclusionLine(kind, value) : `${silencing}*`;
+    const excluded = silencing !== null || (kind !== 'stem' && this.isExcluded(listKey, line));
+    const key = `exclude.${excluded ? 'remove' : 'add'}${LONG[kind]}`;
+    // Inside the group the parent already says "Exclude «word»" and the item only finishes
+    // it. Taking a word off a list finishes nothing, so an undo stays out of the group.
+    const write = (i, grouped) => i
+      .setTitle(grouped ? t(SHORT[kind]) : t(key, { value, noun }))
+      .setIcon(grouped ? null : (excluded ? 'rotate-ccw' : (words ? 'ban' : 'trash-2')))
       .onClick(() => (excluded
-        ? this.removeFromExclusion(listKey, value)
-        : this.addToExclusion(listKey, words ? value.toLowerCase() : value))));
+        ? this.removeFromExclusion(listKey, line)
+        : this.addToExclusion(listKey, words ? line.toLowerCase() : line)));
+    if (excluded) menu.addItem((i) => write(i, false));
+    else menu.tagged('exclude', { value }, write);
   },
 
   async addToExclusion(listKey, value) {

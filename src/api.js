@@ -43,7 +43,7 @@ module.exports = {
         displayName: 'Glossary Linker',
         spanOf: (m) => ({ start: m.start, end: m.end, label: m.canonical, target: m.canonical }),
         suggestionsFor,
-        excludes: (text) => plugin.isExcluded('excludeWords', text) || plugin.isExcluded('excludeTerms', text),
+        excludes: (text) => plugin.wordSilenced(text) || plugin.isExcluded('excludeTerms', text),
         // A term is its note, so the target is already the title; the kind is what tells it
         // apart from a heading offered on the same word.
         describe: (target, display) => {
@@ -108,10 +108,10 @@ module.exports = {
     return [...counts.values()];
   },
 
-  // A word already covered by the index — a term's own form or an excluded word — so it is
-  // not offered as a candidate.
-  isTermWord(keys) {
-    return keys.some((k) => this.index.byKey.has(k) || this.excludeWordKeys.has(k));
+  // A word already answered for — a term's own form, or one the exclusion list silences — so
+  // it is not offered as a candidate.
+  isTermWord(keys, raw) {
+    return keys.some((k) => this.index.byKey.has(k)) || this.wordSilenced(raw);
   },
 
   // Frequent in-scope words that are not yet terms — candidates worth defining.
@@ -129,7 +129,7 @@ module.exports = {
     try {
       results = await this.candidateCache.run(
         files, signature,
-        (file) => scanCandidateWords(this, file, minLen, (keys) => this.isTermWord(keys)),
+        (file) => scanCandidateWords(this, file, minLen, (keys, raw) => this.isTermWord(keys, raw)),
         (i, total) => { if (i % 25 === 0) notice.setMessage(t('notice.scanningProgress', { current: i + 1, total })); },
       );
     } finally {

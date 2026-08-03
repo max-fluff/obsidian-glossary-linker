@@ -179,7 +179,9 @@ class GlossaryOverviewView extends ItemView {
       const add = actions.createEl('a', { cls: 'glossary-overview-act', text: t('overview.addTerm') });
       add.onclick = async () => { await this.plugin.createTermNote(null, c.display, false); this.drop(c); };
       const dismiss = actions.createEl('a', { cls: 'glossary-overview-act', text: '✕' });
-      dismiss.onclick = async () => { await this.plugin.addToExclusion('excludeWords', c.display.toLowerCase()); this.drop(c); };
+      // Starred: a row stands for a lemma and all the forms folded into it, so dismissing it
+      // by one spelling would let the others come back on the next scan.
+      dismiss.onclick = async () => { await this.plugin.addToExclusion('excludeWords', `${this.plugin.keysFor(c.display)[0]}*`); this.drop(c); };
     }
   }
 

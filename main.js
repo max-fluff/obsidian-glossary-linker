@@ -1756,8 +1756,10 @@ var require_prose = __commonJS({
       // The shared submenu the exclusion items collect into, and their wording inside it, where
       // the parent already names the word.
       "exclude.group": "Exclude \u201C{value}\u201D",
-      "exclude.addShort": "Add to {noun}",
-      "exclude.removeShort": "Remove from {noun}",
+      // Inside the group the parent already says "Exclude …", so an item names its reach and
+      // leaves the state to its tick — "Exclude ▸ Add" read as two verbs fighting.
+      "exclude.shortForm": "This spelling",
+      "exclude.shortStem": "Every form",
       "label.selection": "Selection",
       "modal.leftAsText": "(left as text)",
       "modal.skipOption": "skip",
@@ -1821,8 +1823,8 @@ var require_prose = __commonJS({
       "set.suggestPlainText.desc": "\u041F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430 \u0434\u043E\u043F\u0438\u0441\u044B\u0432\u0430\u0435\u0442 \u0441\u043B\u043E\u0432\u043E, \u043D\u0435 \u043F\u0440\u0435\u0432\u0440\u0430\u0449\u0430\u044F \u0435\u0433\u043E \u0432 \u0441\u0441\u044B\u043B\u043A\u0443.",
       "set.heading.contextMenu": "\u041A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u043E\u0435 \u043C\u0435\u043D\u044E",
       "exclude.group": "\u0418\u0441\u043A\u043B\u044E\u0447\u0438\u0442\u044C \xAB{value}\xBB",
-      "exclude.addShort": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 {noun}",
-      "exclude.removeShort": "\u0423\u0431\u0440\u0430\u0442\u044C \u0438\u0437 {noun}",
+      "exclude.shortForm": "\u042D\u0442\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435",
+      "exclude.shortStem": "\u0412\u0441\u0435 \u0444\u043E\u0440\u043C\u044B",
       "label.selection": "\u0412\u044B\u0434\u0435\u043B\u0435\u043D\u0438\u0435",
       "modal.leftAsText": "(\u043E\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u043E \u0442\u0435\u043A\u0441\u0442\u043E\u043C)",
       "modal.skipOption": "\u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C",
@@ -3222,9 +3224,16 @@ var require_matcher2 = __commonJS({
       fieldsOf: (c) => ({ canonical: c.canonical }),
       // A single word on the excluded-words list never becomes a link, even when a term matches
       // it. Multi-word matches are left alone: "cell" being excluded should not stop "stem cell".
-      accepts: (plugin, matched, token) => !(matched.wc === 1 && token.keys.some((k) => plugin.excludeWordKeys.has(k)))
+      accepts: (plugin, matched, token) => !(matched.wc === 1 && plugin.wordSilenced(token.raw))
     });
     module2.exports = Object.assign({}, core, {
+      // Whether the excluded-words list silences this written word — by its own spelling, or
+      // through a starred line standing for a stem and every form that reduces to it.
+      wordSilenced(word) {
+        if (this.excludedWords.has(word.toLowerCase()))
+          return true;
+        return this.excludedStems.size > 0 && this.keysFor(word).some((k) => this.excludedStems.has(k));
+      },
       // Base form for collected aliases: the first claiming language that has one wins. A
       // language without lemma() is skipped — Latin claims all Latin script and would answer
       // for English, dropping the harvest to the literal form.
@@ -3242,10 +3251,15 @@ var require_matcher2 = __commonJS({
         const terms = [];
         const minTermLength = Math.max(1, this.settings.minTermLength || 1);
         const excludeTerms = new Set(splitLines2(this.settings.excludeTerms).map((s) => s.toLowerCase()));
-        this.excludeWordKeys = /* @__PURE__ */ new Set();
-        for (const w of splitLines2(this.settings.excludeWords)) {
-          for (const k of this.keysFor(w))
-            this.excludeWordKeys.add(k);
+        this.excludedWords = /* @__PURE__ */ new Set();
+        this.excludedStems = /* @__PURE__ */ new Set();
+        for (const line of splitLines2(this.settings.excludeWords)) {
+          if (!line.endsWith("*")) {
+            this.excludedWords.add(line.toLowerCase());
+            continue;
+          }
+          for (const k of this.keysFor(line.slice(0, -1)))
+            this.excludedStems.add(k);
         }
         const files = this.app.vault.getMarkdownFiles().filter((f) => this.isGlossaryFile(f));
         for (const file of files) {
@@ -3263,8 +3277,6 @@ var require_matcher2 = __commonJS({
               continue;
             const entry = this.formEntry(form);
             if (!entry)
-              continue;
-            if (entry.wordCount === 1 && entry.words[0].keys.some((k) => this.excludeWordKeys.has(k)))
               continue;
             const matcher2 = Object.assign({ canonical, target }, entry);
             for (const k of entry.words[0].keys) {
@@ -4181,6 +4193,8 @@ var require_actions = __commonJS({
     } = require_modals2();
     var { candidatesFor } = require_discover();
     var { t: t2, plural: plural2 } = require_i18n();
+    var LONG = { term: "", form: "Form", stem: "Stem" };
+    var SHORT = { term: "exclude.shortTerm", form: "exclude.shortForm", stem: "exclude.shortStem" };
     module2.exports = {
       // Ambiguous matches keep their `alts` so the preview can let the user pick a term.
       collectMatches(text, currentCanonical) {
@@ -4499,15 +4513,40 @@ var require_actions = __commonJS({
         const v = value.toLowerCase();
         return splitLines2(this.settings[listKey]).some((l) => l.toLowerCase() === v);
       },
-      // Add or remove exclusion item, toggled by current state. Tagged with the verb, so the
-      // builder collects it with whatever else offers to exclude the same word. excludeWords are
-      // stored lowercased.
-      addExclusionMenuItem(menu, listKey, value) {
+      // A starred line carries the word's base form under the current match mode — a stem, a
+      // stripped ending or the whole word — and stands for every form that reduces to it.
+      exclusionLine(kind, value) {
+        return kind === "stem" ? `${this.keysFor(value)[0]}*` : value;
+      },
+      // The base of the starred line that silences this word, or null. Searched rather than
+      // built: the line may have been written from a different form of the same word.
+      stemLineSilencing(word) {
+        const keys = this.keysFor(word);
+        for (const line of splitLines2(this.settings.excludeWords)) {
+          if (!line.endsWith("*"))
+            continue;
+          const base = line.slice(0, -1);
+          if (this.keysFor(base).some((k) => keys.includes(k)))
+            return base;
+        }
+        return null;
+      },
+      // Add or remove exclusion item, toggled by current state. `kind` is the wish behind it — a
+      // term ('term'), this spelling ('form') or every form behind it ('stem') — and picks the
+      // wording. Tagged with the verb, so the builder collects it with whatever else offers to
+      // exclude the same word. excludeWords are stored lowercased.
+      addExclusionMenuItem(menu, listKey, value, kind = "term") {
         const words = listKey === "excludeWords";
         const noun = words ? t2("exclude.words") : t2("exclude.terms");
-        const excluded = this.isExcluded(listKey, value);
-        const key = excluded ? "exclude.remove" : "exclude.add";
-        menu.tagged("exclude", { value }, (i, grouped) => i.setTitle(t2(grouped ? key + "Short" : key, { value, noun })).setIcon(excluded ? "rotate-ccw" : words ? "ban" : "trash-2").onClick(() => excluded ? this.removeFromExclusion(listKey, value) : this.addToExclusion(listKey, words ? value.toLowerCase() : value)));
+        const silencing = kind === "stem" ? this.stemLineSilencing(value) : null;
+        const line = silencing === null ? this.exclusionLine(kind, value) : `${silencing}*`;
+        const excluded = silencing !== null || kind !== "stem" && this.isExcluded(listKey, line);
+        const key = `exclude.${excluded ? "remove" : "add"}${LONG[kind]}`;
+        const write = (i, grouped) => i.setTitle(grouped ? t2(SHORT[kind]) : t2(key, { value, noun })).setIcon(grouped ? null : excluded ? "rotate-ccw" : words ? "ban" : "trash-2").onClick(() => excluded ? this.removeFromExclusion(listKey, line) : this.addToExclusion(listKey, words ? line.toLowerCase() : line));
+        if (excluded)
+          menu.addItem((i) => write(i, false));
+        else
+          menu.tagged("exclude", { value }, write);
       },
       async addToExclusion(listKey, value) {
         const lines = splitLines2(this.settings[listKey]);
@@ -4924,7 +4963,7 @@ var require_usage = __commonJS({
           continue;
         if (plugin.overlapsProtected(protect, m.index, m.index + raw.length))
           continue;
-        if (isTermWord(plugin.keysFor(raw)))
+        if (isTermWord(plugin.keysFor(raw), raw))
           continue;
         const lemma = plugin.lemmaFor(raw);
         if (lemma.length < minLen)
@@ -5193,7 +5232,7 @@ var require_api = __commonJS({
             displayName: "Glossary Linker",
             spanOf: (m) => ({ start: m.start, end: m.end, label: m.canonical, target: m.canonical }),
             suggestionsFor,
-            excludes: (text) => plugin.isExcluded("excludeWords", text) || plugin.isExcluded("excludeTerms", text),
+            excludes: (text) => plugin.wordSilenced(text) || plugin.isExcluded("excludeTerms", text),
             // A term is its note, so the target is already the title; the kind is what tells it
             // apart from a heading offered on the same word.
             describe: (target, display) => {
@@ -5259,10 +5298,10 @@ var require_api = __commonJS({
         foldUsageInto(counts, results);
         return [...counts.values()];
       },
-      // A word already covered by the index — a term's own form or an excluded word — so it is
-      // not offered as a candidate.
-      isTermWord(keys) {
-        return keys.some((k) => this.index.byKey.has(k) || this.excludeWordKeys.has(k));
+      // A word already answered for — a term's own form, or one the exclusion list silences — so
+      // it is not offered as a candidate.
+      isTermWord(keys, raw) {
+        return keys.some((k) => this.index.byKey.has(k)) || this.wordSilenced(raw);
       },
       // Frequent in-scope words that are not yet terms — candidates worth defining.
       // Pure frequency: a word is kept when its lemma appears in at least
@@ -5280,7 +5319,7 @@ var require_api = __commonJS({
           results = await this.candidateCache.run(
             files,
             signature,
-            (file) => scanCandidateWords(this, file, minLen, (keys) => this.isTermWord(keys)),
+            (file) => scanCandidateWords(this, file, minLen, (keys, raw) => this.isTermWord(keys, raw)),
             (i, total) => {
               if (i % 25 === 0)
                 notice.setMessage(t2("notice.scanningProgress", { current: i + 1, total }));
@@ -5509,7 +5548,7 @@ var require_overview_view = __commonJS({
           };
           const dismiss = actions2.createEl("a", { cls: "glossary-overview-act", text: "\u2715" });
           dismiss.onclick = async () => {
-            await this.plugin.addToExclusion("excludeWords", c.display.toLowerCase());
+            await this.plugin.addToExclusion("excludeWords", `${this.plugin.keysFor(c.display)[0]}*`);
             this.drop(c);
           };
         }
@@ -5634,6 +5673,7 @@ var require_menu_verbs = __commonJS({
       open: { label: "menu.open.group", icon: "file-search" },
       exclude: { label: "exclude.group", icon: "ban" }
     };
+    var verbKey = (verb, value) => verb + " " + (value == null ? "" : String(value));
     var MenuBuilder = class {
       constructor(plugin, menu) {
         this.plugin = plugin;
@@ -5675,23 +5715,25 @@ var require_menu_verbs = __commonJS({
         };
         return child;
       }
-      // Verb -> the object it acts on, for those that earned a submenu. All items of one verb in
-      // one menu act on the same object, so the first one's value names the group.
+      // Which (verb, object) pairs earned a submenu. Counted per object, not per verb: a group
+      // is named after the object it acts on, so items reaching for different ones — excluding
+      // this spelling, dropping that heading — stay apart and keep their full wording.
       groupedVerbs() {
         const counts = /* @__PURE__ */ new Map();
         for (const e of this.entries) {
           if (!e.verb)
             continue;
-          const seen = counts.get(e.verb) || { count: 0, value: e.value };
+          const key = verbKey(e.verb, e.value);
+          const seen = counts.get(key) || { count: 0, verb: e.verb, value: e.value };
           seen.count++;
-          counts.set(e.verb, seen);
+          counts.set(key, seen);
         }
         const provider = this.plugin.api && this.plugin.api.linker;
-        const grouped = /* @__PURE__ */ new Map();
-        for (const [verb, { count, value }] of counts) {
+        const grouped = /* @__PURE__ */ new Set();
+        for (const [key, { count, verb, value }] of counts) {
           const peers = provider ? peersOffering(this.plugin.app, provider, verb, value).length : 0;
           if (count + peers > 1)
-            grouped.set(verb, value);
+            grouped.add(key);
         }
         return grouped;
       }
@@ -5708,10 +5750,12 @@ var require_menu_verbs = __commonJS({
             sub.addItem((item) => child.cb(item, true));
         }
       }
+      // The key carries the object too, so two plugins excluding the same word still land in one
+      // submenu while two acting on different ones do not.
       sectionFor(verb, value) {
         const spec = VERBS[verb];
         const label = t2(spec.label, value == null ? void 0 : { value });
-        return sharedSection(this.menu, "linker:" + verb, label, spec.icon);
+        return sharedSection(this.menu, "linker:" + verbKey(verb, value), label, spec.icon);
       }
       // Replayed in declaration order, so a verb's submenu appears where its first item would
       // have. Anything else keeps its place.
@@ -5727,13 +5771,14 @@ var require_menu_verbs = __commonJS({
             this.writeSection(e);
             continue;
           }
-          if (!e.verb || !grouped.has(e.verb)) {
+          const key = e.verb ? verbKey(e.verb, e.value) : null;
+          if (!key || !grouped.has(key)) {
             this.menu.addItem((item) => e.cb(item, false));
             continue;
           }
-          if (!sections.has(e.verb))
-            sections.set(e.verb, this.sectionFor(e.verb, grouped.get(e.verb)));
-          sections.get(e.verb).addItem((item) => e.cb(item, true));
+          if (!sections.has(key))
+            sections.set(key, this.sectionFor(e.verb, e.value));
+          sections.get(key).addItem((item) => e.cb(item, true));
         }
       }
     };
@@ -5795,6 +5840,11 @@ var require_en2 = __commonJS({
       "exclude.terms": "excluded terms",
       "exclude.add": 'Add "{value}" to {noun}',
       "exclude.remove": 'Remove "{value}" from {noun}',
+      "exclude.addForm": 'Add "{value}" to {noun}',
+      "exclude.removeForm": 'Remove "{value}" from {noun}',
+      "exclude.addStem": 'Add every form of "{value}" to {noun}',
+      "exclude.removeStem": 'Remove every form of "{value}" from {noun}',
+      "exclude.shortTerm": "This term",
       // Notices
       "notice.indexRebuilt": "Glossary Linker: index rebuilt",
       "notice.unlinked": "Glossary Linker: unlinked",
@@ -5850,7 +5900,7 @@ var require_en2 = __commonJS({
       "set.excludeTerms.name": "Excluded terms",
       "set.excludeTerms.desc": "Term titles or aliases, one per line \u2014 drops the whole matching entry from the index.",
       "set.excludeWords.name": "Excluded words",
-      "set.excludeWords.desc": "Surface words, one per line, that never trigger a link even if they match a term.",
+      "set.excludeWords.desc": "Surface words, one per line, that never trigger a link even if they match a term. A line stops that spelling alone; end it with * to stop every form of the word.",
       "set.highlightInReading.desc": "Underline detected terms as clickable links in Reading view (file unchanged).",
       "set.editingHighlight.desc": "Underline terms in the editor (Live Preview / Source) too.",
       "set.editingHighlight.off": "Off",
@@ -5989,6 +6039,11 @@ var require_ru2 = __commonJS({
       "exclude.terms": "\u0438\u0441\u043A\u043B\u044E\u0447\u0451\u043D\u043D\u044B\u0435 \u0442\u0435\u0440\u043C\u0438\u043D\u044B",
       "exclude.add": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \xAB{value}\xBB \u0432 {noun}",
       "exclude.remove": "\u0423\u0431\u0440\u0430\u0442\u044C \xAB{value}\xBB \u0438\u0437 {noun}",
+      "exclude.addForm": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \xAB{value}\xBB \u0432 {noun}",
+      "exclude.removeForm": "\u0423\u0431\u0440\u0430\u0442\u044C \xAB{value}\xBB \u0438\u0437 {noun}",
+      "exclude.addStem": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432\u0441\u0435 \u0444\u043E\u0440\u043C\u044B \xAB{value}\xBB \u0432 {noun}",
+      "exclude.removeStem": "\u0423\u0431\u0440\u0430\u0442\u044C \u0432\u0441\u0435 \u0444\u043E\u0440\u043C\u044B \xAB{value}\xBB \u0438\u0437 {noun}",
+      "exclude.shortTerm": "\u042D\u0442\u043E\u0442 \u0442\u0435\u0440\u043C\u0438\u043D",
       "notice.indexRebuilt": "Glossary Linker: \u0438\u043D\u0434\u0435\u043A\u0441 \u043F\u0435\u0440\u0435\u0441\u0442\u0440\u043E\u0435\u043D",
       "notice.unlinked": "Glossary Linker: \u0441\u0441\u044B\u043B\u043A\u0430 \u0443\u0431\u0440\u0430\u043D\u0430",
       "notice.noMatches": "Glossary Linker: \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0439 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u043E",
@@ -6041,7 +6096,7 @@ var require_ru2 = __commonJS({
       "set.excludeTerms.name": "\u0418\u0441\u043A\u043B\u044E\u0447\u0451\u043D\u043D\u044B\u0435 \u0442\u0435\u0440\u043C\u0438\u043D\u044B",
       "set.excludeTerms.desc": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u044F \u0438\u043B\u0438 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u044B \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u0432, \u043F\u043E \u043E\u0434\u043D\u043E\u043C\u0443 \u043D\u0430 \u0441\u0442\u0440\u043E\u043A\u0443 \u2014 \u0443\u0431\u0438\u0440\u0430\u044E\u0442 \u0432\u0441\u044E \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u044E\u0449\u0443\u044E \u0437\u0430\u043F\u0438\u0441\u044C \u0438\u0437 \u0438\u043D\u0434\u0435\u043A\u0441\u0430.",
       "set.excludeWords.name": "\u0418\u0441\u043A\u043B\u044E\u0447\u0451\u043D\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430",
-      "set.excludeWords.desc": "\u0421\u043B\u043E\u0432\u0430 \u0432 \u0442\u0435\u043A\u0441\u0442\u0435, \u043F\u043E \u043E\u0434\u043D\u043E\u043C\u0443 \u043D\u0430 \u0441\u0442\u0440\u043E\u043A\u0443, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u043D\u0438\u043A\u043E\u0433\u0434\u0430 \u043D\u0435 \u0434\u0430\u044E\u0442 \u0441\u0441\u044B\u043B\u043A\u0443, \u0434\u0430\u0436\u0435 \u0435\u0441\u043B\u0438 \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u044E\u0442 \u0441 \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u043C.",
+      "set.excludeWords.desc": "\u0421\u043B\u043E\u0432\u0430 \u0432 \u0442\u0435\u043A\u0441\u0442\u0435, \u043F\u043E \u043E\u0434\u043D\u043E\u043C\u0443 \u043D\u0430 \u0441\u0442\u0440\u043E\u043A\u0443, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u043D\u0438\u043A\u043E\u0433\u0434\u0430 \u043D\u0435 \u0434\u0430\u044E\u0442 \u0441\u0441\u044B\u043B\u043A\u0443, \u0434\u0430\u0436\u0435 \u0435\u0441\u043B\u0438 \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u044E\u0442 \u0441 \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u043C. \u0421\u0442\u0440\u043E\u043A\u0430 \u043E\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u044D\u0442\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435; \u0441\u043E \u0437\u0432\u0451\u0437\u0434\u043E\u0447\u043A\u043E\u0439 \u043D\u0430 \u043A\u043E\u043D\u0446\u0435 \u2014 \u0432\u0441\u0435 \u0444\u043E\u0440\u043C\u044B \u0441\u043B\u043E\u0432\u0430.",
       "set.highlightInReading.desc": "\u041F\u043E\u0434\u0447\u0451\u0440\u043A\u0438\u0432\u0430\u0442\u044C \u043D\u0430\u0439\u0434\u0435\u043D\u043D\u044B\u0435 \u0442\u0435\u0440\u043C\u0438\u043D\u044B \u043A\u0430\u043A \u043A\u043B\u0438\u043A\u0430\u0431\u0435\u043B\u044C\u043D\u044B\u0435 \u0441\u0441\u044B\u043B\u043A\u0438 \u0432 \u0440\u0435\u0436\u0438\u043C\u0435 \u0447\u0442\u0435\u043D\u0438\u044F (\u0444\u0430\u0439\u043B \u043D\u0435 \u043C\u0435\u043D\u044F\u0435\u0442\u0441\u044F).",
       "set.editingHighlight.desc": "\u041F\u043E\u0434\u0447\u0451\u0440\u043A\u0438\u0432\u0430\u0442\u044C \u0442\u0435\u0440\u043C\u0438\u043D\u044B \u0438 \u0432 \u0440\u0435\u0434\u0430\u043A\u0442\u043E\u0440\u0435 (Live Preview / Source).",
       "set.editingHighlight.off": "\u0412\u044B\u043A\u043B",
@@ -6173,6 +6228,11 @@ var require_de2 = __commonJS({
       "exclude.terms": "ausgeschlossene Begriffe",
       "exclude.add": "\u201E{value}\u201C zu {noun} hinzuf\xFCgen",
       "exclude.remove": "\u201E{value}\u201C aus {noun} entfernen",
+      "exclude.addForm": "\u201E{value}\u201C zu {noun} hinzuf\xFCgen",
+      "exclude.removeForm": "\u201E{value}\u201C aus {noun} entfernen",
+      "exclude.addStem": "Alle Formen von \u201E{value}\u201C zu {noun} hinzuf\xFCgen",
+      "exclude.removeStem": "Alle Formen von \u201E{value}\u201C aus {noun} entfernen",
+      "exclude.shortTerm": "Dieser Begriff",
       "notice.indexRebuilt": "Glossary Linker: Index neu aufgebaut",
       "notice.unlinked": "Glossary Linker: entlinkt",
       "notice.noMatches": "Glossary Linker: keine Treffer gefunden",
@@ -6224,7 +6284,7 @@ var require_de2 = __commonJS({
       "set.excludeTerms.name": "Ausgeschlossene Begriffe",
       "set.excludeTerms.desc": "Begriffstitel oder Aliasse, einer pro Zeile \u2014 entfernt den gesamten passenden Eintrag aus dem Index.",
       "set.excludeWords.name": "Ausgeschlossene W\xF6rter",
-      "set.excludeWords.desc": "W\xF6rter im Text, eines pro Zeile, die nie einen Link ausl\xF6sen, auch wenn sie zu einem Begriff passen.",
+      "set.excludeWords.desc": "W\xF6rter im Text, eines pro Zeile, die nie einen Link ausl\xF6sen, auch wenn sie zu einem Begriff passen. Eine Zeile stoppt nur diese Schreibweise; mit * am Ende alle Formen des Wortes.",
       "set.highlightInReading.desc": "Erkannte Begriffe in der Leseansicht als klickbare Links unterstreichen (Datei unver\xE4ndert).",
       "set.editingHighlight.desc": "Begriffe auch im Editor (Live-Vorschau / Quelltext) unterstreichen.",
       "set.editingHighlight.off": "Aus",
@@ -6346,6 +6406,11 @@ var require_es2 = __commonJS({
       "exclude.terms": "t\xE9rminos excluidos",
       "exclude.add": "A\xF1adir \xAB{value}\xBB a {noun}",
       "exclude.remove": "Quitar \xAB{value}\xBB de {noun}",
+      "exclude.addForm": "A\xF1adir \xAB{value}\xBB a {noun}",
+      "exclude.removeForm": "Quitar \xAB{value}\xBB de {noun}",
+      "exclude.addStem": "A\xF1adir todas las formas de \xAB{value}\xBB a {noun}",
+      "exclude.removeStem": "Quitar todas las formas de \xAB{value}\xBB de {noun}",
+      "exclude.shortTerm": "Este t\xE9rmino",
       "notice.indexRebuilt": "Glossary Linker: \xEDndice reconstruido",
       "notice.unlinked": "Glossary Linker: desenlazado",
       "notice.noMatches": "Glossary Linker: no se encontraron coincidencias",
@@ -6397,7 +6462,7 @@ var require_es2 = __commonJS({
       "set.excludeTerms.name": "T\xE9rminos excluidos",
       "set.excludeTerms.desc": "T\xEDtulos o alias de t\xE9rminos, uno por l\xEDnea \u2014 quita del \xEDndice toda la entrada coincidente.",
       "set.excludeWords.name": "Palabras excluidas",
-      "set.excludeWords.desc": "Palabras del texto, una por l\xEDnea, que nunca generan un enlace aunque coincidan con un t\xE9rmino.",
+      "set.excludeWords.desc": "Palabras del texto, una por l\xEDnea, que nunca generan un enlace aunque coincidan con un t\xE9rmino. Una l\xEDnea detiene solo esa graf\xEDa; con * al final, todas las formas de la palabra.",
       "set.highlightInReading.desc": "Subrayar los t\xE9rminos detectados como enlaces en los que se puede hacer clic en la vista de lectura (archivo sin cambios).",
       "set.editingHighlight.desc": "Subrayar los t\xE9rminos tambi\xE9n en el editor (Vista previa en vivo / C\xF3digo fuente).",
       "set.editingHighlight.off": "Desactivado",
@@ -6519,6 +6584,11 @@ var require_fr2 = __commonJS({
       "exclude.terms": "termes exclus",
       "exclude.add": "Ajouter \xAB {value} \xBB \xE0 {noun}",
       "exclude.remove": "Retirer \xAB {value} \xBB de {noun}",
+      "exclude.addForm": "Ajouter \xAB {value} \xBB \xE0 {noun}",
+      "exclude.removeForm": "Retirer \xAB {value} \xBB de {noun}",
+      "exclude.addStem": "Ajouter toutes les formes de \xAB {value} \xBB \xE0 {noun}",
+      "exclude.removeStem": "Retirer toutes les formes de \xAB {value} \xBB de {noun}",
+      "exclude.shortTerm": "Ce terme",
       "notice.indexRebuilt": "Glossary Linker : index reconstruit",
       "notice.unlinked": "Glossary Linker : d\xE9li\xE9",
       "notice.noMatches": "Glossary Linker : aucune correspondance trouv\xE9e",
@@ -6570,7 +6640,7 @@ var require_fr2 = __commonJS({
       "set.excludeTerms.name": "Termes exclus",
       "set.excludeTerms.desc": "Titres ou alias de termes, un par ligne \u2014 retire toute l\u2019entr\xE9e correspondante de l\u2019index.",
       "set.excludeWords.name": "Mots exclus",
-      "set.excludeWords.desc": "Mots du texte, un par ligne, qui ne d\xE9clenchent jamais de lien m\xEAme s\u2019ils correspondent \xE0 un terme.",
+      "set.excludeWords.desc": "Mots du texte, un par ligne, qui ne d\xE9clenchent jamais de lien m\xEAme s\u2019ils correspondent \xE0 un terme. Une ligne n\u2019arr\xEAte que cette graphie ; avec * \xE0 la fin, toutes les formes du mot.",
       "set.highlightInReading.desc": "Souligner les termes d\xE9tect\xE9s comme des liens cliquables en mode lecture (fichier inchang\xE9).",
       "set.editingHighlight.desc": "Souligner les termes aussi dans l\u2019\xE9diteur (Aper\xE7u en direct / Source).",
       "set.editingHighlight.off": "D\xE9sactiv\xE9",
@@ -6692,6 +6762,11 @@ var require_uk2 = __commonJS({
       "exclude.terms": "\u0432\u0438\u043A\u043B\u044E\u0447\u0435\u043D\u0456 \u0442\u0435\u0440\u043C\u0456\u043D\u0438",
       "exclude.add": "\u0414\u043E\u0434\u0430\u0442\u0438 \xAB{value}\xBB \u0434\u043E \u0441\u043F\u0438\u0441\u043A\u0443 ({noun})",
       "exclude.remove": "\u041F\u0440\u0438\u0431\u0440\u0430\u0442\u0438 \xAB{value}\xBB \u0437\u0456 \u0441\u043F\u0438\u0441\u043A\u0443 ({noun})",
+      "exclude.addForm": "\u0414\u043E\u0434\u0430\u0442\u0438 \xAB{value}\xBB \u0434\u043E \u0441\u043F\u0438\u0441\u043A\u0443 ({noun})",
+      "exclude.removeForm": "\u041F\u0440\u0438\u0431\u0440\u0430\u0442\u0438 \xAB{value}\xBB \u0437\u0456 \u0441\u043F\u0438\u0441\u043A\u0443 ({noun})",
+      "exclude.addStem": "\u0414\u043E\u0434\u0430\u0442\u0438 \u0432\u0441\u0456 \u0444\u043E\u0440\u043C\u0438 \xAB{value}\xBB \u0434\u043E \u0441\u043F\u0438\u0441\u043A\u0443 ({noun})",
+      "exclude.removeStem": "\u041F\u0440\u0438\u0431\u0440\u0430\u0442\u0438 \u0432\u0441\u0456 \u0444\u043E\u0440\u043C\u0438 \xAB{value}\xBB \u0437\u0456 \u0441\u043F\u0438\u0441\u043A\u0443 ({noun})",
+      "exclude.shortTerm": "\u0426\u0435\u0439 \u0442\u0435\u0440\u043C\u0456\u043D",
       "notice.indexRebuilt": "Glossary Linker: \u0456\u043D\u0434\u0435\u043A\u0441 \u043F\u0435\u0440\u0435\u0431\u0443\u0434\u043E\u0432\u0430\u043D\u043E",
       "notice.unlinked": "Glossary Linker: \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F \u043F\u0440\u0438\u0431\u0440\u0430\u043D\u043E",
       "notice.noMatches": "Glossary Linker: \u0437\u0431\u0456\u0433\u0456\u0432 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E",
@@ -6743,7 +6818,7 @@ var require_uk2 = __commonJS({
       "set.excludeTerms.name": "\u0412\u0438\u043A\u043B\u044E\u0447\u0435\u043D\u0456 \u0442\u0435\u0440\u043C\u0456\u043D\u0438",
       "set.excludeTerms.desc": "\u041D\u0430\u0437\u0432\u0438 \u0430\u0431\u043E \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0438 \u0442\u0435\u0440\u043C\u0456\u043D\u0456\u0432, \u043F\u043E \u043E\u0434\u043D\u043E\u043C\u0443 \u043D\u0430 \u0440\u044F\u0434\u043E\u043A \u2014 \u043F\u0440\u0438\u0431\u0438\u0440\u0430\u044E\u0442\u044C \u0443\u0432\u0435\u0441\u044C \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u043D\u0438\u0439 \u0437\u0430\u043F\u0438\u0441 \u0437 \u0456\u043D\u0434\u0435\u043A\u0441\u0443.",
       "set.excludeWords.name": "\u0412\u0438\u043A\u043B\u044E\u0447\u0435\u043D\u0456 \u0441\u043B\u043E\u0432\u0430",
-      "set.excludeWords.desc": "\u0421\u043B\u043E\u0432\u0430 \u0432 \u0442\u0435\u043A\u0441\u0442\u0456, \u043F\u043E \u043E\u0434\u043D\u043E\u043C\u0443 \u043D\u0430 \u0440\u044F\u0434\u043E\u043A, \u0449\u043E \u043D\u0456\u043A\u043E\u043B\u0438 \u043D\u0435 \u0434\u0430\u044E\u0442\u044C \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F, \u043D\u0430\u0432\u0456\u0442\u044C \u044F\u043A\u0449\u043E \u0437\u0431\u0456\u0433\u0430\u044E\u0442\u044C\u0441\u044F \u0437 \u0442\u0435\u0440\u043C\u0456\u043D\u043E\u043C.",
+      "set.excludeWords.desc": "\u0421\u043B\u043E\u0432\u0430 \u0432 \u0442\u0435\u043A\u0441\u0442\u0456, \u043F\u043E \u043E\u0434\u043D\u043E\u043C\u0443 \u043D\u0430 \u0440\u044F\u0434\u043E\u043A, \u0449\u043E \u043D\u0456\u043A\u043E\u043B\u0438 \u043D\u0435 \u0434\u0430\u044E\u0442\u044C \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F, \u043D\u0430\u0432\u0456\u0442\u044C \u044F\u043A\u0449\u043E \u0437\u0431\u0456\u0433\u0430\u044E\u0442\u044C\u0441\u044F \u0437 \u0442\u0435\u0440\u043C\u0456\u043D\u043E\u043C. \u0420\u044F\u0434\u043E\u043A \u0437\u0443\u043F\u0438\u043D\u044F\u0454 \u043B\u0438\u0448\u0435 \u0446\u0435 \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u044F; \u0456\u0437 * \u043D\u0430\u043F\u0440\u0438\u043A\u0456\u043D\u0446\u0456 \u2014 \u0443\u0441\u0456 \u0444\u043E\u0440\u043C\u0438 \u0441\u043B\u043E\u0432\u0430.",
       "set.highlightInReading.desc": "\u041F\u0456\u0434\u043A\u0440\u0435\u0441\u043B\u044E\u0432\u0430\u0442\u0438 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u0456 \u0442\u0435\u0440\u043C\u0456\u043D\u0438 \u044F\u043A \u043A\u043B\u0456\u043A\u0430\u0431\u0435\u043B\u044C\u043D\u0456 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F \u0432 \u0440\u0435\u0436\u0438\u043C\u0456 \u0447\u0438\u0442\u0430\u043D\u043D\u044F (\u0444\u0430\u0439\u043B \u043D\u0435 \u0437\u043C\u0456\u043D\u044E\u0454\u0442\u044C\u0441\u044F).",
       "set.editingHighlight.desc": "\u041F\u0456\u0434\u043A\u0440\u0435\u0441\u043B\u044E\u0432\u0430\u0442\u0438 \u0442\u0435\u0440\u043C\u0456\u043D\u0438 \u0456 \u0432 \u0440\u0435\u0434\u0430\u043A\u0442\u043E\u0440\u0456 (Live Preview / Source).",
       "set.editingHighlight.off": "\u0412\u0438\u043C\u043A.",
@@ -6844,6 +6919,7 @@ var { GlossaryOverviewView, OVERVIEW_VIEW_TYPE } = require_overview_view();
 var { initI18n, withFamily, t, plural } = require_i18n();
 var { buildMenu } = require_menu_verbs();
 var { ChoicePopover } = require_choices();
+var oneWord = (text) => (text.match(/[\p{L}\p{Nd}]+/gu) || []).length === 1;
 var GlossaryLinkerPlugin = class extends Plugin {
   async onload() {
     initI18n(withFamily("prose", {
@@ -6869,7 +6945,8 @@ var GlossaryLinkerPlugin = class extends Plugin {
     this.activeLanguages = [];
     this.languageErrors = [];
     this.index = { byKey: /* @__PURE__ */ new Map(), termCount: 0 };
-    this.excludeWordKeys = /* @__PURE__ */ new Set();
+    this.excludedWords = /* @__PURE__ */ new Set();
+    this.excludedStems = /* @__PURE__ */ new Set();
     this.keysCache = /* @__PURE__ */ new Map();
     this.terms = [];
     this.aliasFingerprints = /* @__PURE__ */ new Map();
@@ -6935,11 +7012,15 @@ var GlossaryLinkerPlugin = class extends Plugin {
       const link = this.glossaryLinkAt(editor);
       const file = this.app.workspace.getActiveFile();
       const sourcePath = file ? file.path : "";
-      const excludeItems = (value, ...listKeys) => {
+      const excludeItems = (display, canonical) => {
         if (!this.settings.menuExclude)
           return;
-        for (const key of listKeys)
-          this.addExclusionMenuItem(menu, key, value);
+        if (display && oneWord(display) && (!canonical || display.toLowerCase() !== canonical.toLowerCase())) {
+          this.addExclusionMenuItem(menu, "excludeWords", display, "form");
+          this.addExclusionMenuItem(menu, "excludeWords", display, "stem");
+        }
+        if (canonical)
+          this.addExclusionMenuItem(menu, "excludeTerms", canonical);
       };
       if (link) {
         if (this.settings.menuUnlink) {
@@ -6948,7 +7029,7 @@ var GlossaryLinkerPlugin = class extends Plugin {
         if (this.settings.menuCollect && link.targetFile) {
           menu.addItem((i) => i.setTitle(t("menu.collectThisAlias")).setIcon("download").onClick(() => this.harvestOneLink(link.targetFile, link.display)));
         }
-        excludeItems(link.display, "excludeWords", "excludeTerms");
+        excludeItems(link.display, link.canonical);
         return;
       }
       if (hasSel) {
@@ -6959,7 +7040,7 @@ var GlossaryLinkerPlugin = class extends Plugin {
         if (this.settings.menuAddAlias) {
           menu.addItem((i) => i.setTitle(t("menu.addAlias")).setIcon("text-cursor-input").onClick(() => this.addAliasFromSelection(sel)));
         }
-        excludeItems(sel, "excludeWords");
+        excludeItems(sel, null);
         return;
       }
       const hit = this.matchAtCursor(editor);
@@ -6990,20 +7071,23 @@ var GlossaryLinkerPlugin = class extends Plugin {
         if (this.settings.menuOpen) {
           menu.addItem((i) => i.setTitle(t("menu.openThisWord", { display })).setIcon("file-text").onClick(() => this.chooseTerm(candidates(), t("menu.openTitle"), (c) => this.openTerm(c, sourcePath, false))));
         }
-        excludeItems(display, "excludeTerms");
+        excludeItems(display, canonical);
         return;
       }
       const word = this.wordAtCursor(editor);
       if (word) {
-        excludeItems(word.canonical, "excludeTerms");
+        excludeItems(word.display, word.canonical);
         return;
       }
       const raw = this.rawWordAtCursor(editor);
-      if (raw) {
-        const lists = ["excludeWords", "excludeTerms"].filter((k) => this.isExcluded(k, raw));
-        if (lists.length)
-          excludeItems(raw, ...lists);
-      }
+      if (!raw || !this.settings.menuExclude)
+        return;
+      if (this.isExcluded("excludeWords", raw))
+        this.addExclusionMenuItem(menu, "excludeWords", raw, "form");
+      if (this.stemLineSilencing(raw))
+        this.addExclusionMenuItem(menu, "excludeWords", raw, "stem");
+      if (this.isExcluded("excludeTerms", raw))
+        this.addExclusionMenuItem(menu, "excludeTerms", raw);
     })));
     this.registerEvent(this.app.workspace.on("file-menu", (menu, file, source) => {
       if (source === "link-context-menu")
