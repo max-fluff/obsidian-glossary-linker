@@ -322,8 +322,7 @@ module.exports = {
 
   // Add or remove exclusion item, toggled by current state. `kind` is the wish behind it — a
   // term ('term'), this spelling ('form') or every form behind it ('stem') — and picks the
-  // wording. Tagged with the verb, so the builder collects it with whatever else offers to
-  // exclude the same word. excludeWords are stored lowercased.
+  // wording and which verb the item is filed under. excludeWords are stored lowercased.
   addExclusionMenuItem(menu, listKey, value, kind = 'term') {
     const words = listKey === 'excludeWords';
     const noun = words ? t('exclude.words') : t('exclude.terms');
@@ -336,13 +335,13 @@ module.exports = {
     // Inside the group the parent already says "Exclude «word»" and the item only finishes
     // it. Taking a word off a list finishes nothing, so an undo stays out of the group.
     const write = (i, grouped) => i
-      .setTitle(grouped ? t(SHORT[kind]) : t(key, { value, noun }))
+      .setTitle(t(grouped ? SHORT[kind] : key, { value, noun }))
       .setIcon(grouped ? null : (excluded ? 'rotate-ccw' : (words ? 'ban' : 'trash-2')))
       .onClick(() => (excluded
         ? this.removeFromExclusion(listKey, line)
         : this.addToExclusion(listKey, words ? line.toLowerCase() : line)));
     if (excluded) menu.addItem((i) => write(i, false));
-    else menu.tagged('exclude', { value }, write);
+    else menu.tagged(kind === 'term' ? 'exclude' : 'silence', { value }, write);
   },
 
   async addToExclusion(listKey, value) {

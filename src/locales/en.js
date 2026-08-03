@@ -58,7 +58,7 @@ module.exports = {
   'exclude.removeForm': 'Remove "{value}" from {noun}',
   'exclude.addStem': 'Add every form of "{value}" to {noun}',
   'exclude.removeStem': 'Remove every form of "{value}" from {noun}',
-  'exclude.shortTerm': 'This term',
+  'exclude.shortTerm': 'The term',
 
   // Notices
   'notice.indexRebuilt': 'Glossary Linker: index rebuilt',

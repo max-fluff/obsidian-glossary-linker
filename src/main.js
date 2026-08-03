@@ -111,10 +111,12 @@ class GlossaryLinkerPlugin extends Plugin {
       const sourcePath = file ? file.path : '';
 
       // Three wishes on one word: stop this spelling, stop every form behind it, drop the
-      // term it reached. On the term's own wording only the term itself is worth offering.
+      // term it reached. Offered even where the word is the term's own title — the term then
+      // keeps its place in the index and its autocomplete, and only stops catching that word
+      // in prose. Only a lone word can go on the word list, which is read a word at a time.
       const excludeItems = (display, canonical) => {
         if (!this.settings.menuExclude) return;
-        if (display && oneWord(display) && (!canonical || display.toLowerCase() !== canonical.toLowerCase())) {
+        if (display && oneWord(display)) {
           this.addExclusionMenuItem(menu, 'excludeWords', display, 'form');
           this.addExclusionMenuItem(menu, 'excludeWords', display, 'stem');
         }

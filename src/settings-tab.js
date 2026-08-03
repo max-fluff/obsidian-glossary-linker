@@ -71,11 +71,7 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
     sections.languages(containerEl);
     sections.matchLimits(containerEl);
 
-    new Setting(containerEl)
-      .setName(t('set.excludeWords.name'))
-      .setDesc(t('set.excludeWords.desc'))
-      .addTextArea((c) => { c.setValue(s.excludeWords).onChange(async (v) => { s.excludeWords = v; await save(true); }); c.inputEl.rows = 3; });
-
+    sections.exclusionList(containerEl, 'excludeWords');
     sections.highlighting(containerEl);
     sections.autocomplete(containerEl);
 

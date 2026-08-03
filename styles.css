@@ -46,6 +46,42 @@
   height: 16px;
 }
 
+/* Editable rows: the entry itself is the input, so a typo is corrected where it is read. */
+.glossary-list-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 4px 0 4px 1.5em;
+  padding-left: 0.75em;
+  border-left: 2px solid var(--background-modifier-border);
+}
+
+.glossary-list-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+
+.glossary-list-del {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.glossary-list-del svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Ten rows, then it scrolls: a long list must not push the rest of the tab out of reach. */
+.glossary-list-scroll {
+  max-height: 21em;
+  overflow-y: auto;
+}
+
 /* Priority order among the installed linker plugins. Our own row is the movable one, so
    it is the one that reads as active; the others are context. */
 .glossary-precedence-list {

@@ -84,9 +84,9 @@ describe('editor menu', () => {
     assert.ok(/words/.test(titles[0]), titles[0]);
   });
 
-  it('groups the two word lines and leaves the term flat', async () => {
-    // Both word items act on the wording, so they nest under it; the term is another object
-    // and keeps a title that names it.
+  it('gathers the three ways to stop one word under it', async () => {
+    // All three act on the word under the cursor — the term item too, even though what it
+    // writes is the term's title — so they read as one set rather than a line plus a menu.
     const plugin = await load();
     fakeApp.plugins.plugins = {};
     plugin.matchAtCursor = () => null;
@@ -94,9 +94,25 @@ describe('editor menu', () => {
     plugin.glossaryLinkAt = () => ({ display: 'spawning', canonical: 'Spawn', targetFile: null });
 
     const titles = menuFor().titles();
-    assert.ok(titles.includes('Exclude “spawning” ▸ This spelling'), JSON.stringify(titles));
-    assert.ok(titles.includes('Exclude “spawning” ▸ Every form'), JSON.stringify(titles));
+    assert.ok(titles.includes('Stop linking “spawning” ▸ this spelling'), JSON.stringify(titles));
+    assert.ok(titles.includes('Stop linking “spawning” ▸ every form of it'), JSON.stringify(titles));
     assert.ok(titles.includes('Add "Spawn" to excluded terms'), JSON.stringify(titles));
+  });
+
+  it('offers the word lists on the term’s own title too', async () => {
+    // Reported on a term named for an everyday word: excluding the term takes it out of the
+    // index and the autocomplete, which is not what "stop linking this word" means.
+    const plugin = await load();
+    plugin.matchAtCursor = () => ({
+      line: 0,
+      match: { start: 0, end: 5, display: 'Наряд', alts: [], canonical: 'Наряд' },
+      foreign: [],
+    });
+
+    const titles = menuFor().titles();
+    assert.ok(titles.includes('Stop linking “Наряд” ▸ this spelling'), JSON.stringify(titles));
+    assert.ok(titles.includes('Stop linking “Наряд” ▸ every form of it'), JSON.stringify(titles));
+    assert.ok(titles.includes('Add "Наряд" to excluded terms'), JSON.stringify(titles));
   });
 
   it('writes the base form when the reader asks for every form', async () => {
@@ -107,7 +123,7 @@ describe('editor menu', () => {
       foreign: [],
     });
 
-    await menuFor().items.find((e) => e.title === 'Every form').click();
+    await menuFor().items.find((e) => e.title === 'every form of it').click();
     assert.strictEqual(plugin.settings.excludeWords, 'spawn*');
   });
 
