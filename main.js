@@ -4269,8 +4269,6 @@ var require_actions = __commonJS({
     } = require_modals2();
     var { candidatesFor } = require_discover();
     var { t: t2, plural: plural2 } = require_i18n();
-    var LONG = { term: "", form: "Form", stem: "Stem" };
-    var SHORT = { term: "exclude.shortTerm", form: "exclude.shortForm", stem: "exclude.shortStem" };
     module2.exports = {
       // Ambiguous matches keep their `alts` so the preview can let the user pick a term.
       collectMatches(text, currentCanonical) {
@@ -4606,22 +4604,6 @@ var require_actions = __commonJS({
             return base;
         }
         return null;
-      },
-      // Add or remove exclusion item, toggled by current state. `kind` is the wish behind it — a
-      // term ('term'), this spelling ('form') or every form behind it ('stem') — and picks the
-      // wording and which verb the item is filed under. excludeWords are stored lowercased.
-      addExclusionMenuItem(menu, listKey, value, kind = "term") {
-        const words = listKey === "excludeWords";
-        const noun = words ? t2("exclude.words") : t2("exclude.terms");
-        const silencing = kind === "stem" ? this.stemLineSilencing(value) : null;
-        const line = silencing === null ? this.exclusionLine(kind, value) : `${silencing}*`;
-        const excluded = silencing !== null || kind !== "stem" && this.isExcluded(listKey, line);
-        const key = `exclude.${excluded ? "remove" : "add"}${LONG[kind]}`;
-        const write = (i, grouped) => i.setTitle(t2(grouped ? SHORT[kind] : key, { value, noun })).setIcon(grouped ? null : excluded ? "rotate-ccw" : words ? "ban" : "trash-2").onClick(() => excluded ? this.removeFromExclusion(listKey, line) : this.addToExclusion(listKey, words ? line.toLowerCase() : line));
-        if (excluded)
-          menu.addItem((i) => write(i, false));
-        else
-          menu.tagged(kind === "term" ? "exclude" : "silence", { value }, write);
       },
       async addToExclusion(listKey, value) {
         const lines = splitLines2(this.settings[listKey]);
@@ -5869,6 +5851,361 @@ var require_menu_verbs = __commonJS({
   }
 });
 
+// src/shared/actions.js
+var require_actions2 = __commonJS({
+  "src/shared/actions.js"(exports2, module2) {
+    "use strict";
+    var { t: t2 } = require_i18n();
+    var drawn = (plugin, a) => typeof a.inMenu !== "function" || !!a.inMenu(plugin);
+    function check(a) {
+      if (!a.id || !a.name || !a.title || !a.run || !a.resolve) {
+        throw new Error("menu action needs id, name, title, resolve and run: " + (a.id || "(no id)"));
+      }
+      return a;
+    }
+    function registerActions2(plugin, actions2) {
+      for (const a of actions2.map(check)) {
+        const act = (checking, target) => {
+          if (!target)
+            return false;
+          const ctx = a.resolve(plugin, target);
+          if (!ctx)
+            return false;
+          if (!checking)
+            a.run(plugin, ctx);
+          return true;
+        };
+        if (a.surface === "editor") {
+          plugin.addCommand({ id: a.id, name: t2(a.name), editorCheckCallback: (checking, editor) => act(checking, editor) });
+        } else {
+          plugin.addCommand({ id: a.id, name: t2(a.name), checkCallback: (checking) => act(checking, plugin.app.workspace.getActiveFile()) });
+        }
+      }
+    }
+    function menuActions2(plugin, menu, actions2, surface, target) {
+      const sections = /* @__PURE__ */ new Map();
+      for (const a of actions2.map(check)) {
+        if (a.surface !== surface || !drawn(plugin, a))
+          continue;
+        const ctx = a.resolve(plugin, target);
+        if (!ctx)
+          continue;
+        const write = (i, grouped) => i.setTitle(a.title(ctx, grouped)).setIcon(grouped && a.verb ? null : a.icon || null).onClick(() => a.run(plugin, ctx));
+        if (a.section && menu.section) {
+          const label = typeof a.section === "function" ? a.section(ctx) : t2(a.section);
+          if (!sections.has(label))
+            sections.set(label, menu.section(label, a.icon));
+          sections.get(label).addItem((i) => write(i, true));
+        } else if (a.verb) {
+          menu.tagged(a.verb, { value: a.value ? a.value(ctx) : void 0 }, write);
+        } else {
+          menu.addItem((i) => write(i, false));
+        }
+      }
+    }
+    function cursorReader(compute, stamp = (plugin) => plugin.indexVersion) {
+      let last = { editor: null, key: null, value: null };
+      return (plugin, editor) => {
+        if (!editor)
+          return null;
+        const head = editor.getCursor("head");
+        const sel = editor.getSelection ? editor.getSelection() : "";
+        const key = `${head.line}:${head.ch}:${editor.getLine(head.line)}:${sel}:${stamp(plugin)}`;
+        if (last.editor !== editor || last.key !== key)
+          last = { editor, key, value: compute(plugin, editor) };
+        return last.value;
+      };
+    }
+    module2.exports = { registerActions: registerActions2, menuActions: menuActions2, cursorReader };
+  }
+});
+
+// src/path-actions.js
+var require_path_actions = __commonJS({
+  "src/path-actions.js"(exports2, module2) {
+    "use strict";
+    var { t: t2 } = require_i18n();
+    function pathContext(file) {
+      if (!file || !file.path)
+        return null;
+      const isFolder = file.extension === void 0;
+      if (!isFolder && file.extension !== "md")
+        return null;
+      return { path: file.path, noun: t2(isFolder ? "noun.folder" : "noun.file") };
+    }
+    var pathAction = ({ id, name, titleKey, icon, listKey, add, when }) => ({
+      id,
+      name,
+      surface: "file",
+      icon,
+      title: (ctx) => t2(titleKey, { noun: ctx.noun }),
+      resolve: (plugin, file) => {
+        const ctx = pathContext(file);
+        if (!ctx || when && !when(plugin))
+          return null;
+        return plugin.pathListed(listKey, ctx.path) === add ? null : ctx;
+      },
+      run: (plugin, ctx) => plugin.setPathInList(listKey, ctx.path, add)
+    });
+    var folderScope = (plugin) => plugin.settings.scopeMode === "folders";
+    var PATH_ACTIONS2 = [
+      pathAction({ id: "exclude-note", name: "cmd.excludeNote", titleKey: "menu.addToAlwaysExcluded", icon: "ban", listKey: "excludeFolders", add: true }),
+      pathAction({ id: "unexclude-note", name: "cmd.unexcludeNote", titleKey: "menu.removeFromAlwaysExcluded", icon: "rotate-ccw", listKey: "excludeFolders", add: false }),
+      pathAction({ id: "scope-note", name: "cmd.scopeNote", titleKey: "menu.includeInScope", icon: "folder-plus", listKey: "scopeFolders", add: true, when: folderScope }),
+      pathAction({ id: "unscope-note", name: "cmd.unscopeNote", titleKey: "menu.removeFromScope", icon: "folder-minus", listKey: "scopeFolders", add: false, when: folderScope })
+    ];
+    module2.exports = { PATH_ACTIONS: PATH_ACTIONS2 };
+  }
+});
+
+// src/editor-actions.js
+var require_editor_actions = __commonJS({
+  "src/editor-actions.js"(exports2, module2) {
+    "use strict";
+    var { t: t2 } = require_i18n();
+    var { cursorReader } = require_actions2();
+    var oneWord = (text) => (text.match(/[\p{L}\p{Nd}]+/gu) || []).length === 1;
+    var LONG = { term: "", form: "Form", stem: "Stem" };
+    var SHORT = { term: "exclude.shortTerm", form: "exclude.shortForm", stem: "exclude.shortStem" };
+    var oneLineSelection = (editor) => {
+      const sel = editor && editor.getSelection && editor.getSelection();
+      return sel && !sel.includes("\n") ? sel : null;
+    };
+    var reading = cursorReader((plugin, editor) => {
+      const link = plugin.glossaryLinkAt(editor);
+      if (link)
+        return { link };
+      const sel = oneLineSelection(editor);
+      if (sel)
+        return { sel };
+      const hit = plugin.matchAtCursor(editor);
+      if (hit)
+        return { hit };
+      const word = plugin.wordAtCursor(editor);
+      return word ? { word } : { raw: plugin.rawWordAtCursor(editor) };
+    });
+    var linkAt = (plugin, editor) => editor ? reading(plugin, editor).link || null : null;
+    var selectionAt = (plugin, editor) => editor ? reading(plugin, editor).sel || null : null;
+    var hitAt = (plugin, editor) => editor ? reading(plugin, editor).hit || null : null;
+    function exclusionTarget(plugin, editor) {
+      if (!editor)
+        return null;
+      const at = reading(plugin, editor);
+      if (at.link)
+        return { display: at.link.display, label: at.link.canonical };
+      if (at.sel)
+        return { display: at.sel, label: null };
+      if (at.hit)
+        return { display: at.hit.match.display, label: at.hit.match.canonical };
+      if (at.word)
+        return { display: at.word.display, label: at.word.canonical };
+      return at.raw ? { display: at.raw, label: at.raw, settled: true } : null;
+    }
+    var exclusionAction = ({ id, name, listKey, kind, add }) => ({
+      id,
+      name,
+      surface: "editor",
+      icon: add ? kind === "term" ? "trash-2" : "ban" : "rotate-ccw",
+      verb: add ? kind === "term" ? "exclude" : "silence" : void 0,
+      value: (ctx) => ctx.value,
+      inMenu: (plugin) => plugin.settings.menuExclude,
+      title: (ctx, grouped) => t2(
+        grouped ? SHORT[kind] : `exclude.${add ? "add" : "remove"}${LONG[kind]}`,
+        { value: ctx.value, noun: t2(kind === "term" ? "exclude.terms" : "exclude.words") }
+      ),
+      resolve: (plugin, editor) => {
+        const target = exclusionTarget(plugin, editor);
+        if (!target || add && target.settled)
+          return null;
+        if (kind === "term" && !target.label)
+          return null;
+        if (kind !== "term" && !oneWord(target.display))
+          return null;
+        if (kind === "stem") {
+          const silencing = plugin.stemLineSilencing(target.display);
+          if (add === !!silencing)
+            return null;
+          return { value: target.display, line: `${silencing || plugin.keysFor(target.display)[0]}*` };
+        }
+        const value = kind === "term" ? target.label : target.display;
+        return plugin.isExcluded(listKey, value) === add ? null : { value, line: value };
+      },
+      run: (plugin, ctx) => add ? plugin.addToExclusion(listKey, listKey === "excludeWords" ? ctx.line.toLowerCase() : ctx.line) : plugin.removeFromExclusion(listKey, ctx.line)
+    });
+    var EXCLUSION_ACTIONS = [
+      exclusionAction({ id: "stop-spelling", name: "cmd.stopSpelling", listKey: "excludeWords", kind: "form", add: true }),
+      exclusionAction({ id: "stop-forms", name: "cmd.stopForms", listKey: "excludeWords", kind: "stem", add: true }),
+      exclusionAction({ id: "exclude-term", name: "cmd.excludeTermAtCursor", listKey: "excludeTerms", kind: "term", add: true }),
+      exclusionAction({ id: "resume-spelling", name: "cmd.resumeSpelling", listKey: "excludeWords", kind: "form", add: false }),
+      exclusionAction({ id: "resume-forms", name: "cmd.resumeForms", listKey: "excludeWords", kind: "stem", add: false }),
+      exclusionAction({ id: "include-term", name: "cmd.includeTermAtCursor", listKey: "excludeTerms", kind: "term", add: false })
+    ];
+    var linkAction = ({ id, name, titleKey, icon, run }) => ({
+      id,
+      name,
+      surface: "editor",
+      icon,
+      section: (ctx) => t2("menu.linkThisWord", { display: ctx.display }),
+      inMenu: (plugin) => plugin.settings.menuTurnInto,
+      title: (ctx) => t2(titleKey, { display: ctx.display, scope: ctx.scope }),
+      resolve: (plugin, editor) => {
+        const hit = hitAt(plugin, editor);
+        const file = plugin.app.workspace.getActiveFile();
+        if (!hit || !file)
+          return null;
+        return {
+          editor,
+          file,
+          hit,
+          display: hit.match.display,
+          canonical: hit.match.canonical,
+          scope: plugin.settings.linkFirstOnly ? t2("scope.first") : t2("scope.all")
+        };
+      },
+      run
+    });
+    var ownCandidates = (ctx) => [ctx.hit.match.canonical, ...ctx.hit.match.alts || []];
+    var LINK_WORD_ACTIONS = [
+      linkAction({
+        id: "link-word-here",
+        name: "cmd.linkWordHere",
+        titleKey: "menu.linkHere",
+        icon: "link",
+        run: (plugin, ctx) => plugin.chooseTerm(
+          ownCandidates(ctx),
+          t2("menu.linkDisplayTo", { display: ctx.display }),
+          (c) => plugin.materializeSingle(
+            ctx.file,
+            ctx.canonical,
+            ctx.display,
+            ctx.editor.posToOffset({ line: ctx.hit.line, ch: ctx.hit.match.start }),
+            0,
+            c
+          )
+        )
+      }),
+      linkAction({
+        id: "link-word-note",
+        name: "cmd.linkWordNote",
+        titleKey: "menu.linkScopeThisNote",
+        icon: "links-coming-in",
+        run: (plugin, ctx) => plugin.chooseTerm(
+          ownCandidates(ctx),
+          t2("menu.linkScopeTo", { scope: ctx.scope, display: ctx.display }),
+          (c) => plugin.materializeTerm(ctx.file, ctx.canonical, c)
+        )
+      }),
+      linkAction({
+        id: "link-word-scope",
+        name: "cmd.linkWordScope",
+        titleKey: "menu.linkScopeAllNotes",
+        icon: "links-going-out",
+        run: (plugin, ctx) => plugin.chooseTerm(
+          ownCandidates(ctx),
+          t2("menu.linkScopeTo", { scope: ctx.scope, display: ctx.display }),
+          (c) => plugin.materializeTermScope(ctx.canonical, c)
+        )
+      })
+    ];
+    var OPEN_WORD = {
+      id: "open-word",
+      name: "cmd.openWord",
+      surface: "editor",
+      icon: "file-text",
+      inMenu: (plugin) => plugin.settings.menuOpen,
+      title: (ctx) => t2("menu.openThisWord", { display: ctx.display }),
+      resolve: (plugin, editor) => {
+        const hit = hitAt(plugin, editor);
+        if (!hit)
+          return null;
+        const file = plugin.app.workspace.getActiveFile();
+        return { hit, display: hit.match.display, sourcePath: file ? file.path : "" };
+      },
+      run: (plugin, ctx) => plugin.chooseTerm(
+        plugin.cursorCandidates(ctx.hit, ctx.sourcePath, false),
+        t2("menu.openTitle"),
+        (c) => plugin.openTerm(c, ctx.sourcePath, false)
+      )
+    };
+    var UNLINK_AT_CURSOR = {
+      id: "unlink-at-cursor",
+      name: "cmd.unlinkAtCursor",
+      surface: "editor",
+      icon: "unlink",
+      inMenu: (plugin) => plugin.settings.menuUnlink,
+      title: () => t2("menu.unlinkThisTerm"),
+      resolve: (plugin, editor) => {
+        const link = linkAt(plugin, editor);
+        return link ? { editor, link } : null;
+      },
+      run: (plugin, ctx) => plugin.unlinkLinkAt(ctx.editor, ctx.link)
+    };
+    var COLLECT_ALIAS = {
+      id: "collect-alias-at-cursor",
+      name: "cmd.collectAliasAtCursor",
+      surface: "editor",
+      icon: "download",
+      inMenu: (plugin) => plugin.settings.menuCollect,
+      title: () => t2("menu.collectThisAlias"),
+      resolve: (plugin, editor) => {
+        const link = linkAt(plugin, editor);
+        return link && link.targetFile ? { link } : null;
+      },
+      run: (plugin, ctx) => plugin.harvestOneLink(ctx.link.targetFile, ctx.link.display)
+    };
+    var selectionAction = ({ id, name, titleKey, icon, inMenu, run }) => ({
+      id,
+      name,
+      surface: "editor",
+      icon,
+      inMenu,
+      title: () => t2(titleKey),
+      resolve: (plugin, editor) => {
+        if (linkAt(plugin, editor))
+          return null;
+        const sel = selectionAt(plugin, editor);
+        return sel ? { editor, sel } : null;
+      },
+      run
+    });
+    var SELECTION_ACTIONS = [
+      selectionAction({
+        id: "create-term-from-selection",
+        name: "cmd.createTerm",
+        titleKey: "menu.createTermLink",
+        icon: "plus-circle",
+        inMenu: (plugin) => plugin.settings.menuCreateTerm,
+        run: (plugin, ctx) => plugin.createTermFromSelection(ctx.editor, true)
+      }),
+      selectionAction({
+        id: "create-term-only",
+        name: "cmd.createTermOnly",
+        titleKey: "menu.createTerm",
+        icon: "file-plus",
+        inMenu: (plugin) => plugin.settings.menuCreateTerm,
+        run: (plugin, ctx) => plugin.createTermFromSelection(ctx.editor, false)
+      }),
+      selectionAction({
+        id: "add-alias-from-selection",
+        name: "cmd.addAliasFromSelection",
+        titleKey: "menu.addAlias",
+        icon: "text-cursor-input",
+        inMenu: (plugin) => plugin.settings.menuAddAlias,
+        run: (plugin, ctx) => plugin.addAliasFromSelection(ctx.sel)
+      })
+    ];
+    var EDITOR_ACTIONS2 = [
+      UNLINK_AT_CURSOR,
+      COLLECT_ALIAS,
+      ...SELECTION_ACTIONS,
+      ...LINK_WORD_ACTIONS,
+      OPEN_WORD,
+      ...EXCLUSION_ACTIONS
+    ];
+    module2.exports = { EDITOR_ACTIONS: EDITOR_ACTIONS2 };
+  }
+});
+
 // src/locales/en.js
 var require_en2 = __commonJS({
   "src/locales/en.js"(exports2, module2) {
@@ -5886,6 +6223,24 @@ var require_en2 = __commonJS({
       "cmd.collectAllNotes": "Collect aliases from links: all notes",
       "cmd.createTerm": "Create glossary term from selection",
       "cmd.rebuildIndex": "Rebuild glossary index",
+      "cmd.unlinkAtCursor": "Unlink the term link at the cursor",
+      "cmd.collectAliasAtCursor": "Collect the alias from the link at the cursor",
+      "cmd.createTermOnly": "Create a glossary term from the selection, without linking",
+      "cmd.addAliasFromSelection": "Make the selection an alias of a term",
+      "cmd.linkWordHere": "Link the word at the cursor",
+      "cmd.linkWordNote": "Link the word at the cursor: this note",
+      "cmd.linkWordScope": "Link the word at the cursor: all notes",
+      "cmd.openWord": "Open what the word at the cursor names",
+      "cmd.stopSpelling": "Stop linking this spelling",
+      "cmd.stopForms": "Stop linking every form of this word",
+      "cmd.excludeTermAtCursor": "Drop the term at the cursor from the index",
+      "cmd.resumeSpelling": "Stop excluding this spelling",
+      "cmd.resumeForms": "Stop excluding every form of this word",
+      "cmd.includeTermAtCursor": "Stop excluding this term",
+      "cmd.excludeNote": "Never link in this note",
+      "cmd.unexcludeNote": "Stop always-excluding this note",
+      "cmd.scopeNote": "Include this note in scope",
+      "cmd.unscopeNote": "Remove this note from scope",
       "cmd.addAlias": "Add alias to glossary term",
       "ribbon.tooltip": "Glossary overview",
       "statusBar.aria": "{n} glossary term(s) on this page \u2014 click to link them",
@@ -6096,6 +6451,24 @@ var require_ru2 = __commonJS({
       "cmd.collectAllNotes": "\u0421\u043E\u0431\u0440\u0430\u0442\u044C \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u044B \u0438\u0437 \u0441\u0441\u044B\u043B\u043E\u043A: \u0432\u0441\u0435 \u0437\u0430\u043C\u0435\u0442\u043A\u0438",
       "cmd.createTerm": "\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0442\u0435\u0440\u043C\u0438\u043D \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F \u0438\u0437 \u0432\u044B\u0434\u0435\u043B\u0435\u043D\u0438\u044F",
       "cmd.rebuildIndex": "\u041F\u0435\u0440\u0435\u0441\u0442\u0440\u043E\u0438\u0442\u044C \u0438\u043D\u0434\u0435\u043A\u0441 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F",
+      "cmd.unlinkAtCursor": "\u0423\u0431\u0440\u0430\u0442\u044C \u0441\u0441\u044B\u043B\u043A\u0443 \u043F\u043E\u0434 \u043A\u0443\u0440\u0441\u043E\u0440\u043E\u043C",
+      "cmd.collectAliasAtCursor": "\u0421\u043E\u0431\u0440\u0430\u0442\u044C \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C \u0438\u0437 \u0441\u0441\u044B\u043B\u043A\u0438 \u043F\u043E\u0434 \u043A\u0443\u0440\u0441\u043E\u0440\u043E\u043C",
+      "cmd.createTermOnly": "\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0442\u0435\u0440\u043C\u0438\u043D \u0438\u0437 \u0432\u044B\u0434\u0435\u043B\u0435\u043D\u0438\u044F, \u043D\u0435 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u044F",
+      "cmd.addAliasFromSelection": "\u0421\u0434\u0435\u043B\u0430\u0442\u044C \u0432\u044B\u0434\u0435\u043B\u0435\u043D\u0438\u0435 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u043E\u043C \u0442\u0435\u0440\u043C\u0438\u043D\u0430",
+      "cmd.linkWordHere": "\u0421\u0432\u044F\u0437\u0430\u0442\u044C \u0441\u043B\u043E\u0432\u043E \u043F\u043E\u0434 \u043A\u0443\u0440\u0441\u043E\u0440\u043E\u043C",
+      "cmd.linkWordNote": "\u0421\u0432\u044F\u0437\u0430\u0442\u044C \u0441\u043B\u043E\u0432\u043E \u043F\u043E\u0434 \u043A\u0443\u0440\u0441\u043E\u0440\u043E\u043C: \u044D\u0442\u0430 \u0437\u0430\u043C\u0435\u0442\u043A\u0430",
+      "cmd.linkWordScope": "\u0421\u0432\u044F\u0437\u0430\u0442\u044C \u0441\u043B\u043E\u0432\u043E \u043F\u043E\u0434 \u043A\u0443\u0440\u0441\u043E\u0440\u043E\u043C: \u0432\u0441\u0435 \u0437\u0430\u043C\u0435\u0442\u043A\u0438",
+      "cmd.openWord": "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0442\u043E, \u0447\u0442\u043E \u043D\u0430\u0437\u044B\u0432\u0430\u0435\u0442 \u0441\u043B\u043E\u0432\u043E \u043F\u043E\u0434 \u043A\u0443\u0440\u0441\u043E\u0440\u043E\u043C",
+      "cmd.stopSpelling": "\u041D\u0435 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u0442\u044C \u044D\u0442\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435",
+      "cmd.stopForms": "\u041D\u0435 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u0442\u044C \u043D\u0438 \u043E\u0434\u043D\u0443 \u0444\u043E\u0440\u043C\u0443 \u044D\u0442\u043E\u0433\u043E \u0441\u043B\u043E\u0432\u0430",
+      "cmd.excludeTermAtCursor": "\u0423\u0431\u0440\u0430\u0442\u044C \u0442\u0435\u0440\u043C\u0438\u043D \u043F\u043E\u0434 \u043A\u0443\u0440\u0441\u043E\u0440\u043E\u043C \u0438\u0437 \u0438\u043D\u0434\u0435\u043A\u0441\u0430",
+      "cmd.resumeSpelling": "\u041F\u0435\u0440\u0435\u0441\u0442\u0430\u0442\u044C \u0438\u0441\u043A\u043B\u044E\u0447\u0430\u0442\u044C \u044D\u0442\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435",
+      "cmd.resumeForms": "\u041F\u0435\u0440\u0435\u0441\u0442\u0430\u0442\u044C \u0438\u0441\u043A\u043B\u044E\u0447\u0430\u0442\u044C \u0444\u043E\u0440\u043C\u044B \u044D\u0442\u043E\u0433\u043E \u0441\u043B\u043E\u0432\u0430",
+      "cmd.includeTermAtCursor": "\u041F\u0435\u0440\u0435\u0441\u0442\u0430\u0442\u044C \u0438\u0441\u043A\u043B\u044E\u0447\u0430\u0442\u044C \u044D\u0442\u043E\u0442 \u0442\u0435\u0440\u043C\u0438\u043D",
+      "cmd.excludeNote": "\u041D\u0438\u043A\u043E\u0433\u0434\u0430 \u043D\u0435 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u0442\u044C \u0432 \u044D\u0442\u043E\u0439 \u0437\u0430\u043C\u0435\u0442\u043A\u0435",
+      "cmd.unexcludeNote": "\u041F\u0435\u0440\u0435\u0441\u0442\u0430\u0442\u044C \u0432\u0441\u0435\u0433\u0434\u0430 \u0438\u0441\u043A\u043B\u044E\u0447\u0430\u0442\u044C \u044D\u0442\u0443 \u0437\u0430\u043C\u0435\u0442\u043A\u0443",
+      "cmd.scopeNote": "\u0412\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u044D\u0442\u0443 \u0437\u0430\u043C\u0435\u0442\u043A\u0443 \u0432 \u043E\u0431\u043B\u0430\u0441\u0442\u044C",
+      "cmd.unscopeNote": "\u0423\u0431\u0440\u0430\u0442\u044C \u044D\u0442\u0443 \u0437\u0430\u043C\u0435\u0442\u043A\u0443 \u0438\u0437 \u043E\u0431\u043B\u0430\u0441\u0442\u0438",
       "cmd.addAlias": "\u041F\u0440\u0438\u0432\u044F\u0437\u0430\u0442\u044C \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C \u043A \u0442\u0435\u0440\u043C\u0438\u043D\u0443",
       "ribbon.tooltip": "\u041E\u0431\u0437\u043E\u0440 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F",
       "statusBar.aria": "\u0422\u0435\u0440\u043C\u0438\u043D\u043E\u0432 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F \u043D\u0430 \u044D\u0442\u043E\u0439 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0435: {n} \u2014 \u043D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u0441\u0432\u044F\u0437\u0430\u0442\u044C",
@@ -6284,6 +6657,24 @@ var require_de2 = __commonJS({
       "cmd.collectAllNotes": "Aliasse aus Links sammeln: alle Notizen",
       "cmd.createTerm": "Glossarbegriff aus Auswahl erstellen",
       "cmd.rebuildIndex": "Glossar-Index neu aufbauen",
+      "cmd.unlinkAtCursor": "Link unter dem Cursor entlinken",
+      "cmd.collectAliasAtCursor": "Alias aus dem Link unter dem Cursor sammeln",
+      "cmd.createTermOnly": "Begriff aus der Auswahl erstellen, ohne zu verlinken",
+      "cmd.addAliasFromSelection": "Auswahl zum Alias eines Begriffs machen",
+      "cmd.linkWordHere": "Wort unter dem Cursor verlinken",
+      "cmd.linkWordNote": "Wort unter dem Cursor verlinken: diese Notiz",
+      "cmd.linkWordScope": "Wort unter dem Cursor verlinken: alle Notizen",
+      "cmd.openWord": "\xD6ffnen, was das Wort unter dem Cursor benennt",
+      "cmd.stopSpelling": "Diese Schreibweise nicht mehr verlinken",
+      "cmd.stopForms": "Keine Form dieses Wortes mehr verlinken",
+      "cmd.excludeTermAtCursor": "Begriff unter dem Cursor aus dem Index entfernen",
+      "cmd.resumeSpelling": "Diese Schreibweise nicht mehr ausschlie\xDFen",
+      "cmd.resumeForms": "Formen dieses Wortes nicht mehr ausschlie\xDFen",
+      "cmd.includeTermAtCursor": "Diesen Begriff nicht mehr ausschlie\xDFen",
+      "cmd.excludeNote": "In dieser Notiz nie verlinken",
+      "cmd.unexcludeNote": "Diese Notiz nicht mehr immer ausschlie\xDFen",
+      "cmd.scopeNote": "Diese Notiz in den Bereich aufnehmen",
+      "cmd.unscopeNote": "Diese Notiz aus dem Bereich entfernen",
       "ribbon.tooltip": "Glossar-\xDCbersicht",
       "statusBar.aria": "{n} Glossarbegriff(e) auf dieser Seite \u2014 zum Verlinken klicken",
       "menu.createTermLink": "Glossary: Begriff erstellen & verlinken",
@@ -6462,6 +6853,24 @@ var require_es2 = __commonJS({
       "cmd.collectAllNotes": "Recopilar alias desde enlaces: todas las notas",
       "cmd.createTerm": "Crear t\xE9rmino del glosario desde la selecci\xF3n",
       "cmd.rebuildIndex": "Reconstruir \xEDndice del glosario",
+      "cmd.unlinkAtCursor": "Desenlazar el enlace bajo el cursor",
+      "cmd.collectAliasAtCursor": "Recopilar el alias del enlace bajo el cursor",
+      "cmd.createTermOnly": "Crear un t\xE9rmino desde la selecci\xF3n, sin enlazar",
+      "cmd.addAliasFromSelection": "Hacer de la selecci\xF3n un alias de un t\xE9rmino",
+      "cmd.linkWordHere": "Enlazar la palabra bajo el cursor",
+      "cmd.linkWordNote": "Enlazar la palabra bajo el cursor: esta nota",
+      "cmd.linkWordScope": "Enlazar la palabra bajo el cursor: todas las notas",
+      "cmd.openWord": "Abrir lo que nombra la palabra bajo el cursor",
+      "cmd.stopSpelling": "Dejar de enlazar esta graf\xEDa",
+      "cmd.stopForms": "Dejar de enlazar todas las formas de esta palabra",
+      "cmd.excludeTermAtCursor": "Quitar del \xEDndice el t\xE9rmino bajo el cursor",
+      "cmd.resumeSpelling": "Dejar de excluir esta graf\xEDa",
+      "cmd.resumeForms": "Dejar de excluir las formas de esta palabra",
+      "cmd.includeTermAtCursor": "Dejar de excluir este t\xE9rmino",
+      "cmd.excludeNote": "No enlazar nunca en esta nota",
+      "cmd.unexcludeNote": "Dejar de excluir siempre esta nota",
+      "cmd.scopeNote": "Incluir esta nota en el \xE1mbito",
+      "cmd.unscopeNote": "Quitar esta nota del \xE1mbito",
       "ribbon.tooltip": "Resumen del glosario",
       "statusBar.aria": "{n} t\xE9rmino(s) del glosario en esta p\xE1gina \u2014 clic para enlazarlos",
       "menu.createTermLink": "Glossary: crear t\xE9rmino y enlazar",
@@ -6640,6 +7049,24 @@ var require_fr2 = __commonJS({
       "cmd.collectAllNotes": "Collecter les alias depuis les liens : toutes les notes",
       "cmd.createTerm": "Cr\xE9er un terme du glossaire \xE0 partir de la s\xE9lection",
       "cmd.rebuildIndex": "Reconstruire l\u2019index du glossaire",
+      "cmd.unlinkAtCursor": "D\xE9lier le lien sous le curseur",
+      "cmd.collectAliasAtCursor": "R\xE9cup\xE9rer l\u2019alias du lien sous le curseur",
+      "cmd.createTermOnly": "Cr\xE9er un terme \xE0 partir de la s\xE9lection, sans lier",
+      "cmd.addAliasFromSelection": "Faire de la s\xE9lection un alias d\u2019un terme",
+      "cmd.linkWordHere": "Lier le mot sous le curseur",
+      "cmd.linkWordNote": "Lier le mot sous le curseur : cette note",
+      "cmd.linkWordScope": "Lier le mot sous le curseur : toutes les notes",
+      "cmd.openWord": "Ouvrir ce que nomme le mot sous le curseur",
+      "cmd.stopSpelling": "Ne plus lier cette graphie",
+      "cmd.stopForms": "Ne plus lier aucune forme de ce mot",
+      "cmd.excludeTermAtCursor": "Retirer de l\u2019index le terme sous le curseur",
+      "cmd.resumeSpelling": "Ne plus exclure cette graphie",
+      "cmd.resumeForms": "Ne plus exclure les formes de ce mot",
+      "cmd.includeTermAtCursor": "Ne plus exclure ce terme",
+      "cmd.excludeNote": "Ne jamais lier dans cette note",
+      "cmd.unexcludeNote": "Ne plus exclure toujours cette note",
+      "cmd.scopeNote": "Inclure cette note dans le p\xE9rim\xE8tre",
+      "cmd.unscopeNote": "Retirer cette note du p\xE9rim\xE8tre",
       "ribbon.tooltip": "Aper\xE7u du glossaire",
       "statusBar.aria": "{n} terme(s) du glossaire sur cette page \u2014 cliquez pour les lier",
       "menu.createTermLink": "Glossary : cr\xE9er le terme et lier",
@@ -6818,6 +7245,24 @@ var require_uk2 = __commonJS({
       "cmd.collectAllNotes": "\u0417\u0456\u0431\u0440\u0430\u0442\u0438 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0438 \u0437 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u044C: \u0443\u0441\u0456 \u043D\u043E\u0442\u0430\u0442\u043A\u0438",
       "cmd.createTerm": "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u0442\u0435\u0440\u043C\u0456\u043D \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u044F \u0437 \u0432\u0438\u0434\u0456\u043B\u0435\u043D\u043D\u044F",
       "cmd.rebuildIndex": "\u041F\u0435\u0440\u0435\u0431\u0443\u0434\u0443\u0432\u0430\u0442\u0438 \u0456\u043D\u0434\u0435\u043A\u0441 \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u044F",
+      "cmd.unlinkAtCursor": "\u041F\u0440\u0438\u0431\u0440\u0430\u0442\u0438 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F \u043F\u0456\u0434 \u043A\u0443\u0440\u0441\u043E\u0440\u043E\u043C",
+      "cmd.collectAliasAtCursor": "\u0417\u0456\u0431\u0440\u0430\u0442\u0438 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C \u0456\u0437 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F \u043F\u0456\u0434 \u043A\u0443\u0440\u0441\u043E\u0440\u043E\u043C",
+      "cmd.createTermOnly": "\u0421\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u0442\u0435\u0440\u043C\u0456\u043D \u0456\u0437 \u0432\u0438\u0434\u0456\u043B\u0435\u043D\u043D\u044F, \u043D\u0435 \u043F\u043E\u0432\u2019\u044F\u0437\u0443\u044E\u0447\u0438",
+      "cmd.addAliasFromSelection": "\u0417\u0440\u043E\u0431\u0438\u0442\u0438 \u0432\u0438\u0434\u0456\u043B\u0435\u043D\u043D\u044F \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u043E\u043C \u0442\u0435\u0440\u043C\u0456\u043D\u0430",
+      "cmd.linkWordHere": "\u041F\u043E\u0432\u2019\u044F\u0437\u0430\u0442\u0438 \u0441\u043B\u043E\u0432\u043E \u043F\u0456\u0434 \u043A\u0443\u0440\u0441\u043E\u0440\u043E\u043C",
+      "cmd.linkWordNote": "\u041F\u043E\u0432\u2019\u044F\u0437\u0430\u0442\u0438 \u0441\u043B\u043E\u0432\u043E \u043F\u0456\u0434 \u043A\u0443\u0440\u0441\u043E\u0440\u043E\u043C: \u0446\u044F \u043D\u043E\u0442\u0430\u0442\u043A\u0430",
+      "cmd.linkWordScope": "\u041F\u043E\u0432\u2019\u044F\u0437\u0430\u0442\u0438 \u0441\u043B\u043E\u0432\u043E \u043F\u0456\u0434 \u043A\u0443\u0440\u0441\u043E\u0440\u043E\u043C: \u0443\u0441\u0456 \u043D\u043E\u0442\u0430\u0442\u043A\u0438",
+      "cmd.openWord": "\u0412\u0456\u0434\u043A\u0440\u0438\u0442\u0438 \u0442\u0435, \u0449\u043E \u043D\u0430\u0437\u0438\u0432\u0430\u0454 \u0441\u043B\u043E\u0432\u043E \u043F\u0456\u0434 \u043A\u0443\u0440\u0441\u043E\u0440\u043E\u043C",
+      "cmd.stopSpelling": "\u041D\u0435 \u043F\u043E\u0432\u2019\u044F\u0437\u0443\u0432\u0430\u0442\u0438 \u0446\u0435 \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u044F",
+      "cmd.stopForms": "\u041D\u0435 \u043F\u043E\u0432\u2019\u044F\u0437\u0443\u0432\u0430\u0442\u0438 \u0436\u043E\u0434\u043D\u0443 \u0444\u043E\u0440\u043C\u0443 \u0446\u044C\u043E\u0433\u043E \u0441\u043B\u043E\u0432\u0430",
+      "cmd.excludeTermAtCursor": "\u041F\u0440\u0438\u0431\u0440\u0430\u0442\u0438 \u0442\u0435\u0440\u043C\u0456\u043D \u043F\u0456\u0434 \u043A\u0443\u0440\u0441\u043E\u0440\u043E\u043C \u0437 \u0456\u043D\u0434\u0435\u043A\u0441\u0443",
+      "cmd.resumeSpelling": "\u041F\u0435\u0440\u0435\u0441\u0442\u0430\u0442\u0438 \u0432\u0438\u043A\u043B\u044E\u0447\u0430\u0442\u0438 \u0446\u0435 \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u044F",
+      "cmd.resumeForms": "\u041F\u0435\u0440\u0435\u0441\u0442\u0430\u0442\u0438 \u0432\u0438\u043A\u043B\u044E\u0447\u0430\u0442\u0438 \u0444\u043E\u0440\u043C\u0438 \u0446\u044C\u043E\u0433\u043E \u0441\u043B\u043E\u0432\u0430",
+      "cmd.includeTermAtCursor": "\u041F\u0435\u0440\u0435\u0441\u0442\u0430\u0442\u0438 \u0432\u0438\u043A\u043B\u044E\u0447\u0430\u0442\u0438 \u0446\u0435\u0439 \u0442\u0435\u0440\u043C\u0456\u043D",
+      "cmd.excludeNote": "\u041D\u0456\u043A\u043E\u043B\u0438 \u043D\u0435 \u043F\u043E\u0432\u2019\u044F\u0437\u0443\u0432\u0430\u0442\u0438 \u0432 \u0446\u0456\u0439 \u043D\u043E\u0442\u0430\u0442\u0446\u0456",
+      "cmd.unexcludeNote": "\u041F\u0435\u0440\u0435\u0441\u0442\u0430\u0442\u0438 \u0437\u0430\u0432\u0436\u0434\u0438 \u0432\u0438\u043A\u043B\u044E\u0447\u0430\u0442\u0438 \u0446\u044E \u043D\u043E\u0442\u0430\u0442\u043A\u0443",
+      "cmd.scopeNote": "\u0412\u043A\u043B\u044E\u0447\u0438\u0442\u0438 \u0446\u044E \u043D\u043E\u0442\u0430\u0442\u043A\u0443 \u0432 \u043E\u0431\u043B\u0430\u0441\u0442\u044C",
+      "cmd.unscopeNote": "\u041F\u0440\u0438\u0431\u0440\u0430\u0442\u0438 \u0446\u044E \u043D\u043E\u0442\u0430\u0442\u043A\u0443 \u0437 \u043E\u0431\u043B\u0430\u0441\u0442\u0456",
       "ribbon.tooltip": "\u041E\u0433\u043B\u044F\u0434 \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u044F",
       "statusBar.aria": "\u0422\u0435\u0440\u043C\u0456\u043D\u0456\u0432 \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u044F \u043D\u0430 \u0446\u0456\u0439 \u0441\u0442\u043E\u0440\u0456\u043D\u0446\u0456: {n} \u2014 \u043D\u0430\u0442\u0438\u0441\u043D\u0456\u0442\u044C, \u0449\u043E\u0431 \u0437\u0432\u2019\u044F\u0437\u0430\u0442\u0438",
       "menu.createTermLink": "Glossary: \u0441\u0442\u0432\u043E\u0440\u0438\u0442\u0438 \u0442\u0435\u0440\u043C\u0456\u043D \u0456 \u0437\u0432\u2019\u044F\u0437\u0430\u0442\u0438",
@@ -6996,8 +7441,10 @@ var { GlossaryTermSuggest, suggestAvailable } = require_term_suggest();
 var { GlossaryOverviewView, OVERVIEW_VIEW_TYPE } = require_overview_view();
 var { initI18n, withFamily, t, plural } = require_i18n();
 var { buildMenu } = require_menu_verbs();
+var { registerActions, menuActions } = require_actions2();
+var { PATH_ACTIONS } = require_path_actions();
+var { EDITOR_ACTIONS } = require_editor_actions();
 var { ChoicePopover } = require_choices();
-var oneWord = (text) => (text.match(/[\p{L}\p{Nd}]+/gu) || []).length === 1;
 var GlossaryLinkerPlugin = class extends Plugin {
   async onload() {
     initI18n(withFamily("prose", {
@@ -7084,110 +7531,14 @@ var GlossaryLinkerPlugin = class extends Plugin {
       if (active && active.path === file.path)
         this.updateStatusBarDebounced();
     }));
-    this.registerEvent(this.app.workspace.on("editor-menu", (nativeMenu, editor) => buildMenu(this, nativeMenu, (menu) => {
-      const sel = editor.getSelection().trim();
-      const hasSel = !!sel && !sel.includes("\n");
-      const link = this.glossaryLinkAt(editor);
-      const file = this.app.workspace.getActiveFile();
-      const sourcePath = file ? file.path : "";
-      const excludeItems = (display, canonical) => {
-        if (!this.settings.menuExclude)
-          return;
-        if (display && oneWord(display)) {
-          this.addExclusionMenuItem(menu, "excludeWords", display, "form");
-          this.addExclusionMenuItem(menu, "excludeWords", display, "stem");
-        }
-        if (canonical)
-          this.addExclusionMenuItem(menu, "excludeTerms", canonical);
-      };
-      if (link) {
-        if (this.settings.menuUnlink) {
-          menu.addItem((i) => i.setTitle(t("menu.unlinkThisTerm")).setIcon("unlink").onClick(() => this.unlinkLinkAt(editor, link)));
-        }
-        if (this.settings.menuCollect && link.targetFile) {
-          menu.addItem((i) => i.setTitle(t("menu.collectThisAlias")).setIcon("download").onClick(() => this.harvestOneLink(link.targetFile, link.display)));
-        }
-        excludeItems(link.display, link.canonical);
-        return;
-      }
-      if (hasSel) {
-        if (this.settings.menuCreateTerm) {
-          menu.addItem((i) => i.setTitle(t("menu.createTermLink")).setIcon("plus-circle").onClick(() => this.createTermFromSelection(editor, true)));
-          menu.addItem((i) => i.setTitle(t("menu.createTerm")).setIcon("file-plus").onClick(() => this.createTermFromSelection(editor, false)));
-        }
-        if (this.settings.menuAddAlias) {
-          menu.addItem((i) => i.setTitle(t("menu.addAlias")).setIcon("text-cursor-input").onClick(() => this.addAliasFromSelection(sel)));
-        }
-        excludeItems(sel, null);
-        return;
-      }
-      const hit = this.matchAtCursor(editor);
-      if (hit) {
-        const display = hit.match.display;
-        const canonical = hit.match.canonical;
-        const candidates = () => this.cursorCandidates(hit, sourcePath, false);
-        const ownCandidates = () => [hit.match.canonical, ...hit.match.alts || []];
-        if (file && this.settings.menuTurnInto) {
-          const scope = this.settings.linkFirstOnly ? t("scope.first") : t("scope.all");
-          const linkGroup = menu.section(t("menu.linkThisWord", { display }), "link");
-          linkGroup.addItem((i) => i.setTitle(t("menu.linkHere", { display })).setIcon("link").onClick(() => this.chooseTerm(
-            ownCandidates(),
-            t("menu.linkDisplayTo", { display }),
-            (c) => this.materializeSingle(file, canonical, display, editor.posToOffset({ line: hit.line, ch: hit.match.start }), 0, c)
-          )));
-          linkGroup.addItem((i) => i.setTitle(t("menu.linkScopeThisNote", { scope, display })).setIcon("links-coming-in").onClick(() => this.chooseTerm(
-            ownCandidates(),
-            t("menu.linkScopeTo", { scope, display }),
-            (c) => this.materializeTerm(file, canonical, c)
-          )));
-          linkGroup.addItem((i) => i.setTitle(t("menu.linkScopeAllNotes", { scope, display })).setIcon("links-going-out").onClick(() => this.chooseTerm(
-            ownCandidates(),
-            t("menu.linkScopeTo", { scope, display }),
-            (c) => this.materializeTermScope(canonical, c)
-          )));
-        }
-        if (this.settings.menuOpen) {
-          menu.addItem((i) => i.setTitle(t("menu.openThisWord", { display })).setIcon("file-text").onClick(() => this.chooseTerm(candidates(), t("menu.openTitle"), (c) => this.openTerm(c, sourcePath, false))));
-        }
-        excludeItems(display, canonical);
-        return;
-      }
-      const word = this.wordAtCursor(editor);
-      if (word) {
-        excludeItems(word.display, word.canonical);
-        return;
-      }
-      const raw = this.rawWordAtCursor(editor);
-      if (!raw || !this.settings.menuExclude)
-        return;
-      if (this.isExcluded("excludeWords", raw))
-        this.addExclusionMenuItem(menu, "excludeWords", raw, "form");
-      if (this.stemLineSilencing(raw))
-        this.addExclusionMenuItem(menu, "excludeWords", raw, "stem");
-      if (this.isExcluded("excludeTerms", raw))
-        this.addExclusionMenuItem(menu, "excludeTerms", raw);
-    })));
+    this.registerEvent(this.app.workspace.on("editor-menu", (nativeMenu, editor) => buildMenu(this, nativeMenu, (menu) => menuActions(this, menu, EDITOR_ACTIONS, "editor", editor))));
     this.registerEvent(this.app.workspace.on("file-menu", (menu, file, source) => {
       if (source === "link-context-menu")
         return;
       const isFolder = file instanceof TFolder;
       if (!isFolder && !(file instanceof TFile && file.extension === "md"))
         return;
-      const path = file.path;
-      const noun = isFolder ? t("noun.folder") : t("noun.file");
-      const item = (title, icon, listKey, add) => menu.addItem((i) => i.setTitle(title).setIcon(icon).onClick(() => this.setPathInList(listKey, path, add)));
-      if (this.pathListed("excludeFolders", path)) {
-        item(t("menu.removeFromAlwaysExcluded"), "rotate-ccw", "excludeFolders", false);
-      } else {
-        item(t("menu.addToAlwaysExcluded", { noun }), "ban", "excludeFolders", true);
-      }
-      if (this.settings.scopeMode === "folders") {
-        const listed = this.pathListed("scopeFolders", path);
-        if (listed)
-          item(t("menu.removeFromScope", { noun }), "folder-minus", "scopeFolders", false);
-        else
-          item(t("menu.includeInScope", { noun }), "folder-plus", "scopeFolders", true);
-      }
+      menuActions(this, menu, PATH_ACTIONS, "file", file);
       if (this.settings.menuCollect && !isFolder) {
         menu.addItem((i) => i.setTitle(t("menu.collectFromNote")).setIcon("download").onClick(() => this.harvestFiles([file], false)));
       }
@@ -7258,11 +7609,6 @@ var GlossaryLinkerPlugin = class extends Plugin {
       callback: () => this.harvestFiles(this.getScopeFiles(), false)
     });
     this.addCommand({
-      id: "create-term-from-selection",
-      name: t("cmd.createTerm"),
-      editorCallback: (editor) => this.createTermFromSelection(editor, true)
-    });
-    this.addCommand({
       id: "rebuild-index",
       name: t("cmd.rebuildIndex"),
       callback: () => {
@@ -7275,6 +7621,8 @@ var GlossaryLinkerPlugin = class extends Plugin {
       name: t("cmd.addAlias"),
       callback: () => this.addAlias()
     });
+    registerActions(this, PATH_ACTIONS);
+    registerActions(this, EDITOR_ACTIONS);
     this.addSettingTab(new GlossaryLinkerSettingTab(this.app, this));
     this.api = this.buildApi();
   }
