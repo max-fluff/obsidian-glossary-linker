@@ -1,4 +1,4 @@
-/* Glossary Linker 1.4.4 — assembled from the shared styles and src/styles.css by "npm run build". Do not edit directly. */
+/* Glossary Linker 1.5.0 — assembled from the shared styles and src/styles.css by "npm run build". Do not edit directly. */
 
 /* Styles every linker plugin uses. The token below stands for the plugin class prefix;
    build.mjs substitutes it when it assembles styles.css. See CONTRIBUTING.md. */
@@ -457,6 +457,18 @@ settings:
   color: var(--text-muted);
 }
 
+.glossary-overview-clash {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.glossary-overview-mark {
+  color: var(--text-warning, var(--text-error));
+  cursor: pointer;
+  font-size: var(--font-ui-smaller);
+}
+
 .glossary-overview-count {
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
@@ -484,4 +496,4 @@ settings:
   width: 100%;
 }
 
-/* Glossary Linker 1.4.4 */
+/* Glossary Linker 1.5.0 */

@@ -1,4 +1,4 @@
-/* Glossary Linker 1.4.4 — bundled from src/ by esbuild. Do not edit directly; edit src/ and run "npm run build". */
+/* Glossary Linker 1.5.0 — bundled from src/ by esbuild. Do not edit directly; edit src/ and run "npm run build". */
 "use strict";
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __commonJS = (cb, mod) => function __require() {
@@ -10,7 +10,8 @@ var require_constants = __commonJS({
   "src/constants.js"(exports2, module2) {
     "use strict";
     var DEFAULT_SETTINGS2 = {
-      glossaryFolder: "glossary",
+      glossaryFolders: "glossary",
+      // one folder per line; empty = the whole vault is the glossary
       termTemplate: "",
       // path to a template note; empty = create an empty note (as before)
       scopeMode: "vault",
@@ -2325,6 +2326,16 @@ var require_discover = __commonJS({
         return matches;
       return matches.filter((m) => !overlaps(foreign, m.start, m.end));
     }
+    function spanMeanings(m) {
+      const out = [{ label: m.label || m.target || "", target: m.target }];
+      if (!Array.isArray(m.alts))
+        return out;
+      for (const a of m.alts) {
+        if (a && a.target !== void 0 && a.target !== null)
+          out.push({ label: a.label || a.target, target: a.target });
+      }
+      return out;
+    }
     function yieldedCandidates(app, self, text, where) {
       const out = [];
       for (const peer of discoverLinkers(app)) {
@@ -2341,35 +2352,38 @@ var require_discover = __commonJS({
         for (const m of matches) {
           if (!m || typeof m.start !== "number" || typeof m.end !== "number")
             continue;
-          out.push({
-            start: m.start,
-            end: m.end,
-            label: m.label || m.target || "",
-            target: m.target,
-            // The id survives a round trip through a DOM attribute; the opener is looked up
-            // again at click time.
-            id: peer.id,
-            source: peer.displayName || peer.id,
-            // How this row reads in an ambiguity list, asked of its owner and only when a list is
-            // actually drawn — every span on screen produces candidates, few are ever looked at.
-            describe: (display) => {
-              if (typeof peer.describe !== "function")
-                return null;
-              try {
-                return peer.describe(m.target, display);
-              } catch (e) {
-                return null;
+          for (const meta of spanMeanings(m)) {
+            out.push({
+              start: m.start,
+              end: m.end,
+              label: meta.label,
+              target: meta.target,
+              // The id survives a round trip through a DOM attribute; the opener is looked up
+              // again at click time.
+              id: peer.id,
+              source: peer.displayName || peer.id,
+              // How this row reads in an ambiguity list, asked of its owner and only when a list
+              // is actually drawn — every span on screen produces candidates, few are ever
+              // looked at.
+              describe: (display) => {
+                if (typeof peer.describe !== "function")
+                  return null;
+                try {
+                  return peer.describe(meta.target, display);
+                } catch (e) {
+                  return null;
+                }
+              },
+              open: (sourcePath, newTab) => {
+                if (typeof peer.open === "function")
+                  peer.open(meta.target, sourcePath, newTab);
+              },
+              hover: (event, targetEl, sourcePath, hoverParent) => {
+                if (typeof peer.hover === "function")
+                  peer.hover(meta.target, event, targetEl, sourcePath, hoverParent);
               }
-            },
-            open: (sourcePath, newTab) => {
-              if (typeof peer.open === "function")
-                peer.open(m.target, sourcePath, newTab);
-            },
-            hover: (event, targetEl, sourcePath, hoverParent) => {
-              if (typeof peer.hover === "function")
-                peer.hover(m.target, event, targetEl, sourcePath, hoverParent);
-            }
-          });
+            });
+          }
         }
       }
       return out;
@@ -2913,17 +2927,21 @@ var require_settings_tab = __commonJS({
           this.plugin.updateStatusBar();
           this.plugin.refreshOverviewDebounced();
         };
+        const saveGlossary = async () => {
+          await save(true);
+          this.renderFolderStatus();
+          this.plugin.refreshOverviewDebounced();
+        };
         const sections = createProseSettings(this, { cls: "glossary", save });
         new Setting(containerEl).setName(t2("set.heading.scope")).setHeading();
-        new Setting(containerEl).setName(t2("set.glossaryFolder.name")).setDesc(t2("set.glossaryFolder.desc")).addText((c) => {
-          c.setValue(s.glossaryFolder).onChange(async (v) => {
-            s.glossaryFolder = sanitizeFolder2(v);
-            await save(true);
-            this.renderFolderStatus();
-            this.plugin.refreshOverviewDebounced();
-          });
-          if (suggestAvailable2())
-            new VaultFolderSuggest(this.app, c.inputEl);
+        sections.pathList(containerEl, {
+          name: t2("set.glossaryFolders.name"),
+          desc: t2("set.glossaryFolders.desc"),
+          key: "glossaryFolders",
+          labels: "folderList",
+          normalize: sanitizeFolder2,
+          attachSuggest: suggestAvailable2() ? (inputEl, onPick) => new VaultFolderSuggest(this.app, inputEl, onPick) : null,
+          save: saveGlossary
         });
         new Setting(containerEl).setName(t2("set.termTemplate.name")).setDesc(t2("set.termTemplate.desc")).addText((c) => {
           c.setValue(s.termTemplate).onChange(async (v) => {
@@ -3004,19 +3022,18 @@ var require_settings_tab = __commonJS({
           return;
         el.empty();
         el.removeClass("glossary-lang-error");
-        const path = (this.plugin.settings.glossaryFolder || "").replace(/\/+$/, "");
+        const folders = this.plugin.glossaryFolderList();
         const n = this.plugin.index && this.plugin.index.termCount || 0;
-        if (!path) {
-          el.setText(t2("set.wholeVaultStatus", { terms: plural2("term", n) }));
-          return;
-        }
-        const f = this.app.vault.getAbstractFileByPath(path);
-        if (!(f instanceof TFolder2)) {
+        const parts = [t2(folders.length ? "set.termsIndexed" : "set.wholeVaultStatus", { terms: plural2("term", n) })];
+        const missing = folders.filter((p) => !(this.app.vault.getAbstractFileByPath(p) instanceof TFolder2));
+        if (missing.length) {
           el.addClass("glossary-lang-error");
-          el.setText(t2("set.folderNotFound"));
-          return;
+          parts.push(t2("set.foldersNotFound", { folders: missing.join(", ") }));
         }
-        el.setText(t2("set.termsIndexed", { terms: plural2("term", n) }));
+        const clashes = [...this.plugin.termGroups().values()].filter((group) => group.length > 1).length;
+        if (clashes)
+          parts.push(t2("set.duplicateTitles", { titles: plural2("title", clashes) }));
+        el.setText(parts.join(" "));
       }
     };
     module2.exports = { GlossaryLinkerSettingTab: GlossaryLinkerSettingTab2 };
@@ -3295,9 +3312,9 @@ var require_matcher2 = __commonJS({
     var { splitLines: splitLines2 } = require_markdown();
     var { createMatcher } = require_matcher();
     var core = createMatcher({
-      idOf: (c) => c.canonical,
-      selfIdOf: (c) => c.canonical,
-      fieldsOf: (c) => ({ canonical: c.canonical }),
+      idOf: (c) => c.linktext,
+      selfIdOf: (c) => c.linktext,
+      fieldsOf: (c) => ({ canonical: c.canonical, linktext: c.linktext }),
       // A single word on the excluded-words list never becomes a link, even when a term matches
       // it. Multi-word matches are left alone: "cell" being excluded should not stop "stem cell".
       accepts: (plugin, matched, token) => !(matched.wc === 1 && plugin.wordSilenced(token.raw))
@@ -3338,23 +3355,26 @@ var require_matcher2 = __commonJS({
             this.excludedStems.add(k);
         }
         const files = this.app.vault.getMarkdownFiles().filter((f) => this.isGlossaryFile(f));
+        const titles = /* @__PURE__ */ new Map();
+        for (const file of files)
+          titles.set(file.basename, (titles.get(file.basename) || 0) + 1);
         for (const file of files) {
           const canonical = file.basename;
+          const linktext = titles.get(canonical) > 1 ? file.path.replace(/\.md$/, "") : canonical;
           const aliases = this.aliasesOf(file);
           this.aliasFingerprints.set(file.path, JSON.stringify(aliases));
           if ([canonical, ...aliases].some((f) => excludeTerms.has(f.toLowerCase())))
             continue;
           const forms = [canonical, ...aliases].filter((x) => typeof x === "string" && x.trim());
-          const target = { canonical, path: file.path };
           canonicals.add(canonical);
-          terms.push({ canonical, path: file.path, aliases });
+          terms.push({ canonical, linktext, path: file.path, aliases });
           for (const form of forms) {
             if (form.trim().length < minTermLength)
               continue;
             const entry = this.formEntry(form);
             if (!entry)
               continue;
-            const matcher2 = Object.assign({ canonical, target }, entry);
+            const matcher2 = Object.assign({ canonical, linktext }, entry);
             for (const k of entry.words[0].keys) {
               if (!byKey.has(k))
                 byKey.set(k, []);
@@ -3708,8 +3728,8 @@ var require_highlight2 = __commonJS({
     module2.exports = createHighlight({
       cls: "glossary",
       displayName: "Glossary Linker",
-      targetOf: (m) => m.canonical,
-      selfIdFor: (plugin, sourcePath) => plugin.canonicalForPath(sourcePath)
+      targetOf: (m) => m.linktext,
+      selfIdFor: (plugin, sourcePath) => plugin.linktextForPath(sourcePath)
     });
   }
 });
@@ -4139,8 +4159,8 @@ var require_modals2 = __commonJS({
     var { createProseModals } = require_modals();
     var { MaterializePreviewModal, UnlinkPreviewModal, ChooseTermModal } = createProseModals({
       cls: "glossary",
-      targetOf: (m) => m.canonical,
-      withTarget: (m, canonical) => ({ ...m, canonical })
+      targetOf: (m) => m.linktext,
+      withTarget: (m, linktext) => ({ ...m, linktext })
     });
     var HarvestPreviewModal = class extends Modal {
       constructor(app, additions, onApply) {
@@ -4271,16 +4291,16 @@ var require_actions = __commonJS({
     var { t: t2, plural: plural2 } = require_i18n();
     module2.exports = {
       // Ambiguous matches keep their `alts` so the preview can let the user pick a term.
-      collectMatches(text, currentCanonical) {
-        const matches = this.findMatches(text, currentCanonical, { protect: true });
+      collectMatches(text, currentLinktext) {
+        const matches = this.findMatches(text, currentLinktext, { protect: true });
         if (!this.settings.linkFirstOnly)
           return matches;
         const seen = /* @__PURE__ */ new Set();
         const out = [];
         for (const m of matches) {
-          if (seen.has(m.canonical))
+          if (seen.has(m.linktext))
             continue;
-          seen.add(m.canonical);
+          seen.add(m.linktext);
           out.push(m);
         }
         return out;
@@ -4318,7 +4338,7 @@ var require_actions = __commonJS({
           return;
         }
         const text = await this.app.vault.cachedRead(file);
-        const matches = this.collectMatches(text, this.canonicalForPath(file.path));
+        const matches = this.collectMatches(text, this.linktextForPath(file.path));
         if (!matches.length) {
           new Notice2(t2("notice.noMatches"));
           return;
@@ -4347,7 +4367,7 @@ var require_actions = __commonJS({
           return;
         }
         const file = this.app.workspace.getActiveFile();
-        const matches = this.collectMatches(sel, file ? this.canonicalForPath(file.path) : null);
+        const matches = this.collectMatches(sel, file ? this.linktextForPath(file.path) : null);
         if (!matches.length) {
           new Notice2(t2("notice.noMatches"));
           return;
@@ -4377,7 +4397,7 @@ var require_actions = __commonJS({
         return out;
       },
       async materializeScope() {
-        const files = await this.scanScopeMatches((text, file) => this.collectMatches(text, this.canonicalForPath(file.path)));
+        const files = await this.scanScopeMatches((text, file) => this.collectMatches(text, this.linktextForPath(file.path)));
         if (!files.length) {
           new Notice2(t2("notice.noMatches"));
           return;
@@ -4461,7 +4481,7 @@ var require_actions = __commonJS({
           if (hits.length) {
             const sourcePath = ((_a = this.app.workspace.getActiveFile()) == null ? void 0 : _a.path) || "";
             this.openTerm(hits[0], sourcePath, false);
-            new Notice2(t2("notice.alreadyMatchesOpened", { sel, term: hits[0] }));
+            new Notice2(t2("notice.alreadyMatchesOpened", { sel, term: this.labelFor(hits[0]) }));
             return;
           }
         }
@@ -4474,7 +4494,7 @@ var require_actions = __commonJS({
           return;
         }
         await this.ensureGlossaryFolder();
-        const folder = this.settings.glossaryFolder.replace(/\/+$/, "");
+        const folder = this.newTermFolder();
         const path = folder ? `${folder}/${name}.md` : `${name}.md`;
         let file = this.app.vault.getAbstractFileByPath(path);
         if (file) {
@@ -4538,7 +4558,7 @@ var require_actions = __commonJS({
         const activeFile = this.app.workspace.getActiveFile();
         const activePath = activeFile ? activeFile.path : "";
         const where = { path: activePath, surface: "menu" };
-        const matches = this.ownSpans(line, this.findMatches(line, this.activeCanonical(), { protect: true }), where);
+        const matches = this.ownSpans(line, this.findMatches(line, this.activeLinktext(), { protect: true }), where);
         const hit = matches.find((m) => head.ch >= m.start && head.ch <= m.end);
         if (!hit)
           return null;
@@ -4558,7 +4578,7 @@ var require_actions = __commonJS({
         const line = editor.getLine(head.line);
         if (!line)
           return null;
-        const matches = this.findMatches(line, this.activeCanonical(), { protect: true });
+        const matches = this.findMatches(line, this.activeLinktext(), { protect: true });
         return matches.find((m) => head.ch >= m.start && head.ch <= m.end) || null;
       },
       // The plain word under the cursor, whether or not the index knows it.
@@ -4569,7 +4589,7 @@ var require_actions = __commonJS({
       // Every reading of the match under the cursor: ours, our own same-named alternatives, and
       // the ones other linkers stood down on. What the menu offers to link or open.
       cursorCandidates(hit, sourcePath, newTab) {
-        const own = [hit.match.canonical, ...hit.match.alts || []];
+        const own = [hit.match.linktext, ...hit.match.alts || []];
         const foreign = hit.foreign.map((c) => ({ ...c, open: () => c.open(sourcePath, newTab) }));
         return [...own, ...foreign];
       },
@@ -4638,10 +4658,10 @@ var require_actions = __commonJS({
       },
       // linkAs (optional) overrides which term the occurrence is linked to — used when
       // a word matches several terms and the user picks an alternative from the menu.
-      async materializeSingle(file, canonical, display, nearOffset, occurrence, linkAs) {
+      async materializeSingle(file, linktext, display, nearOffset, occurrence, linkAs) {
         let created = false;
         await this.app.vault.process(file, (text) => {
-          const matches = this.findMatches(text, this.canonicalForPath(file.path), { protect: true }).filter((m) => m.canonical === canonical && m.display === display);
+          const matches = this.findMatches(text, this.linktextForPath(file.path), { protect: true }).filter((m) => m.linktext === linktext && m.display === display);
           if (!matches.length)
             return text;
           let target = matches[0];
@@ -4650,7 +4670,7 @@ var require_actions = __commonJS({
           } else if (nearOffset != null) {
             target = matches.reduce((best, m) => Math.abs(m.start - nearOffset) < Math.abs(best.start - nearOffset) ? m : best, matches[0]);
           }
-          const chosen = linkAs && linkAs !== target.canonical ? { ...target, canonical: linkAs } : target;
+          const chosen = linkAs && linkAs !== target.linktext ? { ...target, linktext: linkAs } : target;
           created = true;
           return this.applyLinks(text, [chosen]).newText;
         });
@@ -4663,16 +4683,16 @@ var require_actions = __commonJS({
       },
       // linkAs (optional) links the matched occurrences to a chosen alternative term
       // instead of the one findMatches picked (used to resolve an alias collision).
-      async materializeTerm(file, canonical, linkAs) {
+      async materializeTerm(file, linktext, linkAs) {
         let count = 0;
         await this.app.vault.process(file, (text) => {
-          let matches = this.findMatches(text, this.canonicalForPath(file.path), { protect: true }).filter((m) => m.canonical === canonical);
+          let matches = this.findMatches(text, this.linktextForPath(file.path), { protect: true }).filter((m) => m.linktext === linktext);
           if (!matches.length)
             return text;
           if (this.settings.linkFirstOnly)
             matches = matches.slice(0, 1);
-          if (linkAs && linkAs !== canonical)
-            matches = matches.map((m) => ({ ...m, canonical: linkAs }));
+          if (linkAs && linkAs !== linktext)
+            matches = matches.map((m) => ({ ...m, linktext: linkAs }));
           count = matches.length;
           return this.applyLinks(text, matches).newText;
         });
@@ -4683,13 +4703,13 @@ var require_actions = __commonJS({
         new Notice2(t2("notice.linksCreated", { links: plural2("link", count) }));
         this.updateStatusBar();
       },
-      async materializeTermScope(canonical, linkAs) {
-        const term = linkAs || canonical;
+      async materializeTermScope(linktext, linkAs) {
+        const term = linkAs || linktext;
         const files = await this.scanScopeMatches((text, file) => {
-          let matches = this.findMatches(text, this.canonicalForPath(file.path), { protect: true }).filter((m) => m.canonical === canonical);
+          let matches = this.findMatches(text, this.linktextForPath(file.path), { protect: true }).filter((m) => m.linktext === linktext);
           if (this.settings.linkFirstOnly)
             matches = matches.slice(0, 1);
-          return matches.map((m) => ({ ...m, canonical: term, alts: null }));
+          return matches.map((m) => ({ ...m, linktext: term, alts: null }));
         });
         if (!files.length) {
           new Notice2(t2("notice.noOccurrences"));
@@ -4735,7 +4755,8 @@ var require_actions = __commonJS({
       },
       // Fills `add` (cand → collidesWith) and `skip` from one link's display. Shared by both harvest paths.
       collectAliasesFromDisplay(file, display, literals, add, skip) {
-        if (this.termsMatchingText(display).includes(file.basename))
+        const own = this.linktextForPath(file.path);
+        if (this.termsMatchingText(display).includes(own))
           return;
         for (const cand of this.harvestCandidates(display)) {
           if (add.has(cand))
@@ -4748,7 +4769,7 @@ var require_actions = __commonJS({
             skip.add(cand);
             continue;
           }
-          add.set(cand, this.settings.aliasCollisionWarnings ? this.termsMatchingText(cand, file.basename) : []);
+          add.set(cand, this.settings.aliasCollisionWarnings ? this.termsMatchingText(cand, own).map((c) => this.labelFor(c)) : []);
         }
       },
       async harvestFiles(files, silent) {
@@ -4854,7 +4875,7 @@ var require_actions = __commonJS({
           new Notice2(t2("notice.aliasExists", { alias, term: term.canonical }));
           return;
         }
-        const collidesWith = [...this.termsMatchingText(alias)].filter((c) => c !== term.canonical);
+        const collidesWith = this.termsMatchingText(alias).filter((c) => c !== term.linktext).map((c) => this.labelFor(c));
         await this.app.fileManager.processFrontMatter(file, (fm) => {
           let list = fm.aliases;
           if (!Array.isArray(list))
@@ -5185,24 +5206,24 @@ var require_term_suggest = __commonJS({
     var { t: t2 } = require_i18n();
     var { createProseSuggest, suggestAvailable: suggestAvailable2 } = require_editor_suggest();
     var { suggestionsAllowed } = require_suggest();
-    function collectSuggestions(plugin, query, ownCanonical) {
+    function collectSuggestions(plugin, query, ownLinktext) {
       const qLower = query.toLowerCase();
-      const byCanonical = /* @__PURE__ */ new Map();
+      const byTerm = /* @__PURE__ */ new Map();
       const seenCand = /* @__PURE__ */ new Set();
       for (const key of plugin.keysFor(query)) {
         const bucket = plugin.index.byKey.get(key);
         if (!bucket)
           continue;
         for (const c of bucket) {
-          if (c.wordCount !== 1 || seenCand.has(c) || c.canonical === ownCanonical)
+          if (c.wordCount !== 1 || seenCand.has(c) || c.linktext === ownLinktext)
             continue;
           seenCand.add(c);
-          if (!byCanonical.has(c.canonical))
-            byCanonical.set(c.canonical, { canonical: c.canonical, matchedForm: c.canonical, kind: "form" });
+          if (!byTerm.has(c.linktext))
+            byTerm.set(c.linktext, { canonical: c.canonical, linktext: c.linktext, matchedForm: c.canonical, kind: "form" });
         }
       }
       for (const t3 of plugin.terms || []) {
-        if (byCanonical.has(t3.canonical) || t3.canonical === ownCanonical)
+        if (byTerm.has(t3.linktext) || t3.linktext === ownLinktext)
           continue;
         let form = null;
         if (t3.canonical.toLowerCase().startsWith(qLower))
@@ -5213,27 +5234,30 @@ var require_term_suggest = __commonJS({
             form = a;
         }
         if (form)
-          byCanonical.set(t3.canonical, { canonical: t3.canonical, matchedForm: form, kind: "prefix" });
+          byTerm.set(t3.linktext, { canonical: t3.canonical, linktext: t3.linktext, matchedForm: form, kind: "prefix" });
       }
-      const items = [...byCanonical.values()];
+      const items = [...byTerm.values()];
       const rank = (it) => it.kind === "form" ? 0 : 1;
       items.sort((a, b) => rank(a) - rank(b) || a.matchedForm.length - b.matchedForm.length || a.canonical.localeCompare(b.canonical));
       return items.slice(0, 8);
     }
     function noteFor(item) {
+      const parts = [];
       if (item.kind === "form")
-        return t2("suggest.inflection");
-      if (item.matchedForm !== item.canonical)
-        return t2("suggest.alias", { form: item.matchedForm });
-      return "";
+        parts.push(t2("suggest.inflection"));
+      else if (item.matchedForm !== item.canonical)
+        parts.push(t2("suggest.alias", { form: item.matchedForm }));
+      if (item.linktext !== item.canonical)
+        parts.push(item.linktext);
+      return parts.join(" \xB7 ");
     }
     function suggestionsFor(plugin, query, sourcePath) {
       if (!suggestionsAllowed(plugin, query, sourcePath))
         return [];
-      return collectSuggestions(plugin, query, plugin.activeCanonical()).map((it) => ({
+      return collectSuggestions(plugin, query, plugin.activeLinktext()).map((it) => ({
         label: it.canonical,
         note: noteFor(it),
-        target: it.canonical,
+        target: it.linktext,
         display: it.kind === "form" ? null : it.canonical
       }));
     }
@@ -5242,11 +5266,11 @@ var require_term_suggest = __commonJS({
       // A term's own note does not offer that term. In folder mode inScope already rules the
       // note out; in whole-vault mode every note is a term source, so the candidate set is what
       // has to drop it — the same exclusion the highlighter makes.
-      ownId: (plugin) => plugin.activeCanonical(),
+      ownId: (plugin) => plugin.activeLinktext(),
       collect: collectSuggestions,
       noteFor,
       labelOf: (it) => it.canonical,
-      targetOf: (it) => it.canonical,
+      targetOf: (it) => it.linktext,
       // 'form' keeps the typed wording; 'prefix' completes to the term title.
       displayFor: (it, query) => it.kind === "form" ? query : it.canonical
     });
@@ -5268,7 +5292,7 @@ var require_api = __commonJS({
         const plugin = this;
         return {
           version: this.manifest.version,
-          // Every indexed term: { canonical, path, aliases }.
+          // Every indexed term: { canonical, linktext, path, aliases }.
           getTerms: () => this.getTerms(),
           // Resolve a title or alias (case-insensitive) to its term, or null.
           resolveTerm: (name) => this.resolveTerm(name),
@@ -5287,21 +5311,32 @@ var require_api = __commonJS({
           linker: createProseProvider(plugin, {
             id: "glossary-linker",
             displayName: "Glossary Linker",
-            spanOf: (m) => ({ start: m.start, end: m.end, label: m.canonical, target: m.canonical }),
+            spanOf: (m) => ({
+              start: m.start,
+              end: m.end,
+              label: m.canonical,
+              target: m.linktext,
+              alts: (m.alts || []).map((linktext) => ({ label: plugin.labelFor(linktext), target: linktext }))
+            }),
             suggestionsFor,
             excludes: (text) => plugin.wordSilenced(text) || plugin.isExcluded("excludeTerms", text),
-            // A term is its note, so the target is already the title; the kind is what tells it
-            // apart from a heading offered on the same word.
+            // The kind tells a term apart from a heading offered on the same word; the folder
+            // tells two notes sharing a title apart from each other.
             describe: (target, display) => {
-              const term = (plugin.terms || []).find((x) => x.canonical === target);
-              const parts = [t2("kind.term"), aliasHit(plugin, term, target, display)];
-              return { title: String(target), note: parts.filter(Boolean).join(" \xB7 ") };
+              const term = (plugin.terms || []).find((x) => x.linktext === target);
+              const title = plugin.labelFor(target);
+              const folder = term && term.linktext !== term.canonical ? term.path.split("/").slice(0, -1).join("/") : null;
+              const parts = [t2("kind.term"), aliasHit(plugin, term, title, display), folder];
+              return { title, note: parts.filter(Boolean).join(" \xB7 ") };
             }
           })
         };
       },
       getTerms() {
-        return (this.terms || []).map((t3) => ({ canonical: t3.canonical, path: t3.path, aliases: t3.aliases.slice() }));
+        return (this.terms || []).map((t3) => this.termShape(t3));
+      },
+      termShape(t3) {
+        return { canonical: t3.canonical, linktext: t3.linktext, path: t3.path, aliases: t3.aliases.slice() };
       },
       resolveTerm(name) {
         if (!name)
@@ -5309,9 +5344,9 @@ var require_api = __commonJS({
         const q = String(name).toLowerCase();
         for (const t3 of this.terms || []) {
           if (t3.canonical.toLowerCase() === q)
-            return { canonical: t3.canonical, path: t3.path, aliases: t3.aliases.slice() };
+            return this.termShape(t3);
           if (t3.aliases.some((a) => a.toLowerCase() === q))
-            return { canonical: t3.canonical, path: t3.path, aliases: t3.aliases.slice() };
+            return this.termShape(t3);
         }
         return null;
       },
@@ -5321,7 +5356,7 @@ var require_api = __commonJS({
         const here = /* @__PURE__ */ new Map();
         try {
           const text = await this.app.vault.cachedRead(file);
-          for (const m of this.findMatches(text, this.canonicalForPath(file.path), { protect: true })) {
+          for (const m of this.findMatches(text, this.linktextForPath(file.path), { protect: true })) {
             here.set(m.canonical, (here.get(m.canonical) || 0) + 1);
           }
         } catch (e) {
@@ -5345,8 +5380,9 @@ var require_api = __commonJS({
       // [[Term]] / [[Term|alias]] links. Terms with count 0 are orphans.
       async getUsageReport(opts = {}) {
         const counts = /* @__PURE__ */ new Map();
-        for (const t3 of this.terms || [])
-          counts.set(t3.canonical, { canonical: t3.canonical, path: t3.path, count: 0, files: [] });
+        for (const [canonical, group] of this.termGroups()) {
+          counts.set(canonical, { canonical, linktext: group[0].linktext, path: group[0].path, paths: group.map((x) => x.path), count: 0, files: [] });
+        }
         const files = this.reportFiles(opts);
         if (!this.usageCache)
           this.usageCache = createUsageCache();
@@ -5499,7 +5535,13 @@ var require_overview_view = __commonJS({
       // carry counts over and let an explicit Rescan recompute them.
       refreshTerms() {
         const prev = new Map(this.terms.map((t3) => [t3.canonical, t3.count]));
-        this.terms = this.plugin.getTerms().map((t3) => ({ canonical: t3.canonical, path: t3.path, count: prev.get(t3.canonical) || 0 }));
+        this.terms = [...this.plugin.termGroups()].map(([canonical, group]) => ({
+          canonical,
+          linktext: group[0].linktext,
+          path: group[0].path,
+          paths: group.map((x) => x.path),
+          count: prev.get(canonical) || 0
+        }));
         this.renderTerms();
       }
       async refreshCandidates() {
@@ -5545,7 +5587,7 @@ var require_overview_view = __commonJS({
             row.addClass("is-orphan");
           const name = row.createSpan({ cls: "glossary-overview-name is-link", text: term.canonical });
           name.setAttribute("aria-label", t2("overview.openAria"));
-          name.addEventListener("click", () => this.plugin.openTerm(term.canonical, "", false));
+          name.addEventListener("click", () => this.plugin.openPath(term.path, false));
           name.addEventListener("mousedown", (e) => {
             if (e.button === 1)
               e.preventDefault();
@@ -5553,14 +5595,28 @@ var require_overview_view = __commonJS({
           name.addEventListener("auxclick", (e) => {
             if (e.button === 1) {
               e.preventDefault();
-              this.plugin.openTerm(term.canonical, "", true);
+              this.plugin.openPath(term.path, true);
             }
           });
+          this.renderClash(row, term);
           row.createSpan({ cls: "glossary-overview-count", text: term.count === 0 ? t2("overview.unused") : plural2("use", term.count) });
           const actions2 = row.createSpan({ cls: "glossary-overview-actions" });
           const link = actions2.createEl("a", { cls: "glossary-overview-act", text: t2("overview.linkAll") });
-          link.onclick = () => this.plugin.materializeTermScope(term.canonical);
+          link.onclick = () => this.plugin.materializeTermScope(term.linktext);
         }
+      }
+      // One numbered link per note sharing the title. A [[Term]] link cannot say which of them
+      // it means, so the row's job is to show the clash and reach every side of it.
+      renderClash(row, term) {
+        const paths = term.paths || [];
+        if (paths.length < 2)
+          return;
+        const marks = row.createSpan({ cls: "glossary-overview-clash" });
+        paths.forEach((path, i) => {
+          const mark = marks.createSpan({ cls: "glossary-overview-mark", text: `[${i + 1}]` });
+          mark.setAttribute("aria-label", path);
+          mark.addEventListener("click", () => this.plugin.openPath(path, false));
+        });
       }
       renderCandidates() {
         const el = this.candidatesSection;
@@ -5630,6 +5686,17 @@ var require_overview_view = __commonJS({
       }
     };
     module2.exports = { GlossaryOverviewView: GlossaryOverviewView2, OVERVIEW_VIEW_TYPE: OVERVIEW_VIEW_TYPE2 };
+  }
+});
+
+// src/shared/style-settings.js
+var require_style_settings = __commonJS({
+  "src/shared/style-settings.js"(exports2, module2) {
+    "use strict";
+    function announceStyleSettings2(plugin) {
+      plugin.app.workspace.onLayoutReady(() => plugin.app.workspace.trigger("parse-style-settings"));
+    }
+    module2.exports = { announceStyleSettings: announceStyleSettings2 };
   }
 });
 
@@ -6058,13 +6125,13 @@ var require_editor_actions = __commonJS({
           file,
           hit,
           display: hit.match.display,
-          canonical: hit.match.canonical,
+          linktext: hit.match.linktext,
           scope: plugin.settings.linkFirstOnly ? t2("scope.first") : t2("scope.all")
         };
       },
       run
     });
-    var ownCandidates = (ctx) => [ctx.hit.match.canonical, ...ctx.hit.match.alts || []];
+    var ownCandidates = (ctx) => [ctx.hit.match.linktext, ...ctx.hit.match.alts || []];
     var LINK_WORD_ACTIONS = [
       linkAction({
         id: "link-word-here",
@@ -6076,7 +6143,7 @@ var require_editor_actions = __commonJS({
           t2("menu.linkDisplayTo", { display: ctx.display }),
           (c) => plugin.materializeSingle(
             ctx.file,
-            ctx.canonical,
+            ctx.linktext,
             ctx.display,
             ctx.editor.posToOffset({ line: ctx.hit.line, ch: ctx.hit.match.start }),
             0,
@@ -6092,7 +6159,7 @@ var require_editor_actions = __commonJS({
         run: (plugin, ctx) => plugin.chooseTerm(
           ownCandidates(ctx),
           t2("menu.linkScopeTo", { scope: ctx.scope, display: ctx.display }),
-          (c) => plugin.materializeTerm(ctx.file, ctx.canonical, c)
+          (c) => plugin.materializeTerm(ctx.file, ctx.linktext, c)
         )
       }),
       linkAction({
@@ -6103,7 +6170,7 @@ var require_editor_actions = __commonJS({
         run: (plugin, ctx) => plugin.chooseTerm(
           ownCandidates(ctx),
           t2("menu.linkScopeTo", { scope: ctx.scope, display: ctx.display }),
-          (c) => plugin.materializeTermScope(ctx.canonical, c)
+          (c) => plugin.materializeTermScope(ctx.linktext, c)
         )
       })
     ];
@@ -6315,8 +6382,8 @@ var require_en2 = __commonJS({
       "set.heading.collecting": "Collecting aliases",
       "set.heading.overview": "Overview",
       // Settings — entries
-      "set.glossaryFolder.name": "Glossary folder",
-      "set.glossaryFolder.desc": "Folder with one note per term (file name = the term title). Leave empty to use the whole vault as the glossary.",
+      "set.glossaryFolders.name": "Glossary folders",
+      "set.glossaryFolders.desc": "Folders with one note per term (file name = the term title). All of them make up one glossary, and new terms are created in the first. Leave the list empty to use the whole vault as the glossary.",
       "set.termTemplate.name": "Term template",
       "set.termTemplate.desc": "Note used as the body of new term notes; placeholders like {{title}} and {{date}} are filled in. Empty = blank note.",
       "set.scopeMode.desc": "Which notes terms are highlighted and linked in.",
@@ -6375,9 +6442,10 @@ var require_en2 = __commonJS({
       "set.showRibbonIcon.name": "Ribbon icon",
       "set.showRibbonIcon.desc": 'Show a ribbon button that opens the glossary overview panel. The "Open glossary overview" command works either way.',
       "set.rebuild.name": "Rebuild glossary index",
-      "set.rebuild.desc": "Re-scan the glossary folder now.",
+      "set.rebuild.desc": "Re-scan the glossary folders now.",
       "set.collecting.desc": "Reads the links you already made by hand, like [[Term|some wording]], and adds that wording to the term's aliases \u2014 so the same wording links automatically next time.",
-      "set.folderNotFound": "\u26A0 Folder not found \u2014 no terms will be indexed.",
+      "set.foldersNotFound": "\u26A0 Not found: {folders}.",
+      "set.duplicateTitles": "\u26A0 {titles} held by more than one note \u2014 see the overview panel.",
       "set.termsIndexed": "{terms} indexed.",
       "set.wholeVaultStatus": "Whole vault is the glossary \u2014 {terms} indexed.",
       // Modals
@@ -6427,6 +6495,7 @@ var require_en2 = __commonJS({
       // Highlight tooltip
       // Plural noun phrases
       "plural.term": { one: "{n} term", other: "{n} terms" },
+      "plural.title": { one: "{n} title", other: "{n} titles" },
       "plural.use": { one: "{n} use", other: "{n} uses" },
       "plural.note": { one: "{n} note", other: "{n} notes" },
       "plural.link": { one: "{n} link(s)", other: "{n} link(s)" },
@@ -6529,8 +6598,8 @@ var require_ru2 = __commonJS({
       "notice.pathRemovedScope": "Glossary Linker: \xAB{entry}\xBB \u0443\u0431\u0440\u0430\u043D\u043E \u0438\u0437 \u043E\u0431\u043B\u0430\u0441\u0442\u0438 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u043D\u0438\u044F",
       "set.heading.collecting": "\u0421\u0431\u043E\u0440 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u043E\u0432",
       "set.heading.overview": "\u041E\u0431\u0437\u043E\u0440",
-      "set.glossaryFolder.name": "\u041F\u0430\u043F\u043A\u0430 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F",
-      "set.glossaryFolder.desc": "\u041F\u0430\u043F\u043A\u0430 \u0441 \u043E\u0434\u043D\u043E\u0439 \u0437\u0430\u043C\u0435\u0442\u043A\u043E\u0439 \u043D\u0430 \u0442\u0435\u0440\u043C\u0438\u043D (\u0438\u043C\u044F \u0444\u0430\u0439\u043B\u0430 = \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u0435\u0440\u043C\u0438\u043D\u0430). \u041E\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u043F\u043E\u043B\u0435 \u043F\u0443\u0441\u0442\u044B\u043C \u2014 \u0438 \u0432\u0441\u0451 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435 \u0441\u0442\u0430\u043D\u0435\u0442 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u0435\u043C.",
+      "set.glossaryFolders.name": "\u041F\u0430\u043F\u043A\u0438 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F",
+      "set.glossaryFolders.desc": "\u041F\u0430\u043F\u043A\u0438 \u0441 \u043E\u0434\u043D\u043E\u0439 \u0437\u0430\u043C\u0435\u0442\u043A\u043E\u0439 \u043D\u0430 \u0442\u0435\u0440\u043C\u0438\u043D (\u0438\u043C\u044F \u0444\u0430\u0439\u043B\u0430 = \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u0435\u0440\u043C\u0438\u043D\u0430). \u0412\u0441\u0435 \u0432\u043C\u0435\u0441\u0442\u0435 \u043E\u043D\u0438 \u043E\u0431\u0440\u0430\u0437\u0443\u044E\u0442 \u043E\u0434\u0438\u043D \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u0439, \u0430 \u043D\u043E\u0432\u044B\u0435 \u0442\u0435\u0440\u043C\u0438\u043D\u044B \u0441\u043E\u0437\u0434\u0430\u044E\u0442\u0441\u044F \u0432 \u043F\u0435\u0440\u0432\u043E\u0439. \u041E\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u0441\u043F\u0438\u0441\u043E\u043A \u043F\u0443\u0441\u0442\u044B\u043C \u2014 \u0438 \u0432\u0441\u0451 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435 \u0441\u0442\u0430\u043D\u0435\u0442 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u0435\u043C.",
       "set.termTemplate.name": "\u0428\u0430\u0431\u043B\u043E\u043D \u0442\u0435\u0440\u043C\u0438\u043D\u0430",
       "set.termTemplate.desc": "\u0417\u0430\u043C\u0435\u0442\u043A\u0430, \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u043C\u0430\u044F \u043A\u0430\u043A \u0442\u0435\u043B\u043E \u043D\u043E\u0432\u044B\u0445 \u0437\u0430\u043C\u0435\u0442\u043E\u043A \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u0432; \u043F\u043B\u0435\u0439\u0441\u0445\u043E\u043B\u0434\u0435\u0440\u044B \u0432\u0440\u043E\u0434\u0435 {{title}} \u0438 {{date}} \u043F\u043E\u0434\u0441\u0442\u0430\u0432\u043B\u044F\u044E\u0442\u0441\u044F. \u041F\u0443\u0441\u0442\u043E = \u043F\u0443\u0441\u0442\u0430\u044F \u0437\u0430\u043C\u0435\u0442\u043A\u0430.",
       "set.scopeMode.desc": "\u0412 \u043A\u0430\u043A\u0438\u0445 \u0437\u0430\u043C\u0435\u0442\u043A\u0430\u0445 \u0442\u0435\u0440\u043C\u0438\u043D\u044B \u043F\u043E\u0434\u0441\u0432\u0435\u0447\u0438\u0432\u0430\u044E\u0442\u0441\u044F \u0438 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u044E\u0442\u0441\u044F.",
@@ -6589,9 +6658,10 @@ var require_ru2 = __commonJS({
       "set.showRibbonIcon.name": "\u0417\u043D\u0430\u0447\u043E\u043A \u043D\u0430 \u043F\u0430\u043D\u0435\u043B\u0438",
       "set.showRibbonIcon.desc": "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u043A\u043D\u043E\u043F\u043A\u0443 \u043D\u0430 \u0431\u043E\u043A\u043E\u0432\u043E\u0439 \u043F\u0430\u043D\u0435\u043B\u0438, \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0443\u044E \u043E\u0431\u0437\u043E\u0440 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F. \u041A\u043E\u043C\u0430\u043D\u0434\u0430 \xAB\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u043E\u0431\u0437\u043E\u0440 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F\xBB \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0432 \u043B\u044E\u0431\u043E\u043C \u0441\u043B\u0443\u0447\u0430\u0435.",
       "set.rebuild.name": "\u041F\u0435\u0440\u0435\u0441\u0442\u0440\u043E\u0438\u0442\u044C \u0438\u043D\u0434\u0435\u043A\u0441 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F",
-      "set.rebuild.desc": "\u041F\u0435\u0440\u0435\u0441\u043A\u0430\u043D\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043F\u0430\u043F\u043A\u0443 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F \u0441\u0435\u0439\u0447\u0430\u0441.",
+      "set.rebuild.desc": "\u041F\u0435\u0440\u0435\u0441\u043A\u0430\u043D\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043F\u0430\u043F\u043A\u0438 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u044F \u0441\u0435\u0439\u0447\u0430\u0441.",
       "set.collecting.desc": "\u0427\u0438\u0442\u0430\u0435\u0442 \u0441\u0441\u044B\u043B\u043A\u0438, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u0432\u044B \u0441\u0434\u0435\u043B\u0430\u043B\u0438 \u0432\u0440\u0443\u0447\u043D\u0443\u044E, \u0432\u0438\u0434\u0430 [[\u0422\u0435\u0440\u043C\u0438\u043D|\u043A\u0430\u043A\u043E\u0435-\u0442\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435]], \u0438 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0435\u0442 \u044D\u0442\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u0432 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C\u044B \u0442\u0435\u0440\u043C\u0438\u043D\u0430 \u2014 \u0447\u0442\u043E\u0431\u044B \u0442\u043E \u0436\u0435 \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u043B\u043E\u0441\u044C \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438 \u0432 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0440\u0430\u0437.",
-      "set.folderNotFound": "\u26A0 \u041F\u0430\u043F\u043A\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u2014 \u0442\u0435\u0440\u043C\u0438\u043D\u044B \u043D\u0435 \u0431\u0443\u0434\u0443\u0442 \u043F\u0440\u043E\u0438\u043D\u0434\u0435\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u043D\u044B.",
+      "set.foldersNotFound": "\u26A0 \u041D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u043E: {folders}.",
+      "set.duplicateTitles": "\u26A0 {titles} \u2014 \u0441\u0440\u0430\u0437\u0443 \u0432 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u0438\u0445 \u0437\u0430\u043C\u0435\u0442\u043A\u0430\u0445, \u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435 \u043F\u0430\u043D\u0435\u043B\u044C \u043E\u0431\u0437\u043E\u0440\u0430.",
       "set.termsIndexed": "\u041F\u0440\u043E\u0438\u043D\u0434\u0435\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u043D\u043E: {terms}.",
       "set.wholeVaultStatus": "\u0413\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u0439 \u2014 \u0432\u0441\u0451 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435. \u041F\u0440\u043E\u0438\u043D\u0434\u0435\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u043D\u043E: {terms}.",
       "modal.materialize.title": "\u041F\u0440\u0435\u0432\u0440\u0430\u0442\u0438\u0442\u044C \u0441\u043B\u043E\u0432\u0430 \u0432 \u0441\u0441\u044B\u043B\u043A\u0438 \u043D\u0430 \u0442\u0435\u0440\u043C\u0438\u043D\u044B",
@@ -6633,6 +6703,7 @@ var require_ru2 = __commonJS({
       "suggest.inflection": "\u0441\u043B\u043E\u0432\u043E\u0444\u043E\u0440\u043C\u0430",
       "suggest.alias": "\u043A\u0430\u043A \xAB{form}\xBB",
       "plural.term": { one: "{n} \u0442\u0435\u0440\u043C\u0438\u043D", few: "{n} \u0442\u0435\u0440\u043C\u0438\u043D\u0430", many: "{n} \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u0432", other: "{n} \u0442\u0435\u0440\u043C\u0438\u043D\u043E\u0432" },
+      "plural.title": { one: "{n} \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", few: "{n} \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044F", many: "{n} \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0439", other: "{n} \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0439" },
       "plural.use": { one: "{n} \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u0435", few: "{n} \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u044F", many: "{n} \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u0439", other: "{n} \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u0439" },
       "plural.note": { one: "{n} \u0437\u0430\u043C\u0435\u0442\u043A\u0430", few: "{n} \u0437\u0430\u043C\u0435\u0442\u043A\u0438", many: "{n} \u0437\u0430\u043C\u0435\u0442\u043E\u043A", other: "{n} \u0437\u0430\u043C\u0435\u0442\u043E\u043A" },
       "plural.link": { one: "{n} \u0441\u0441\u044B\u043B\u043A\u0430", few: "{n} \u0441\u0441\u044B\u043B\u043A\u0438", many: "{n} \u0441\u0441\u044B\u043B\u043E\u043A", other: "{n} \u0441\u0441\u044B\u043B\u043E\u043A" },
@@ -6736,8 +6807,8 @@ var require_de2 = __commonJS({
       "notice.pathRemovedScope": "Glossary Linker: \u201E{entry}\u201C aus Bereichspfaden entfernt",
       "set.heading.collecting": "Aliasse sammeln",
       "set.heading.overview": "\xDCbersicht",
-      "set.glossaryFolder.name": "Glossar-Ordner",
-      "set.glossaryFolder.desc": "Ordner mit einer Notiz pro Begriff (Dateiname = Begriffstitel).",
+      "set.glossaryFolders.name": "Glossar-Ordner",
+      "set.glossaryFolders.desc": "Ordner mit einer Notiz pro Begriff (Dateiname = Begriffstitel). Alle zusammen bilden ein Glossar, neue Begriffe entstehen im ersten. Leere Liste = das ganze Vault ist das Glossar.",
       "set.termTemplate.name": "Begriffsvorlage",
       "set.termTemplate.desc": "Notiz, die als Inhalt neuer Begriffsnotizen dient; Platzhalter wie {{title}} und {{date}} werden ausgef\xFCllt. Leer = leere Notiz.",
       "set.scopeMode.desc": "In welchen Notizen Begriffe hervorgehoben und verlinkt werden.",
@@ -6793,9 +6864,10 @@ var require_de2 = __commonJS({
       "set.showRibbonIcon.name": "Seitenleisten-Symbol",
       "set.showRibbonIcon.desc": "Eine Schaltfl\xE4che in der Seitenleiste anzeigen, die die Glossar-\xDCbersicht \xF6ffnet. Der Befehl \u201EGlossar-\xDCbersicht \xF6ffnen\u201C funktioniert ohnehin.",
       "set.rebuild.name": "Glossar-Index neu aufbauen",
-      "set.rebuild.desc": "Den Glossar-Ordner jetzt neu scannen.",
+      "set.rebuild.desc": "Die Glossar-Ordner jetzt neu scannen.",
       "set.collecting.desc": "Liest die Links, die Sie von Hand erstellt haben, wie [[Begriff|ein Wortlaut]], und f\xFCgt diesen Wortlaut den Aliassen des Begriffs hinzu \u2014 damit derselbe Wortlaut beim n\xE4chsten Mal automatisch verlinkt wird.",
-      "set.folderNotFound": "\u26A0 Ordner nicht gefunden \u2014 es werden keine Begriffe indexiert.",
+      "set.foldersNotFound": "\u26A0 Nicht gefunden: {folders}.",
+      "set.duplicateTitles": "\u26A0 {titles} in mehr als einer Notiz \u2014 siehe \xDCbersichtsleiste.",
       "set.termsIndexed": "{terms} indexiert.",
       "modal.materialize.title": "Glossarbegriffe verlinken \u2014 Vorschau",
       "modal.materialize.ambiguous": "{n} mehrdeutige(s) Wort(e) passen zu mehr als einem Begriff \u2014 eines w\xE4hlen (gilt f\xFCr jedes Vorkommen):",
@@ -6829,6 +6901,7 @@ var require_de2 = __commonJS({
       "suggest.alias": "Alias: {form}",
       "highlight.matches": "Passt zu: {terms}",
       "plural.term": { one: "{n} Begriff", other: "{n} Begriffe" },
+      "plural.title": { one: "{n} Titel", other: "{n} Titel" },
       "plural.use": { one: "{n} Nutzung", other: "{n} Nutzungen" },
       "plural.note": { one: "{n} Notiz", other: "{n} Notizen" },
       "plural.link": { one: "{n} Link", other: "{n} Links" },
@@ -6932,8 +7005,8 @@ var require_es2 = __commonJS({
       "notice.pathRemovedScope": "Glossary Linker: \xAB{entry}\xBB quitado de rutas del \xE1mbito",
       "set.heading.collecting": "Recopilar alias",
       "set.heading.overview": "Resumen",
-      "set.glossaryFolder.name": "Carpeta del glosario",
-      "set.glossaryFolder.desc": "Carpeta con una nota por t\xE9rmino (nombre de archivo = t\xEDtulo del t\xE9rmino).",
+      "set.glossaryFolders.name": "Carpetas del glosario",
+      "set.glossaryFolders.desc": "Carpetas con una nota por t\xE9rmino (nombre de archivo = t\xEDtulo del t\xE9rmino). Todas forman un solo glosario y los t\xE9rminos nuevos se crean en la primera. Deja la lista vac\xEDa para usar toda la b\xF3veda como glosario.",
       "set.termTemplate.name": "Plantilla de t\xE9rmino",
       "set.termTemplate.desc": "Nota usada como cuerpo de las nuevas notas de t\xE9rmino; los marcadores como {{title}} y {{date}} se rellenan. Vac\xEDo = nota en blanco.",
       "set.scopeMode.desc": "En qu\xE9 notas se resaltan y enlazan los t\xE9rminos.",
@@ -6989,9 +7062,10 @@ var require_es2 = __commonJS({
       "set.showRibbonIcon.name": "Icono de la barra lateral",
       "set.showRibbonIcon.desc": "Mostrar un bot\xF3n en la barra lateral que abre el panel de resumen del glosario. El comando \xABAbrir resumen del glosario\xBB funciona de todos modos.",
       "set.rebuild.name": "Reconstruir \xEDndice del glosario",
-      "set.rebuild.desc": "Volver a analizar la carpeta del glosario ahora.",
+      "set.rebuild.desc": "Volver a analizar las carpetas del glosario ahora.",
       "set.collecting.desc": "Lee los enlaces que ya hiciste a mano, como [[T\xE9rmino|alg\xFAn texto]], y a\xF1ade ese texto a los alias del t\xE9rmino \u2014 para que el mismo texto se enlace autom\xE1ticamente la pr\xF3xima vez.",
-      "set.folderNotFound": "\u26A0 Carpeta no encontrada \u2014 no se indexar\xE1 ning\xFAn t\xE9rmino.",
+      "set.foldersNotFound": "\u26A0 No encontrado: {folders}.",
+      "set.duplicateTitles": "\u26A0 {titles} en m\xE1s de una nota \u2014 consulta el panel de resumen.",
       "set.termsIndexed": "{terms} indexado(s).",
       "modal.materialize.title": "Enlazar t\xE9rminos del glosario \u2014 vista previa",
       "modal.materialize.ambiguous": "{n} palabra(s) ambigua(s) coinciden con m\xE1s de un t\xE9rmino \u2014 elige una (se aplica a cada aparici\xF3n):",
@@ -7025,6 +7099,7 @@ var require_es2 = __commonJS({
       "suggest.alias": "alias: {form}",
       "highlight.matches": "Coincide con: {terms}",
       "plural.term": { one: "{n} t\xE9rmino", other: "{n} t\xE9rminos" },
+      "plural.title": { one: "{n} t\xEDtulo", other: "{n} t\xEDtulos" },
       "plural.use": { one: "{n} uso", other: "{n} usos" },
       "plural.note": { one: "{n} nota", other: "{n} notas" },
       "plural.link": { one: "{n} enlace", other: "{n} enlaces" },
@@ -7128,8 +7203,8 @@ var require_fr2 = __commonJS({
       "notice.pathRemovedScope": "Glossary Linker : \xAB {entry} \xBB retir\xE9 des chemins de la port\xE9e",
       "set.heading.collecting": "Collecte des alias",
       "set.heading.overview": "Aper\xE7u",
-      "set.glossaryFolder.name": "Dossier du glossaire",
-      "set.glossaryFolder.desc": "Dossier avec une note par terme (nom de fichier = titre du terme).",
+      "set.glossaryFolders.name": "Dossiers du glossaire",
+      "set.glossaryFolders.desc": "Dossiers avec une note par terme (nom de fichier = titre du terme). Ils forment ensemble un seul glossaire, et les nouveaux termes sont cr\xE9\xE9s dans le premier. Laissez la liste vide pour prendre tout le coffre comme glossaire.",
       "set.termTemplate.name": "Mod\xE8le de terme",
       "set.termTemplate.desc": "Note utilis\xE9e comme corps des nouvelles notes de terme ; les balises comme {{title}} et {{date}} sont remplies. Vide = note vierge.",
       "set.scopeMode.desc": "Dans quelles notes les termes sont surlign\xE9s et li\xE9s.",
@@ -7185,9 +7260,10 @@ var require_fr2 = __commonJS({
       "set.showRibbonIcon.name": "Ic\xF4ne de la barre lat\xE9rale",
       "set.showRibbonIcon.desc": "Afficher un bouton dans la barre lat\xE9rale qui ouvre le panneau d\u2019aper\xE7u du glossaire. La commande \xAB Ouvrir l\u2019aper\xE7u du glossaire \xBB fonctionne de toute fa\xE7on.",
       "set.rebuild.name": "Reconstruire l\u2019index du glossaire",
-      "set.rebuild.desc": "R\xE9analyser le dossier du glossaire maintenant.",
+      "set.rebuild.desc": "R\xE9analyser les dossiers du glossaire maintenant.",
       "set.collecting.desc": "Lit les liens que vous avez faits \xE0 la main, comme [[Terme|un libell\xE9]], et ajoute ce libell\xE9 aux alias du terme \u2014 pour que le m\xEAme libell\xE9 soit li\xE9 automatiquement la prochaine fois.",
-      "set.folderNotFound": "\u26A0 Dossier introuvable \u2014 aucun terme ne sera index\xE9.",
+      "set.foldersNotFound": "\u26A0 Introuvable : {folders}.",
+      "set.duplicateTitles": "\u26A0 {titles} dans plus d\u2019une note \u2014 voyez le panneau de synth\xE8se.",
       "set.termsIndexed": "{terms} index\xE9(s).",
       "modal.materialize.title": "Lier les termes du glossaire \u2014 aper\xE7u",
       "modal.materialize.ambiguous": "{n} mot(s) ambigu(s) correspondent \xE0 plus d\u2019un terme \u2014 choisissez-en un (s\u2019applique \xE0 chaque occurrence) :",
@@ -7221,6 +7297,7 @@ var require_fr2 = __commonJS({
       "suggest.alias": "alias : {form}",
       "highlight.matches": "Correspond \xE0 : {terms}",
       "plural.term": { one: "{n} terme", other: "{n} termes" },
+      "plural.title": { one: "{n} titre", other: "{n} titres" },
       "plural.use": { one: "{n} utilisation", other: "{n} utilisations" },
       "plural.note": { one: "{n} note", other: "{n} notes" },
       "plural.link": { one: "{n} lien", other: "{n} liens" },
@@ -7324,8 +7401,8 @@ var require_uk2 = __commonJS({
       "notice.pathRemovedScope": "Glossary Linker: \xAB{entry}\xBB \u043F\u0440\u0438\u0431\u0440\u0430\u043D\u043E \u0437 \u043E\u0431\u043B\u0430\u0441\u0442\u0456 \u0437\u0432\u2019\u044F\u0437\u0443\u0432\u0430\u043D\u043D\u044F",
       "set.heading.collecting": "\u0417\u0431\u0456\u0440 \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0456\u0432",
       "set.heading.overview": "\u041E\u0433\u043B\u044F\u0434",
-      "set.glossaryFolder.name": "\u0422\u0435\u043A\u0430 \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u044F",
-      "set.glossaryFolder.desc": "\u0422\u0435\u043A\u0430 \u0437 \u043E\u0434\u043D\u0456\u0454\u044E \u043D\u043E\u0442\u0430\u0442\u043A\u043E\u044E \u043D\u0430 \u0442\u0435\u0440\u043C\u0456\u043D (\u0456\u043C\u2019\u044F \u0444\u0430\u0439\u043B\u0443 = \u043D\u0430\u0437\u0432\u0430 \u0442\u0435\u0440\u043C\u0456\u043D\u0430).",
+      "set.glossaryFolders.name": "\u0422\u0435\u043A\u0438 \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u044F",
+      "set.glossaryFolders.desc": "\u0422\u0435\u043A\u0438 \u0437 \u043E\u0434\u043D\u0456\u0454\u044E \u043D\u043E\u0442\u0430\u0442\u043A\u043E\u044E \u043D\u0430 \u0442\u0435\u0440\u043C\u0456\u043D (\u0456\u043C\u2019\u044F \u0444\u0430\u0439\u043B\u0443 = \u043D\u0430\u0437\u0432\u0430 \u0442\u0435\u0440\u043C\u0456\u043D\u0430). \u0420\u0430\u0437\u043E\u043C \u0432\u043E\u043D\u0438 \u0443\u0442\u0432\u043E\u0440\u044E\u044E\u0442\u044C \u043E\u0434\u0438\u043D \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u0439, \u0430 \u043D\u043E\u0432\u0456 \u0442\u0435\u0440\u043C\u0456\u043D\u0438 \u0441\u0442\u0432\u043E\u0440\u044E\u044E\u0442\u044C\u0441\u044F \u0432 \u043F\u0435\u0440\u0448\u0456\u0439. \u0417\u0430\u043B\u0438\u0448\u0442\u0435 \u0441\u043F\u0438\u0441\u043E\u043A \u043F\u043E\u0440\u043E\u0436\u043D\u0456\u043C \u2014 \u0456 \u0432\u0441\u0435 \u0441\u0445\u043E\u0432\u0438\u0449\u0435 \u0441\u0442\u0430\u043D\u0435 \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u0454\u043C.",
       "set.termTemplate.name": "\u0428\u0430\u0431\u043B\u043E\u043D \u0442\u0435\u0440\u043C\u0456\u043D\u0430",
       "set.termTemplate.desc": "\u041D\u043E\u0442\u0430\u0442\u043A\u0430, \u0449\u043E \u0432\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u043E\u0432\u0443\u0454\u0442\u044C\u0441\u044F \u044F\u043A \u0442\u0456\u043B\u043E \u043D\u043E\u0432\u0438\u0445 \u043D\u043E\u0442\u0430\u0442\u043E\u043A \u0442\u0435\u0440\u043C\u0456\u043D\u0456\u0432; \u0437\u0430\u043F\u043E\u0432\u043D\u044E\u0432\u0430\u0447\u0456 \u043D\u0430 \u043A\u0448\u0442\u0430\u043B\u0442 {{title}} \u0456 {{date}} \u043F\u0456\u0434\u0441\u0442\u0430\u0432\u043B\u044F\u044E\u0442\u044C\u0441\u044F. \u041F\u043E\u0440\u043E\u0436\u043D\u044C\u043E = \u043F\u043E\u0440\u043E\u0436\u043D\u044F \u043D\u043E\u0442\u0430\u0442\u043A\u0430.",
       "set.scopeMode.desc": "\u0423 \u044F\u043A\u0438\u0445 \u043D\u043E\u0442\u0430\u0442\u043A\u0430\u0445 \u0442\u0435\u0440\u043C\u0456\u043D\u0438 \u043F\u0456\u0434\u0441\u0432\u0456\u0447\u0443\u044E\u0442\u044C\u0441\u044F \u0442\u0430 \u0437\u0432\u2019\u044F\u0437\u0443\u044E\u0442\u044C\u0441\u044F.",
@@ -7381,9 +7458,10 @@ var require_uk2 = __commonJS({
       "set.showRibbonIcon.name": "\u0417\u043D\u0430\u0447\u043E\u043A \u043D\u0430 \u0431\u0456\u0447\u043D\u0456\u0439 \u043F\u0430\u043D\u0435\u043B\u0456",
       "set.showRibbonIcon.desc": "\u041F\u043E\u043A\u0430\u0437\u0443\u0432\u0430\u0442\u0438 \u043A\u043D\u043E\u043F\u043A\u0443 \u043D\u0430 \u0431\u0456\u0447\u043D\u0456\u0439 \u043F\u0430\u043D\u0435\u043B\u0456, \u0449\u043E \u0432\u0456\u0434\u043A\u0440\u0438\u0432\u0430\u0454 \u043F\u0430\u043D\u0435\u043B\u044C \u043E\u0433\u043B\u044F\u0434\u0443 \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u044F. \u041A\u043E\u043C\u0430\u043D\u0434\u0430 \xAB\u0412\u0456\u0434\u043A\u0440\u0438\u0442\u0438 \u043E\u0433\u043B\u044F\u0434 \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u044F\xBB \u043F\u0440\u0430\u0446\u044E\u0454 \u0432 \u0431\u0443\u0434\u044C-\u044F\u043A\u043E\u043C\u0443 \u0440\u0430\u0437\u0456.",
       "set.rebuild.name": "\u041F\u0435\u0440\u0435\u0431\u0443\u0434\u0443\u0432\u0430\u0442\u0438 \u0456\u043D\u0434\u0435\u043A\u0441 \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u044F",
-      "set.rebuild.desc": "\u041F\u0435\u0440\u0435\u0441\u043A\u0430\u043D\u0443\u0432\u0430\u0442\u0438 \u0442\u0435\u043A\u0443 \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u044F \u0437\u0430\u0440\u0430\u0437.",
+      "set.rebuild.desc": "\u041F\u0435\u0440\u0435\u0441\u043A\u0430\u043D\u0443\u0432\u0430\u0442\u0438 \u0442\u0435\u043A\u0438 \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u044F \u0437\u0430\u0440\u0430\u0437.",
       "set.collecting.desc": "\u0427\u0438\u0442\u0430\u0454 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F, \u044F\u043A\u0456 \u0432\u0438 \u0437\u0440\u043E\u0431\u0438\u043B\u0438 \u0432\u0440\u0443\u0447\u043D\u0443, \u043D\u0430 \u043A\u0448\u0442\u0430\u043B\u0442 [[\u0422\u0435\u0440\u043C\u0456\u043D|\u044F\u043A\u0435\u0441\u044C \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u044F]], \u0456 \u0434\u043E\u0434\u0430\u0454 \u0446\u0435 \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u044F \u0434\u043E \u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C\u0456\u0432 \u0442\u0435\u0440\u043C\u0456\u043D\u0430 \u2014 \u0449\u043E\u0431 \u0442\u0435 \u0441\u0430\u043C\u0435 \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u044F \u0437\u0432\u2019\u044F\u0437\u0443\u0432\u0430\u043B\u043E\u0441\u044F \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u043D\u043E \u043D\u0430\u0441\u0442\u0443\u043F\u043D\u043E\u0433\u043E \u0440\u0430\u0437\u0443.",
-      "set.folderNotFound": "\u26A0 \u0422\u0435\u043A\u0443 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E \u2014 \u0442\u0435\u0440\u043C\u0456\u043D\u0438 \u043D\u0435 \u0431\u0443\u0434\u0443\u0442\u044C \u043F\u0440\u043E\u0456\u043D\u0434\u0435\u043A\u0441\u043E\u0432\u0430\u043D\u0456.",
+      "set.foldersNotFound": "\u26A0 \u041D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E: {folders}.",
+      "set.duplicateTitles": "\u26A0 {titles} \u2014 \u043E\u0434\u0440\u0430\u0437\u0443 \u0432 \u043A\u0456\u043B\u044C\u043A\u043E\u0445 \u043D\u043E\u0442\u0430\u0442\u043A\u0430\u0445, \u0434\u0438\u0432\u0456\u0442\u044C\u0441\u044F \u043F\u0430\u043D\u0435\u043B\u044C \u043E\u0433\u043B\u044F\u0434\u0443.",
       "set.termsIndexed": "\u041F\u0440\u043E\u0456\u043D\u0434\u0435\u043A\u0441\u043E\u0432\u0430\u043D\u043E: {terms}.",
       "modal.materialize.title": "\u0417\u0432\u2019\u044F\u0437\u0430\u0442\u0438 \u0442\u0435\u0440\u043C\u0456\u043D\u0438 \u0433\u043B\u043E\u0441\u0430\u0440\u0456\u044F \u2014 \u043F\u043E\u043F\u0435\u0440\u0435\u0434\u043D\u0456\u0439 \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434",
       "modal.materialize.ambiguous": "\u041D\u0435\u043E\u0434\u043D\u043E\u0437\u043D\u0430\u0447\u043D\u0438\u0445 \u0441\u043B\u0456\u0432, \u0449\u043E \u0437\u0431\u0456\u0433\u0430\u044E\u0442\u044C\u0441\u044F \u0437 \u043A\u0456\u043B\u044C\u043A\u043E\u043C\u0430 \u0442\u0435\u0440\u043C\u0456\u043D\u0430\u043C\u0438: {n} \u2014 \u0432\u0438\u0431\u0435\u0440\u0456\u0442\u044C \u043E\u0434\u043D\u0435 (\u0437\u0430\u0441\u0442\u043E\u0441\u043E\u0432\u0443\u0454\u0442\u044C\u0441\u044F \u0434\u043E \u043A\u043E\u0436\u043D\u043E\u0433\u043E \u0432\u0445\u043E\u0434\u0436\u0435\u043D\u043D\u044F):",
@@ -7417,6 +7495,7 @@ var require_uk2 = __commonJS({
       "suggest.alias": "\u043F\u0441\u0435\u0432\u0434\u043E\u043D\u0456\u043C: {form}",
       "highlight.matches": "\u0417\u0431\u0456\u0433\u0430\u0454\u0442\u044C\u0441\u044F \u0437: {terms}",
       "plural.term": { one: "{n} \u0442\u0435\u0440\u043C\u0456\u043D", few: "{n} \u0442\u0435\u0440\u043C\u0456\u043D\u0438", many: "{n} \u0442\u0435\u0440\u043C\u0456\u043D\u0456\u0432", other: "{n} \u0442\u0435\u0440\u043C\u0456\u043D\u0456\u0432" },
+      "plural.title": { one: "{n} \u043D\u0430\u0437\u0432\u0430", few: "{n} \u043D\u0430\u0437\u0432\u0438", many: "{n} \u043D\u0430\u0437\u0432", other: "{n} \u043D\u0430\u0437\u0432" },
       "plural.use": { one: "{n} \u0432\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u0430\u043D\u043D\u044F", few: "{n} \u0432\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u0430\u043D\u043D\u044F", many: "{n} \u0432\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u0430\u043D\u044C", other: "{n} \u0432\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u0430\u043D\u044C" },
       "plural.note": { one: "{n} \u043D\u043E\u0442\u0430\u0442\u043A\u0430", few: "{n} \u043D\u043E\u0442\u0430\u0442\u043A\u0438", many: "{n} \u043D\u043E\u0442\u0430\u0442\u043E\u043A", other: "{n} \u043D\u043E\u0442\u0430\u0442\u043E\u043A" },
       "plural.link": { one: "{n} \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F", few: "{n} \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F", many: "{n} \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u044C", other: "{n} \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u044C" },
@@ -7440,6 +7519,7 @@ var indexEvents = require_index_events();
 var { GlossaryTermSuggest, suggestAvailable } = require_term_suggest();
 var { GlossaryOverviewView, OVERVIEW_VIEW_TYPE } = require_overview_view();
 var { initI18n, withFamily, t, plural } = require_i18n();
+var { announceStyleSettings } = require_style_settings();
 var { buildMenu } = require_menu_verbs();
 var { registerActions, menuActions } = require_actions2();
 var { PATH_ACTIONS } = require_path_actions();
@@ -7460,12 +7540,13 @@ var GlossaryLinkerPlugin = class extends Plugin {
     if (loaded) {
       if (typeof loaded.linkFolders === "string" && loaded.scopeFolders === void 0)
         this.settings.scopeFolders = loaded.linkFolders;
+      if (typeof loaded.glossaryFolder === "string" && loaded.glossaryFolders === void 0)
+        this.settings.glossaryFolders = loaded.glossaryFolder;
       if (typeof loaded.harvestOnSave === "boolean")
         this.settings.harvestOnSave = loaded.harvestOnSave ? "silent" : "off";
       if (typeof loaded.highlightInLivePreview === "boolean" && loaded.editingHighlight === void 0)
         this.settings.editingHighlight = loaded.highlightInLivePreview ? "live" : "off";
     }
-    this.settings.glossaryFolder = sanitizeFolder(this.settings.glossaryFolder);
     this.languages = [];
     this.activeLanguages = [];
     this.languageErrors = [];
@@ -7624,6 +7705,7 @@ var GlossaryLinkerPlugin = class extends Plugin {
     registerActions(this, PATH_ACTIONS);
     registerActions(this, EDITOR_ACTIONS);
     this.addSettingTab(new GlossaryLinkerSettingTab(this.app, this));
+    announceStyleSettings(this);
     this.api = this.buildApi();
   }
   async saveSettings() {
@@ -7697,7 +7779,7 @@ var GlossaryLinkerPlugin = class extends Plugin {
       return clear();
     try {
       const text = await this.app.vault.cachedRead(file);
-      const canon = new Set(this.findMatches(text, this.canonicalForPath(file.path), { protect: true }).map((m) => m.canonical));
+      const canon = new Set(this.findMatches(text, this.linktextForPath(file.path), { protect: true }).map((m) => m.canonical));
       if (this.settings.statusBarIncludeLinks) {
         const cache = this.app.metadataCache.getFileCache(file);
         for (const link of cache && cache.links || []) {
@@ -7713,17 +7795,25 @@ var GlossaryLinkerPlugin = class extends Plugin {
       clear();
     }
   }
+  glossaryFolderList() {
+    return splitLines(this.settings.glossaryFolders).map(sanitizeFolder).filter(Boolean);
+  }
   isGlossaryPath(path) {
-    const p = this.settings.glossaryFolder.replace(/\/+$/, "");
-    if (!p)
+    const folders = this.glossaryFolderList();
+    if (!folders.length)
       return true;
-    return path === `${p}.md` || path.startsWith(`${p}/`);
+    return folders.some((p) => path === `${p}.md` || path.startsWith(`${p}/`));
   }
   isGlossaryFile(file) {
     return file && file.extension === "md" && this.isGlossaryPath(file.path);
   }
+  // Where a new term note lands: the first folder listed, or the vault root when the whole
+  // vault is the glossary.
+  newTermFolder() {
+    return this.glossaryFolderList()[0] || "";
+  }
   async ensureGlossaryFolder() {
-    const path = this.settings.glossaryFolder.replace(/\/+$/, "");
+    const path = this.newTermFolder();
     if (!path || this.app.vault.getAbstractFileByPath(path))
       return;
     try {
@@ -7736,6 +7826,13 @@ var GlossaryLinkerPlugin = class extends Plugin {
       return null;
     const base = path.split("/").pop();
     return base.replace(/\.md$/, "");
+  }
+  // The note's own identity when it is itself a term, so a term note never links to itself.
+  linktextForPath(path) {
+    if (!path || !this.isGlossaryPath(path))
+      return null;
+    const term = (this.terms || []).find((x) => x.path === path);
+    return term ? term.linktext : this.canonicalForPath(path);
   }
   // Parse the inside of a [[...]] into { target, display, hasSubpath }. Mirrors the
   // table-escape (\| separator) and #subpath handling so every link-reading path agrees.
@@ -7784,19 +7881,19 @@ var GlossaryLinkerPlugin = class extends Plugin {
       return [a];
     return [];
   }
-  activeCanonical() {
+  activeLinktext() {
     const f = this.app.workspace.getActiveFile();
-    return f ? this.canonicalForPath(f.path) : null;
+    return f ? this.linktextForPath(f.path) : null;
   }
-  wikiLink(canonical, display, inTable) {
-    if (display === canonical)
-      return `[[${canonical}]]`;
-    return inTable ? `[[${canonical}\\|${display}]]` : `[[${canonical}|${display}]]`;
+  wikiLink(linktext, display, inTable) {
+    if (display === linktext)
+      return `[[${linktext}]]`;
+    return inTable ? `[[${linktext}\\|${display}]]` : `[[${linktext}|${display}]]`;
   }
   // Replace each match (sorted, non-overlapping) with a wikilink, right to left.
   applyLinks(text, matches) {
     const sorted = matches.slice().sort((a, b) => a.start - b.start);
-    const links = sorted.map((m) => this.wikiLink(m.canonical, m.display, inTableCell(text, m.start)));
+    const links = sorted.map((m) => this.wikiLink(m.linktext, m.display, inTableCell(text, m.start)));
     let out = text;
     for (let j = sorted.length - 1; j >= 0; j--) {
       out = out.slice(0, sorted[j].start) + links[j] + out.slice(sorted[j].end);
@@ -7820,13 +7917,33 @@ var GlossaryLinkerPlugin = class extends Plugin {
     new Notice(t("notice.unlinked"));
     this.updateStatusBar();
   }
-  // By path, not title: a bare title resolves case-insensitively, so Term and term open one note.
-  linktextFor(canonical) {
-    const term = (this.terms || []).find((t2) => t2.canonical === canonical);
-    return term ? term.path : canonical;
+  // By path, not linktext: a bare title resolves case-insensitively, so Term and term open
+  // one note.
+  pathFor(linktext) {
+    const term = (this.terms || []).find((x) => x.linktext === linktext);
+    return term ? term.path : linktext;
   }
-  openTerm(canonical, sourcePath, newTab) {
-    this.app.workspace.openLinkText(this.linktextFor(canonical), sourcePath || "", newTab);
+  labelFor(linktext) {
+    const term = (this.terms || []).find((x) => x.linktext === linktext);
+    return term ? term.canonical : String(linktext).split("/").pop().replace(/\.md$/, "");
+  }
+  openTerm(linktext, sourcePath, newTab) {
+    this.app.workspace.openLinkText(this.pathFor(linktext), sourcePath || "", newTab);
+  }
+  openPath(path, newTab) {
+    this.app.workspace.openLinkText(path, "", newTab);
+  }
+  // Title -> the terms carrying it. More than one is a clash the reader has to settle.
+  termGroups() {
+    const groups = /* @__PURE__ */ new Map();
+    for (const term of this.terms || []) {
+      const group = groups.get(term.canonical);
+      if (group)
+        group.push(term);
+      else
+        groups.set(term.canonical, [term]);
+    }
+    return groups;
   }
   activePath() {
     const f = this.app.workspace.getActiveFile();
@@ -7834,13 +7951,13 @@ var GlossaryLinkerPlugin = class extends Plugin {
   }
   // `hoverParent` decides how long the preview lives: normally the plugin, but the duplicate
   // list passes its own component so the preview it opens dies with the list.
-  hoverTerm(event, targetEl, canonical, sourcePath, hoverParent) {
+  hoverTerm(event, targetEl, linktext, sourcePath, hoverParent) {
     this.app.workspace.trigger("hover-link", {
       event,
       source: hoverParent ? "glossary-linker-choice" : "glossary-linker",
       hoverParent: hoverParent || this,
       targetEl,
-      linktext: this.linktextFor(canonical),
+      linktext: this.pathFor(linktext),
       sourcePath: sourcePath || ""
     });
   }
