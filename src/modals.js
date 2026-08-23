@@ -5,11 +5,11 @@ const { t } = require('./shared/i18n');
 const { createProseModals } = require('./shared/prose/modals');
 
 // The preview and picker dialogs shared with the heading linker; a glossary match names its
-// target in `canonical` (the term title).
+// target in `linktext` (the term title, or its path where two notes share the title).
 const { MaterializePreviewModal, UnlinkPreviewModal, ChooseTermModal } = createProseModals({
   cls: 'glossary',
-  targetOf: (m) => m.canonical,
-  withTarget: (m, canonical) => ({ ...m, canonical }),
+  targetOf: (m) => m.linktext,
+  withTarget: (m, linktext) => ({ ...m, linktext }),
 });
 
 // additions: [{ file, aliases: [{ text, collidesWith: [..] }], skipped: [str] }].

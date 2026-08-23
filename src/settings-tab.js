@@ -21,18 +21,25 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
     };
     // Scope changes don't touch the term index, so refresh views without a rebuild.
     const saveScope = async () => { await this.plugin.saveSettings(); this.plugin.rerenderViews(); this.plugin.updateStatusBar(); this.plugin.refreshOverviewDebounced(); };
+    // A glossary folder decides which notes are terms at all, so it rebuilds — and the
+    // status line under the list is part of what changed.
+    const saveGlossary = async () => { await save(true); this.renderFolderStatus(); this.plugin.refreshOverviewDebounced(); };
 
     const sections = createProseSettings(this, { cls: 'glossary', save });
 
     new Setting(containerEl).setName(t('set.heading.scope')).setHeading();
 
-    new Setting(containerEl)
-      .setName(t('set.glossaryFolder.name'))
-      .setDesc(t('set.glossaryFolder.desc'))
-      .addText((c) => {
-        c.setValue(s.glossaryFolder).onChange(async (v) => { s.glossaryFolder = sanitizeFolder(v); await save(true); this.renderFolderStatus(); this.plugin.refreshOverviewDebounced(); });
-        if (suggestAvailable()) new VaultFolderSuggest(this.app, c.inputEl);
-      });
+    sections.pathList(containerEl, {
+      name: t('set.glossaryFolders.name'),
+      desc: t('set.glossaryFolders.desc'),
+      key: 'glossaryFolders',
+      labels: 'folderList',
+      normalize: sanitizeFolder,
+      attachSuggest: suggestAvailable()
+        ? (inputEl, onPick) => new VaultFolderSuggest(this.app, inputEl, onPick)
+        : null,
+      save: saveGlossary,
+    });
 
     new Setting(containerEl)
       .setName(t('set.termTemplate.name'))
@@ -142,20 +149,18 @@ class GlossaryLinkerSettingTab extends PluginSettingTab {
     if (!el) return;
     el.empty();
     el.removeClass('glossary-lang-error');
-    const path = (this.plugin.settings.glossaryFolder || '').replace(/\/+$/, '');
+    const folders = this.plugin.glossaryFolderList();
     const n = (this.plugin.index && this.plugin.index.termCount) || 0;
-    if (!path) {
-      // Empty folder = whole vault is the glossary, not a missing folder.
-      el.setText(t('set.wholeVaultStatus', { terms: plural('term', n) }));
-      return;
-    }
-    const f = this.app.vault.getAbstractFileByPath(path);
-    if (!(f instanceof TFolder)) {
+    // No folder listed = whole vault is the glossary, not a missing folder.
+    const parts = [t(folders.length ? 'set.termsIndexed' : 'set.wholeVaultStatus', { terms: plural('term', n) })];
+    const missing = folders.filter((p) => !(this.app.vault.getAbstractFileByPath(p) instanceof TFolder));
+    if (missing.length) {
       el.addClass('glossary-lang-error');
-      el.setText(t('set.folderNotFound'));
-      return;
+      parts.push(t('set.foldersNotFound', { folders: missing.join(', ') }));
     }
-    el.setText(t('set.termsIndexed', { terms: plural('term', n) }));
+    const clashes = [...this.plugin.termGroups().values()].filter((group) => group.length > 1).length;
+    if (clashes) parts.push(t('set.duplicateTitles', { titles: plural('title', clashes) }));
+    el.setText(parts.join(' '));
   }
 }
 

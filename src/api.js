@@ -15,7 +15,7 @@ module.exports = {
     return {
       version: this.manifest.version,
 
-      // Every indexed term: { canonical, path, aliases }.
+      // Every indexed term: { canonical, linktext, path, aliases }.
       getTerms: () => this.getTerms(),
 
       // Resolve a title or alias (case-insensitive) to its term, or null.
@@ -41,30 +41,42 @@ module.exports = {
       linker: createProseProvider(plugin, {
         id: 'glossary-linker',
         displayName: 'Glossary Linker',
-        spanOf: (m) => ({ start: m.start, end: m.end, label: m.canonical, target: m.canonical }),
+        spanOf: (m) => ({
+          start: m.start,
+          end: m.end,
+          label: m.canonical,
+          target: m.linktext,
+          alts: (m.alts || []).map((linktext) => ({ label: plugin.labelFor(linktext), target: linktext })),
+        }),
         suggestionsFor,
         excludes: (text) => plugin.wordSilenced(text) || plugin.isExcluded('excludeTerms', text),
-        // A term is its note, so the target is already the title; the kind is what tells it
-        // apart from a heading offered on the same word.
+        // The kind tells a term apart from a heading offered on the same word; the folder
+        // tells two notes sharing a title apart from each other.
         describe: (target, display) => {
-          const term = (plugin.terms || []).find((x) => x.canonical === target);
-          const parts = [t('kind.term'), aliasHit(plugin, term, target, display)];
-          return { title: String(target), note: parts.filter(Boolean).join(' · ') };
+          const term = (plugin.terms || []).find((x) => x.linktext === target);
+          const title = plugin.labelFor(target);
+          const folder = term && term.linktext !== term.canonical ? term.path.split('/').slice(0, -1).join('/') : null;
+          const parts = [t('kind.term'), aliasHit(plugin, term, title, display), folder];
+          return { title, note: parts.filter(Boolean).join(' · ') };
         },
       }),
     };
   },
 
   getTerms() {
-    return (this.terms || []).map((t) => ({ canonical: t.canonical, path: t.path, aliases: t.aliases.slice() }));
+    return (this.terms || []).map((t) => this.termShape(t));
+  },
+
+  termShape(t) {
+    return { canonical: t.canonical, linktext: t.linktext, path: t.path, aliases: t.aliases.slice() };
   },
 
   resolveTerm(name) {
     if (!name) return null;
     const q = String(name).toLowerCase();
     for (const t of this.terms || []) {
-      if (t.canonical.toLowerCase() === q) return { canonical: t.canonical, path: t.path, aliases: t.aliases.slice() };
-      if (t.aliases.some((a) => a.toLowerCase() === q)) return { canonical: t.canonical, path: t.path, aliases: t.aliases.slice() };
+      if (t.canonical.toLowerCase() === q) return this.termShape(t);
+      if (t.aliases.some((a) => a.toLowerCase() === q)) return this.termShape(t);
     }
     return null;
   },
@@ -75,7 +87,7 @@ module.exports = {
     const here = new Map();
     try {
       const text = await this.app.vault.cachedRead(file);
-      for (const m of this.findMatches(text, this.canonicalForPath(file.path), { protect: true })) {
+      for (const m of this.findMatches(text, this.linktextForPath(file.path), { protect: true })) {
         here.set(m.canonical, (here.get(m.canonical) || 0) + 1);
       }
     } catch (e) { /* unreadable file: links below may still apply */ }
@@ -99,7 +111,9 @@ module.exports = {
   // [[Term]] / [[Term|alias]] links. Terms with count 0 are orphans.
   async getUsageReport(opts = {}) {
     const counts = new Map();
-    for (const t of this.terms || []) counts.set(t.canonical, { canonical: t.canonical, path: t.path, count: 0, files: [] });
+    for (const [canonical, group] of this.termGroups()) {
+      counts.set(canonical, { canonical, linktext: group[0].linktext, path: group[0].path, paths: group.map((x) => x.path), count: 0, files: [] });
+    }
     const files = this.reportFiles(opts);
     if (!this.usageCache) this.usageCache = createUsageCache();
     const signature = `${this.indexVersion || 0}|${opts.includeLinks ? 'L' : ''}`;

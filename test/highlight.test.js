@@ -53,7 +53,7 @@ const anchors = (parent) => (parent.replaced ? parent.replaced.children.filter((
 
 describe('reading-view decoration', () => {
   it('marks a single match as an internal link with our own class', async () => {
-    const plugin = withMatch(await load(), { start: 2, end: 7, display: 'Spawn', canonical: 'Spawn' });
+    const plugin = withMatch(await load(), { start: 2, end: 7, display: 'Spawn', canonical: 'Spawn', linktext: 'Spawn' });
     const { node, parent } = fakeNode('a Spawn here');
     plugin.decorateTextNode(node, null, 'Note.md');
 
@@ -68,7 +68,7 @@ describe('reading-view decoration', () => {
   it('marks a match with alternatives as ambiguous and gives it no href', async () => {
     // No data-href on purpose: Obsidian would show one page's preview for a word that
     // resolves to several.
-    const plugin = withMatch(await load(), { start: 2, end: 7, display: 'Spawn', canonical: 'Spawn', alts: ['Spawning'] });
+    const plugin = withMatch(await load(), { start: 2, end: 7, display: 'Spawn', canonical: 'Spawn', linktext: 'Spawn', alts: ['Spawning'] });
     const { node, parent } = fakeNode('a Spawn here');
     plugin.decorateTextNode(node, null, 'Note.md');
 
@@ -81,7 +81,7 @@ describe('reading-view decoration', () => {
   });
 
   it('never emits the sibling linker’s names', async () => {
-    const plugin = withMatch(await load(), { start: 2, end: 7, display: 'Spawn', canonical: 'Spawn' });
+    const plugin = withMatch(await load(), { start: 2, end: 7, display: 'Spawn', canonical: 'Spawn', linktext: 'Spawn' });
     const { node, parent } = fakeNode('a Spawn here');
     plugin.decorateTextNode(node, null, 'Note.md');
 

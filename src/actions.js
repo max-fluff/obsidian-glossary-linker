@@ -12,14 +12,14 @@ const { t, plural } = require('./shared/i18n');
 // Turning terms into links + collecting aliases. Mixed into the plugin prototype.
 module.exports = {
   // Ambiguous matches keep their `alts` so the preview can let the user pick a term.
-  collectMatches(text, currentCanonical) {
-    const matches = this.findMatches(text, currentCanonical, { protect: true });
+  collectMatches(text, currentLinktext) {
+    const matches = this.findMatches(text, currentLinktext, { protect: true });
     if (!this.settings.linkFirstOnly) return matches;
     const seen = new Set();
     const out = [];
     for (const m of matches) {
-      if (seen.has(m.canonical)) continue;
-      seen.add(m.canonical);
+      if (seen.has(m.linktext)) continue;
+      seen.add(m.linktext);
       out.push(m);
     }
     return out;
@@ -54,7 +54,7 @@ module.exports = {
     const file = this.app.workspace.getActiveFile();
     if (!file) { new Notice(t('notice.noActiveNote')); return; }
     const text = await this.app.vault.cachedRead(file);
-    const matches = this.collectMatches(text, this.canonicalForPath(file.path));
+    const matches = this.collectMatches(text, this.linktextForPath(file.path));
     if (!matches.length) { new Notice(t('notice.noMatches')); return; }
     this.openMaterializePreview([{ file, original: text, matches }], async (results) => {
       const r = results[0];
@@ -77,7 +77,7 @@ module.exports = {
     const sel = editor.getSelection();
     if (!sel) { new Notice(t('notice.noSelection')); return; }
     const file = this.app.workspace.getActiveFile();
-    const matches = this.collectMatches(sel, file ? this.canonicalForPath(file.path) : null);
+    const matches = this.collectMatches(sel, file ? this.linktextForPath(file.path) : null);
     if (!matches.length) { new Notice(t('notice.noMatches')); return; }
     this.openMaterializePreview([{ file: null, original: sel, matches, label: t('label.selection') }], (results) => {
       editor.replaceSelection(results[0].newText);
@@ -105,7 +105,7 @@ module.exports = {
 
   async materializeScope() {
     const files = await this.scanScopeMatches((text, file) =>
-      this.collectMatches(text, this.canonicalForPath(file.path)));
+      this.collectMatches(text, this.linktextForPath(file.path)));
     if (!files.length) { new Notice(t('notice.noMatches')); return; }
     this.openMaterializePreview(files, (results) => this.writeScopeResults(results));
   },
@@ -172,7 +172,7 @@ module.exports = {
       if (hits.length) {
         const sourcePath = this.app.workspace.getActiveFile()?.path || '';
         this.openTerm(hits[0], sourcePath, false);
-        new Notice(t('notice.alreadyMatchesOpened', { sel, term: hits[0] }));
+        new Notice(t('notice.alreadyMatchesOpened', { sel, term: this.labelFor(hits[0]) }));
         return;
       }
     }
@@ -184,7 +184,7 @@ module.exports = {
     if (!name) { new Notice(t('notice.invalidTermName')); return; }
 
     await this.ensureGlossaryFolder();
-    const folder = this.settings.glossaryFolder.replace(/\/+$/, '');
+    const folder = this.newTermFolder();
     const path = folder ? `${folder}/${name}.md` : `${name}.md`;
     let file = this.app.vault.getAbstractFileByPath(path);
     if (file) {
@@ -245,7 +245,7 @@ module.exports = {
     // 'menu' rather than 'editing': acting on a word is not drawing it, so a peer with its
     // highlighting switched off still owns its words here.
     const where = { path: activePath, surface: 'menu' };
-    const matches = this.ownSpans(line, this.findMatches(line, this.activeCanonical(), { protect: true }), where);
+    const matches = this.ownSpans(line, this.findMatches(line, this.activeLinktext(), { protect: true }), where);
     const hit = matches.find((m) => head.ch >= m.start && head.ch <= m.end);
     if (!hit) return null;
     const foreign = candidatesFor(this.yieldedIn(line, where), hit.start, hit.end);
@@ -264,7 +264,7 @@ module.exports = {
     const head = editor.getCursor('head');
     const line = editor.getLine(head.line);
     if (!line) return null;
-    const matches = this.findMatches(line, this.activeCanonical(), { protect: true });
+    const matches = this.findMatches(line, this.activeLinktext(), { protect: true });
     return matches.find((m) => head.ch >= m.start && head.ch <= m.end) || null;
   },
 
@@ -277,7 +277,7 @@ module.exports = {
   // Every reading of the match under the cursor: ours, our own same-named alternatives, and
   // the ones other linkers stood down on. What the menu offers to link or open.
   cursorCandidates(hit, sourcePath, newTab) {
-    const own = [hit.match.canonical, ...(hit.match.alts || [])];
+    const own = [hit.match.linktext, ...(hit.match.alts || [])];
     const foreign = hit.foreign.map((c) => ({ ...c, open: () => c.open(sourcePath, newTab) }));
     return [...own, ...foreign];
   },
@@ -349,11 +349,11 @@ module.exports = {
 
   // linkAs (optional) overrides which term the occurrence is linked to — used when
   // a word matches several terms and the user picks an alternative from the menu.
-  async materializeSingle(file, canonical, display, nearOffset, occurrence, linkAs) {
+  async materializeSingle(file, linktext, display, nearOffset, occurrence, linkAs) {
     let created = false;
     await this.app.vault.process(file, (text) => {
-      const matches = this.findMatches(text, this.canonicalForPath(file.path), { protect: true })
-        .filter((m) => m.canonical === canonical && m.display === display);
+      const matches = this.findMatches(text, this.linktextForPath(file.path), { protect: true })
+        .filter((m) => m.linktext === linktext && m.display === display);
       if (!matches.length) return text;
       let target = matches[0];
       if (occurrence != null && matches[occurrence]) {
@@ -361,7 +361,7 @@ module.exports = {
       } else if (nearOffset != null) {
         target = matches.reduce((best, m) => (Math.abs(m.start - nearOffset) < Math.abs(best.start - nearOffset) ? m : best), matches[0]);
       }
-      const chosen = (linkAs && linkAs !== target.canonical) ? { ...target, canonical: linkAs } : target;
+      const chosen = (linkAs && linkAs !== target.linktext) ? { ...target, linktext: linkAs } : target;
       created = true;
       return this.applyLinks(text, [chosen]).newText;
     });
@@ -372,14 +372,14 @@ module.exports = {
 
   // linkAs (optional) links the matched occurrences to a chosen alternative term
   // instead of the one findMatches picked (used to resolve an alias collision).
-  async materializeTerm(file, canonical, linkAs) {
+  async materializeTerm(file, linktext, linkAs) {
     let count = 0;
     await this.app.vault.process(file, (text) => {
-      let matches = this.findMatches(text, this.canonicalForPath(file.path), { protect: true })
-        .filter((m) => m.canonical === canonical);
+      let matches = this.findMatches(text, this.linktextForPath(file.path), { protect: true })
+        .filter((m) => m.linktext === linktext);
       if (!matches.length) return text;
       if (this.settings.linkFirstOnly) matches = matches.slice(0, 1);
-      if (linkAs && linkAs !== canonical) matches = matches.map((m) => ({ ...m, canonical: linkAs }));
+      if (linkAs && linkAs !== linktext) matches = matches.map((m) => ({ ...m, linktext: linkAs }));
       count = matches.length;
       return this.applyLinks(text, matches).newText;
     });
@@ -388,14 +388,14 @@ module.exports = {
     this.updateStatusBar();
   },
 
-  async materializeTermScope(canonical, linkAs) {
-    const term = linkAs || canonical;
+  async materializeTermScope(linktext, linkAs) {
+    const term = linkAs || linktext;
     const files = await this.scanScopeMatches((text, file) => {
-      let matches = this.findMatches(text, this.canonicalForPath(file.path), { protect: true })
-        .filter((m) => m.canonical === canonical);
+      let matches = this.findMatches(text, this.linktextForPath(file.path), { protect: true })
+        .filter((m) => m.linktext === linktext);
       if (this.settings.linkFirstOnly) matches = matches.slice(0, 1);
       // Term already chosen → no per-occurrence picker in the preview.
-      return matches.map((m) => ({ ...m, canonical: term, alts: null }));
+      return matches.map((m) => ({ ...m, linktext: term, alts: null }));
     });
     if (!files.length) { new Notice(t('notice.noOccurrences')); return; }
     this.openMaterializePreview(files, (results) => this.writeScopeResults(results));
@@ -437,12 +437,13 @@ module.exports = {
 
   // Fills `add` (cand → collidesWith) and `skip` from one link's display. Shared by both harvest paths.
   collectAliasesFromDisplay(file, display, literals, add, skip) {
-    if (this.termsMatchingText(display).includes(file.basename)) return; // an existing form already matches
+    const own = this.linktextForPath(file.path);
+    if (this.termsMatchingText(display).includes(own)) return; // an existing form already matches
     for (const cand of this.harvestCandidates(display)) {
       if (add.has(cand)) continue;
       if (literals.has(cand)) { skip.add(cand); continue; }
       if (this.partialOfMultiwordTitle(file, cand)) { skip.add(cand); continue; }
-      add.set(cand, this.settings.aliasCollisionWarnings ? this.termsMatchingText(cand, file.basename) : []);
+      add.set(cand, this.settings.aliasCollisionWarnings ? this.termsMatchingText(cand, own).map((c) => this.labelFor(c)) : []);
     }
   },
 
@@ -530,7 +531,9 @@ module.exports = {
       return;
     }
 
-    const collidesWith = [...this.termsMatchingText(alias)].filter((c) => c !== term.canonical);
+    const collidesWith = this.termsMatchingText(alias)
+      .filter((c) => c !== term.linktext)
+      .map((c) => this.labelFor(c));
 
     await this.app.fileManager.processFrontMatter(file, (fm) => {
       let list = fm.aliases;

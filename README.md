@@ -113,7 +113,7 @@ This scans for `[[Term|some wording]]` links you wrote by hand. If `Term` is a g
 
 ### Suggest links as you type (optional)
 
-Turn on *Autocomplete → Suggest links while typing* and typing in an in-scope note offers to insert a `[[link]]` to a matching glossary term. The match can be a prefix of a term's title or alias (type `Vis` → *Vision radius*) or an inflected form of one. A prefix match inserts `[[Term]]`; an inflected form keeps your wording as `[[Term|word]]`. It's off by default and never fires inside the glossary folder, code, links or other protected spans. It also stays quiet when the word follows a sigil like `@`, `#` or `$`, so it doesn't fight tags, math or another plugin's autocomplete — see *Skip after characters*.
+Turn on *Autocomplete → Suggest links while typing* and typing in an in-scope note offers to insert a `[[link]]` to a matching glossary term. The match can be a prefix of a term's title or alias (type `Vis` → *Vision radius*) or an inflected form of one. A prefix match inserts `[[Term]]`; an inflected form keeps your wording as `[[Term|word]]`. It's off by default and never fires inside a glossary folder, code, links or other protected spans. It also stays quiet when the word follows a sigil like `@`, `#` or `$`, so it doesn't fight tags, math or another plugin's autocomplete — see *Skip after characters*.
 
 <p align="center">
   <img src="docs/images/quick-capture.png" alt="The link-suggestion popup while typing, listing matching terms" width="560">
@@ -143,7 +143,7 @@ A right-sidebar panel (the *Open glossary overview* command, or the ribbon icon)
   <img src="docs/images/overview.png" alt="The glossary overview panel: a Terms list with usage counts and orphans, and a Candidates list of frequent words not yet defined" width="320">
 </p>
 
-- **Terms** — every indexed term with how often it's used across in-scope notes; sort by usage or by name. The count is plain-text mentions, plus existing `[[Term]]` links when *count links* is ticked (on by default — so a term you've already linked everywhere isn't mistaken for unused). Terms with no uses are flagged as orphans. Click a term to open it (middle-click for a new tab), or use *link all* to link its occurrences across the vault.
+- **Terms** — every indexed term with how often it's used across in-scope notes; sort by usage or by name. The count is plain-text mentions, plus existing `[[Term]]` links when *count links* is ticked (on by default — so a term you've already linked everywhere isn't mistaken for unused). Terms with no uses are flagged as orphans. Click a term to open it (middle-click for a new tab), or use *link all* to link its occurrences across the vault. A title held by more than one note — say `Status` in two of your glossary folders — carries a `[1] [2]` marker instead: a `[[Status]]` link can't say which note it means, so click a number to open that one and decide which to rename.
 - **Candidates** — frequent words that are *not* terms yet, so you can spot what's worth defining. Each shows how many notes it appears in and its total uses; sort by either, and set the *Min notes* threshold in the panel. Per candidate: create a term from it, or dismiss it with ✕ (which adds its base form to *Excluded words* as `word*`, so no form of it comes back on the next scan). Collapse the section to skip the (heavier) candidate scan.
 
 Both lists come from scanning your notes, so they refresh on demand — hit *Rescan* after a round of edits. By default the scan follows the linker's [Link scope](#settings); tick *whole vault* in the panel header to scan every note regardless of scope.
@@ -187,7 +187,7 @@ Every module is validated against the contract on load (`src/shared/morphology/l
 - **Link glossary terms: this note / selection / all notes**
 - **Unlink glossary terms: this note / selection / all notes** — the reverse of *Link glossary terms*: each `[[Title|word]]` pointing at a glossary note becomes plain `word` again, previewed first. Links inside code or frontmatter, links you wrote to a specific heading (`[[Term#section]]`), and links to non-glossary notes are left untouched.
 - **Collect aliases from links: this note / all notes**
-- **Create glossary term from selection** — creates a note in the glossary folder named after the selected text, and links the selection to it
+- **Create glossary term from selection** — creates a note in the first glossary folder named after the selected text, and links the selection to it
 - **Open glossary overview** — the right-sidebar panel (see [Glossary overview](#glossary-overview))
 - **Rebuild glossary index**
 
@@ -215,7 +215,7 @@ A new term is a blank note by default. Set *Term template* to a note path to use
 
 These are the same tokens the core Templates plugin uses, so a Templates file works here too. Frontmatter in the template (an empty `aliases:` list, say) carries over as-is. The folder and file name come from the plugin, not the template, since the file name is the term.
 
-To use [Templater](https://github.com/SilentVoid13/Templater) instead, leave *Term template* empty and add a Templater folder template for the glossary folder. The plugin creates a blank note and Templater fills it. Use one or the other for a folder, not both.
+To use [Templater](https://github.com/SilentVoid13/Templater) instead, leave *Term template* empty and add a Templater folder template for the glossary folder new terms land in. The plugin creates a blank note and Templater fills it. Use one or the other for a folder, not both.
 
 ## Settings
 
@@ -224,7 +224,7 @@ Settings are grouped into sections, each with a short description in the UI. The
 **Scope**
 | Setting | Default | Description |
 |---|---|---|
-| **Glossary folder** | `glossary` | folder with the term notes (created automatically when aliases are written if it is missing); has folder autocomplete, and shows a warning / indexed-term count below it |
+| **Glossary folders** | `glossary` | folders with the term notes, indexed as one glossary; new terms are created in the first (and it is created for you if it is missing). Has folder autocomplete, and shows the indexed-term count, any missing folder and any title held by more than one note below it. Empty list = the whole vault is the glossary |
 | **Term template** | — | note used as the body of new term notes; tokens like `{{title}}` / `{{selection}}` / `{{date}}` are filled in (see [Templates for new terms](#templates-for-new-terms) above); empty = blank note |
 | **Link scope** | `Everywhere` | `Listed paths only` (an allow-list) or `Everywhere`. To link everywhere *except* a few folders, use `Everywhere` and list them under Always-excluded below |
 | **Paths to include** | — | path list (file or folder); only these are in scope. Shown only in `Listed paths only` mode |

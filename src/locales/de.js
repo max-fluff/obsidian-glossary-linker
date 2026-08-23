@@ -100,8 +100,8 @@ module.exports = {
   'set.heading.collecting': 'Aliasse sammeln',
   'set.heading.overview': 'Übersicht',
 
-  'set.glossaryFolder.name': 'Glossar-Ordner',
-  'set.glossaryFolder.desc': 'Ordner mit einer Notiz pro Begriff (Dateiname = Begriffstitel).',
+  'set.glossaryFolders.name': 'Glossar-Ordner',
+  'set.glossaryFolders.desc': 'Ordner mit einer Notiz pro Begriff (Dateiname = Begriffstitel). Alle zusammen bilden ein Glossar, neue Begriffe entstehen im ersten. Leere Liste = das ganze Vault ist das Glossar.',
   'set.termTemplate.name': 'Begriffsvorlage',
   'set.termTemplate.desc': 'Notiz, die als Inhalt neuer Begriffsnotizen dient; Platzhalter wie {{title}} und {{date}} werden ausgefüllt. Leer = leere Notiz.',
   'set.scopeMode.desc': 'In welchen Notizen Begriffe hervorgehoben und verlinkt werden.',
@@ -157,9 +157,10 @@ module.exports = {
   'set.showRibbonIcon.name': 'Seitenleisten-Symbol',
   'set.showRibbonIcon.desc': 'Eine Schaltfläche in der Seitenleiste anzeigen, die die Glossar-Übersicht öffnet. Der Befehl „Glossar-Übersicht öffnen“ funktioniert ohnehin.',
   'set.rebuild.name': 'Glossar-Index neu aufbauen',
-  'set.rebuild.desc': 'Den Glossar-Ordner jetzt neu scannen.',
+  'set.rebuild.desc': 'Die Glossar-Ordner jetzt neu scannen.',
   'set.collecting.desc': 'Liest die Links, die Sie von Hand erstellt haben, wie [[Begriff|ein Wortlaut]], und fügt diesen Wortlaut den Aliassen des Begriffs hinzu — damit derselbe Wortlaut beim nächsten Mal automatisch verlinkt wird.',
-  'set.folderNotFound': '⚠ Ordner nicht gefunden — es werden keine Begriffe indexiert.',
+  'set.foldersNotFound': '⚠ Nicht gefunden: {folders}.',
+  'set.duplicateTitles': '⚠ {titles} in mehr als einer Notiz — siehe Übersichtsleiste.',
   'set.termsIndexed': '{terms} indexiert.',
 
   'modal.materialize.title': 'Glossarbegriffe verlinken — Vorschau',
@@ -198,6 +199,7 @@ module.exports = {
   'highlight.matches': 'Passt zu: {terms}',
 
   'plural.term': { one: '{n} Begriff', other: '{n} Begriffe' },
+  'plural.title': { one: '{n} Titel', other: '{n} Titel' },
   'plural.use': { one: '{n} Nutzung', other: '{n} Nutzungen' },
   'plural.note': { one: '{n} Notiz', other: '{n} Notizen' },
   'plural.link': { one: '{n} Link', other: '{n} Links' },

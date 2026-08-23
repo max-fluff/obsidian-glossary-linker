@@ -23,7 +23,7 @@ const load = async () => {
   return { plugin, commands };
 };
 
-const hit = { line: 0, match: { start: 0, end: 5, display: 'spawn', alts: [], canonical: 'Spawn' }, foreign: [] };
+const hit = { line: 0, match: { start: 0, end: 5, display: 'spawn', alts: [], canonical: 'Spawn', linktext: 'Spawn' }, foreign: [] };
 const link = { canonical: 'Spawn', display: 'spawning', targetFile: { basename: 'Spawn' }, line: 0, from: 0, to: 9 };
 
 const compare = async (situation) => {

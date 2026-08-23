@@ -117,8 +117,8 @@ module.exports = {
   'set.heading.overview': 'Overview',
 
   // Settings — entries
-  'set.glossaryFolder.name': 'Glossary folder',
-  'set.glossaryFolder.desc': 'Folder with one note per term (file name = the term title). Leave empty to use the whole vault as the glossary.',
+  'set.glossaryFolders.name': 'Glossary folders',
+  'set.glossaryFolders.desc': 'Folders with one note per term (file name = the term title). All of them make up one glossary, and new terms are created in the first. Leave the list empty to use the whole vault as the glossary.',
   'set.termTemplate.name': 'Term template',
   'set.termTemplate.desc': 'Note used as the body of new term notes; placeholders like {{title}} and {{date}} are filled in. Empty = blank note.',
   'set.scopeMode.desc': 'Which notes terms are highlighted and linked in.',
@@ -177,9 +177,10 @@ module.exports = {
   'set.showRibbonIcon.name': 'Ribbon icon',
   'set.showRibbonIcon.desc': 'Show a ribbon button that opens the glossary overview panel. The "Open glossary overview" command works either way.',
   'set.rebuild.name': 'Rebuild glossary index',
-  'set.rebuild.desc': 'Re-scan the glossary folder now.',
+  'set.rebuild.desc': 'Re-scan the glossary folders now.',
   'set.collecting.desc': "Reads the links you already made by hand, like [[Term|some wording]], and adds that wording to the term's aliases — so the same wording links automatically next time.",
-  'set.folderNotFound': '⚠ Folder not found — no terms will be indexed.',
+  'set.foldersNotFound': '⚠ Not found: {folders}.',
+  'set.duplicateTitles': '⚠ {titles} held by more than one note — see the overview panel.',
   'set.termsIndexed': '{terms} indexed.',
   'set.wholeVaultStatus': 'Whole vault is the glossary — {terms} indexed.',
 
@@ -234,6 +235,7 @@ module.exports = {
 
   // Plural noun phrases
   'plural.term': { one: '{n} term', other: '{n} terms' },
+  'plural.title': { one: '{n} title', other: '{n} titles' },
   'plural.use': { one: '{n} use', other: '{n} uses' },
   'plural.note': { one: '{n} note', other: '{n} notes' },
   'plural.link': { one: '{n} link(s)', other: '{n} link(s)' },

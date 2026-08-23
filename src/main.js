@@ -14,6 +14,7 @@ const indexEvents = require('./shared/index-events');
 const { GlossaryTermSuggest, suggestAvailable } = require('./term-suggest');
 const { GlossaryOverviewView, OVERVIEW_VIEW_TYPE } = require('./overview-view');
 const { initI18n, withFamily, t, plural } = require('./shared/i18n');
+const { announceStyleSettings } = require('./shared/style-settings');
 const { buildMenu } = require('./shared/menu-verbs');
 const { registerActions, menuActions } = require('./shared/actions');
 const { PATH_ACTIONS } = require('./path-actions');
@@ -30,10 +31,10 @@ class GlossaryLinkerPlugin extends Plugin {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded);
     if (loaded) {
       if (typeof loaded.linkFolders === 'string' && loaded.scopeFolders === undefined) this.settings.scopeFolders = loaded.linkFolders;
+      if (typeof loaded.glossaryFolder === 'string' && loaded.glossaryFolders === undefined) this.settings.glossaryFolders = loaded.glossaryFolder;
       if (typeof loaded.harvestOnSave === 'boolean') this.settings.harvestOnSave = loaded.harvestOnSave ? 'silent' : 'off';
       if (typeof loaded.highlightInLivePreview === 'boolean' && loaded.editingHighlight === undefined) this.settings.editingHighlight = loaded.highlightInLivePreview ? 'live' : 'off';
     }
-    this.settings.glossaryFolder = sanitizeFolder(this.settings.glossaryFolder);
 
     this.languages = [];
     this.activeLanguages = [];
@@ -213,6 +214,7 @@ class GlossaryLinkerPlugin extends Plugin {
     registerActions(this, EDITOR_ACTIONS);
 
     this.addSettingTab(new GlossaryLinkerSettingTab(this.app, this));
+    announceStyleSettings(this);
 
     // Published last, and deliberately so. The api (app.plugins.plugins['glossary-linker'].api)
     // is how a sibling linker finds us and decides to stand down on a word we both match — so
@@ -285,7 +287,7 @@ class GlossaryLinkerPlugin extends Plugin {
     try {
       const text = await this.app.vault.cachedRead(file);
       // protect:true counts only plain-text mentions; linked terms are added below.
-      const canon = new Set(this.findMatches(text, this.canonicalForPath(file.path), { protect: true }).map((m) => m.canonical));
+      const canon = new Set(this.findMatches(text, this.linktextForPath(file.path), { protect: true }).map((m) => m.canonical));
       if (this.settings.statusBarIncludeLinks) {
         const cache = this.app.metadataCache.getFileCache(file);
         for (const link of (cache && cache.links) || []) {
@@ -301,18 +303,28 @@ class GlossaryLinkerPlugin extends Plugin {
     }
   }
 
+  glossaryFolderList() {
+    return splitLines(this.settings.glossaryFolders).map(sanitizeFolder).filter(Boolean);
+  }
+
   isGlossaryPath(path) {
-    const p = this.settings.glossaryFolder.replace(/\/+$/, '');
-    if (!p) return true; // empty folder setting = whole vault is the glossary
-    return path === `${p}.md` || path.startsWith(`${p}/`);
+    const folders = this.glossaryFolderList();
+    if (!folders.length) return true; // no folder listed = whole vault is the glossary
+    return folders.some((p) => path === `${p}.md` || path.startsWith(`${p}/`));
   }
 
   isGlossaryFile(file) {
     return file && file.extension === 'md' && this.isGlossaryPath(file.path);
   }
 
+  // Where a new term note lands: the first folder listed, or the vault root when the whole
+  // vault is the glossary.
+  newTermFolder() {
+    return this.glossaryFolderList()[0] || '';
+  }
+
   async ensureGlossaryFolder() {
-    const path = this.settings.glossaryFolder.replace(/\/+$/, '');
+    const path = this.newTermFolder();
     if (!path || this.app.vault.getAbstractFileByPath(path)) return;
     try { await this.app.vault.createFolder(path); } catch (e) { /* already exists / race */ }
   }
@@ -321,6 +333,13 @@ class GlossaryLinkerPlugin extends Plugin {
     if (!path || !this.isGlossaryPath(path)) return null;
     const base = path.split('/').pop();
     return base.replace(/\.md$/, '');
+  }
+
+  // The note's own identity when it is itself a term, so a term note never links to itself.
+  linktextForPath(path) {
+    if (!path || !this.isGlossaryPath(path)) return null;
+    const term = (this.terms || []).find((x) => x.path === path);
+    return term ? term.linktext : this.canonicalForPath(path);
   }
 
   // Parse the inside of a [[...]] into { target, display, hasSubpath }. Mirrors the
@@ -368,21 +387,21 @@ class GlossaryLinkerPlugin extends Plugin {
     return [];
   }
 
-  activeCanonical() {
+  activeLinktext() {
     const f = this.app.workspace.getActiveFile();
-    return f ? this.canonicalForPath(f.path) : null;
+    return f ? this.linktextForPath(f.path) : null;
   }
 
-  wikiLink(canonical, display, inTable) {
-    if (display === canonical) return `[[${canonical}]]`;
+  wikiLink(linktext, display, inTable) {
+    if (display === linktext) return `[[${linktext}]]`;
     // Inside a Markdown table cell the alias pipe must be escaped or it splits the row.
-    return inTable ? `[[${canonical}\\|${display}]]` : `[[${canonical}|${display}]]`;
+    return inTable ? `[[${linktext}\\|${display}]]` : `[[${linktext}|${display}]]`;
   }
 
   // Replace each match (sorted, non-overlapping) with a wikilink, right to left.
   applyLinks(text, matches) {
     const sorted = matches.slice().sort((a, b) => a.start - b.start);
-    const links = sorted.map((m) => this.wikiLink(m.canonical, m.display, inTableCell(text, m.start)));
+    const links = sorted.map((m) => this.wikiLink(m.linktext, m.display, inTableCell(text, m.start)));
     let out = text;
     for (let j = sorted.length - 1; j >= 0; j--) {
       out = out.slice(0, sorted[j].start) + links[j] + out.slice(sorted[j].end);
@@ -409,14 +428,34 @@ class GlossaryLinkerPlugin extends Plugin {
     this.updateStatusBar();
   }
 
-  // By path, not title: a bare title resolves case-insensitively, so Term and term open one note.
-  linktextFor(canonical) {
-    const term = (this.terms || []).find((t) => t.canonical === canonical);
-    return term ? term.path : canonical;
+  // By path, not linktext: a bare title resolves case-insensitively, so Term and term open
+  // one note.
+  pathFor(linktext) {
+    const term = (this.terms || []).find((x) => x.linktext === linktext);
+    return term ? term.path : linktext;
   }
 
-  openTerm(canonical, sourcePath, newTab) {
-    this.app.workspace.openLinkText(this.linktextFor(canonical), sourcePath || '', newTab);
+  labelFor(linktext) {
+    const term = (this.terms || []).find((x) => x.linktext === linktext);
+    return term ? term.canonical : String(linktext).split('/').pop().replace(/\.md$/, '');
+  }
+
+  openTerm(linktext, sourcePath, newTab) {
+    this.app.workspace.openLinkText(this.pathFor(linktext), sourcePath || '', newTab);
+  }
+
+  openPath(path, newTab) {
+    this.app.workspace.openLinkText(path, '', newTab);
+  }
+
+  // Title -> the terms carrying it. More than one is a clash the reader has to settle.
+  termGroups() {
+    const groups = new Map();
+    for (const term of this.terms || []) {
+      const group = groups.get(term.canonical);
+      if (group) group.push(term); else groups.set(term.canonical, [term]);
+    }
+    return groups;
   }
 
   activePath() {
@@ -426,13 +465,13 @@ class GlossaryLinkerPlugin extends Plugin {
 
   // `hoverParent` decides how long the preview lives: normally the plugin, but the duplicate
   // list passes its own component so the preview it opens dies with the list.
-  hoverTerm(event, targetEl, canonical, sourcePath, hoverParent) {
+  hoverTerm(event, targetEl, linktext, sourcePath, hoverParent) {
     this.app.workspace.trigger('hover-link', {
       event,
       source: hoverParent ? 'glossary-linker-choice' : 'glossary-linker',
       hoverParent: hoverParent || this,
       targetEl,
-      linktext: this.linktextFor(canonical),
+      linktext: this.pathFor(linktext),
       sourcePath: sourcePath || '',
     });
   }

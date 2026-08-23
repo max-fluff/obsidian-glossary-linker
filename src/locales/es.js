@@ -100,8 +100,8 @@ module.exports = {
   'set.heading.collecting': 'Recopilar alias',
   'set.heading.overview': 'Resumen',
 
-  'set.glossaryFolder.name': 'Carpeta del glosario',
-  'set.glossaryFolder.desc': 'Carpeta con una nota por término (nombre de archivo = título del término).',
+  'set.glossaryFolders.name': 'Carpetas del glosario',
+  'set.glossaryFolders.desc': 'Carpetas con una nota por término (nombre de archivo = título del término). Todas forman un solo glosario y los términos nuevos se crean en la primera. Deja la lista vacía para usar toda la bóveda como glosario.',
   'set.termTemplate.name': 'Plantilla de término',
   'set.termTemplate.desc': 'Nota usada como cuerpo de las nuevas notas de término; los marcadores como {{title}} y {{date}} se rellenan. Vacío = nota en blanco.',
   'set.scopeMode.desc': 'En qué notas se resaltan y enlazan los términos.',
@@ -157,9 +157,10 @@ module.exports = {
   'set.showRibbonIcon.name': 'Icono de la barra lateral',
   'set.showRibbonIcon.desc': 'Mostrar un botón en la barra lateral que abre el panel de resumen del glosario. El comando «Abrir resumen del glosario» funciona de todos modos.',
   'set.rebuild.name': 'Reconstruir índice del glosario',
-  'set.rebuild.desc': 'Volver a analizar la carpeta del glosario ahora.',
+  'set.rebuild.desc': 'Volver a analizar las carpetas del glosario ahora.',
   'set.collecting.desc': 'Lee los enlaces que ya hiciste a mano, como [[Término|algún texto]], y añade ese texto a los alias del término — para que el mismo texto se enlace automáticamente la próxima vez.',
-  'set.folderNotFound': '⚠ Carpeta no encontrada — no se indexará ningún término.',
+  'set.foldersNotFound': '⚠ No encontrado: {folders}.',
+  'set.duplicateTitles': '⚠ {titles} en más de una nota — consulta el panel de resumen.',
   'set.termsIndexed': '{terms} indexado(s).',
 
   'modal.materialize.title': 'Enlazar términos del glosario — vista previa',
@@ -198,6 +199,7 @@ module.exports = {
   'highlight.matches': 'Coincide con: {terms}',
 
   'plural.term': { one: '{n} término', other: '{n} términos' },
+  'plural.title': { one: '{n} título', other: '{n} títulos' },
   'plural.use': { one: '{n} uso', other: '{n} usos' },
   'plural.note': { one: '{n} nota', other: '{n} notas' },
   'plural.link': { one: '{n} enlace', other: '{n} enlaces' },

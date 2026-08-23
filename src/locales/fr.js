@@ -100,8 +100,8 @@ module.exports = {
   'set.heading.collecting': 'Collecte des alias',
   'set.heading.overview': 'Aperçu',
 
-  'set.glossaryFolder.name': 'Dossier du glossaire',
-  'set.glossaryFolder.desc': 'Dossier avec une note par terme (nom de fichier = titre du terme).',
+  'set.glossaryFolders.name': 'Dossiers du glossaire',
+  'set.glossaryFolders.desc': 'Dossiers avec une note par terme (nom de fichier = titre du terme). Ils forment ensemble un seul glossaire, et les nouveaux termes sont créés dans le premier. Laissez la liste vide pour prendre tout le coffre comme glossaire.',
   'set.termTemplate.name': 'Modèle de terme',
   'set.termTemplate.desc': 'Note utilisée comme corps des nouvelles notes de terme ; les balises comme {{title}} et {{date}} sont remplies. Vide = note vierge.',
   'set.scopeMode.desc': 'Dans quelles notes les termes sont surlignés et liés.',
@@ -157,9 +157,10 @@ module.exports = {
   'set.showRibbonIcon.name': 'Icône de la barre latérale',
   'set.showRibbonIcon.desc': 'Afficher un bouton dans la barre latérale qui ouvre le panneau d’aperçu du glossaire. La commande « Ouvrir l’aperçu du glossaire » fonctionne de toute façon.',
   'set.rebuild.name': 'Reconstruire l’index du glossaire',
-  'set.rebuild.desc': 'Réanalyser le dossier du glossaire maintenant.',
+  'set.rebuild.desc': 'Réanalyser les dossiers du glossaire maintenant.',
   'set.collecting.desc': 'Lit les liens que vous avez faits à la main, comme [[Terme|un libellé]], et ajoute ce libellé aux alias du terme — pour que le même libellé soit lié automatiquement la prochaine fois.',
-  'set.folderNotFound': '⚠ Dossier introuvable — aucun terme ne sera indexé.',
+  'set.foldersNotFound': '⚠ Introuvable : {folders}.',
+  'set.duplicateTitles': '⚠ {titles} dans plus d’une note — voyez le panneau de synthèse.',
   'set.termsIndexed': '{terms} indexé(s).',
 
   'modal.materialize.title': 'Lier les termes du glossaire — aperçu',
@@ -198,6 +199,7 @@ module.exports = {
   'highlight.matches': 'Correspond à : {terms}',
 
   'plural.term': { one: '{n} terme', other: '{n} termes' },
+  'plural.title': { one: '{n} titre', other: '{n} titres' },
   'plural.use': { one: '{n} utilisation', other: '{n} utilisations' },
   'plural.note': { one: '{n} note', other: '{n} notes' },
   'plural.link': { one: '{n} lien', other: '{n} liens' },

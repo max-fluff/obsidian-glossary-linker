@@ -13,8 +13,8 @@ const load = () => {
   const Plugin = require(path.join(__dirname, '..', 'src', 'main.js'));
   const plugin = new Plugin(fakeApp, { version: '0.0.0', id: 'glossary-linker' });
   plugin.terms = [
-    { canonical: 'Term', path: 'glossary/Term.md', aliases: [] },
-    { canonical: 'term', path: 'templates/term.md', aliases: [] },
+    { canonical: 'Term', linktext: 'Term', path: 'glossary/Term.md', aliases: [] },
+    { canonical: 'term', linktext: 'term', path: 'templates/term.md', aliases: [] },
   ];
   return plugin;
 };

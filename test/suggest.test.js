@@ -16,12 +16,12 @@ function makePlugin(terms) {
   for (const t of terms) {
     for (const key of t.keys || []) {
       if (!byKey.has(key)) byKey.set(key, []);
-      byKey.get(key).push({ canonical: t.canonical, wordCount: t.wordCount || 1 });
+      byKey.get(key).push({ canonical: t.canonical, linktext: t.linktext || t.canonical, wordCount: t.wordCount || 1 });
     }
   }
   return {
     index: { byKey },
-    terms: terms.map((t) => ({ canonical: t.canonical, aliases: t.aliases || [] })),
+    terms: terms.map((t) => ({ canonical: t.canonical, linktext: t.linktext || t.canonical, aliases: t.aliases || [] })),
     keysFor: (word) => [word.toLowerCase()],
   };
 }

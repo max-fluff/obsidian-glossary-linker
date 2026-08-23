@@ -7,6 +7,6 @@ const { createHighlight } = require('./shared/prose/highlight');
 module.exports = createHighlight({
   cls: 'glossary',
   displayName: 'Glossary Linker',
-  targetOf: (m) => m.canonical,
-  selfIdFor: (plugin, sourcePath) => plugin.canonicalForPath(sourcePath),
+  targetOf: (m) => m.linktext,
+  selfIdFor: (plugin, sourcePath) => plugin.linktextForPath(sourcePath),
 });

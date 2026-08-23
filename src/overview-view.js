@@ -83,7 +83,9 @@ class GlossaryOverviewView extends ItemView {
   // carry counts over and let an explicit Rescan recompute them.
   refreshTerms() {
     const prev = new Map(this.terms.map((t) => [t.canonical, t.count]));
-    this.terms = this.plugin.getTerms().map((t) => ({ canonical: t.canonical, path: t.path, count: prev.get(t.canonical) || 0 }));
+    this.terms = [...this.plugin.termGroups()].map(([canonical, group]) => ({
+      canonical, linktext: group[0].linktext, path: group[0].path, paths: group.map((x) => x.path), count: prev.get(canonical) || 0,
+    }));
     this.renderTerms();
   }
 
@@ -130,14 +132,28 @@ class GlossaryOverviewView extends ItemView {
       if (term.count === 0) row.addClass('is-orphan');
       const name = row.createSpan({ cls: 'glossary-overview-name is-link', text: term.canonical });
       name.setAttribute('aria-label', t('overview.openAria'));
-      name.addEventListener('click', () => this.plugin.openTerm(term.canonical, '', false));
+      name.addEventListener('click', () => this.plugin.openPath(term.path, false));
       name.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); }); // suppress autoscroll
-      name.addEventListener('auxclick', (e) => { if (e.button === 1) { e.preventDefault(); this.plugin.openTerm(term.canonical, '', true); } });
+      name.addEventListener('auxclick', (e) => { if (e.button === 1) { e.preventDefault(); this.plugin.openPath(term.path, true); } });
+      this.renderClash(row, term);
       row.createSpan({ cls: 'glossary-overview-count', text: term.count === 0 ? t('overview.unused') : plural('use', term.count) });
       const actions = row.createSpan({ cls: 'glossary-overview-actions' });
       const link = actions.createEl('a', { cls: 'glossary-overview-act', text: t('overview.linkAll') });
-      link.onclick = () => this.plugin.materializeTermScope(term.canonical);
+      link.onclick = () => this.plugin.materializeTermScope(term.linktext);
     }
+  }
+
+  // One numbered link per note sharing the title. A [[Term]] link cannot say which of them
+  // it means, so the row's job is to show the clash and reach every side of it.
+  renderClash(row, term) {
+    const paths = term.paths || [];
+    if (paths.length < 2) return;
+    const marks = row.createSpan({ cls: 'glossary-overview-clash' });
+    paths.forEach((path, i) => {
+      const mark = marks.createSpan({ cls: 'glossary-overview-mark', text: `[${i + 1}]` });
+      mark.setAttribute('aria-label', path);
+      mark.addEventListener('click', () => this.plugin.openPath(path, false));
+    });
   }
 
   renderCandidates() {

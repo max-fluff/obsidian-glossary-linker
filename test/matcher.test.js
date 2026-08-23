@@ -34,7 +34,7 @@ function makePlugin({ notes = [], settings = {} } = {}) {
   p.index = { byKey: new Map(), termCount: 0 };
   p.terms = [];
   p.aliasFingerprints = new Map();
-  p.app = { vault: { getMarkdownFiles: () => notes.map((n) => ({ basename: n.title, path: `${n.title}.md`, extension: 'md' })) } };
+  p.app = { vault: { getMarkdownFiles: () => notes.map((n) => ({ basename: n.title, path: n.path || `${n.title}.md`, extension: 'md' })) } };
   p.isGlossaryFile = () => true;
   p.aliasesOf = (file) => {
     const found = notes.find((n) => n.title === file.basename);
@@ -51,6 +51,11 @@ describe('rebuildIndex', () => {
     const p = makePlugin({ notes: [spawn] });
     assert.strictEqual(p.index.termCount, 1);
     assert.deepStrictEqual(p.terms.map((t) => t.canonical), ['Spawn']);
+  });
+
+  it('addresses a term by its title while the title names one note', () => {
+    const p = makePlugin({ notes: [spawn] });
+    assert.deepStrictEqual(p.terms.map((t) => t.linktext), ['Spawn']);
   });
 
   it('matches an alias as well as the title', () => {
@@ -171,5 +176,31 @@ describe('smart case', () => {
   it('turns the rule off with the setting', () => {
     const p = makePlugin({ notes: [{ title: 'IT' }], settings: { smartCase: false } });
     assert.deepStrictEqual(hits(p, 'it depends'), ['IT']);
+  });
+});
+
+// Two notes under one title used to collapse into a single term, so the reader never
+// learned the second one existed.
+describe('a title two notes share', () => {
+  const twice = [
+    { title: 'Collision', path: 'glossary/Collision' },
+    { title: 'Collision', path: 'encyclopedia/Collision' },
+  ];
+
+  it('addresses each note by its path instead', () => {
+    const p = makePlugin({ notes: twice });
+    assert.deepStrictEqual(p.terms.map((t) => t.linktext), ['glossary/Collision', 'encyclopedia/Collision']);
+  });
+
+  it('offers both notes on the word, as alternatives to pick between', () => {
+    const p = makePlugin({ notes: twice });
+    const m = p.findMatches('a collision here', null);
+    assert.strictEqual(m.length, 1);
+    assert.deepStrictEqual([m[0].linktext, ...(m[0].alts || [])], ['glossary/Collision', 'encyclopedia/Collision']);
+  });
+
+  it('leaves the notes that keep a title of their own addressed by it', () => {
+    const p = makePlugin({ notes: [...twice, spawn] });
+    assert.strictEqual(p.terms.find((t) => t.canonical === 'Spawn').linktext, 'Spawn');
   });
 });

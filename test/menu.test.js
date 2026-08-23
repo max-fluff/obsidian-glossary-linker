@@ -20,7 +20,7 @@ const load = async () => {
 
 const hitWith = (foreign = []) => ({
   line: 0,
-  match: { start: 0, end: 5, display: 'spawn', alts: [], canonical: 'Spawn' },
+  match: { start: 0, end: 5, display: 'spawn', alts: [], canonical: 'Spawn', linktext: 'Spawn' },
   foreign,
 });
 
@@ -105,7 +105,7 @@ describe('editor menu', () => {
     const plugin = await load();
     plugin.matchAtCursor = () => ({
       line: 0,
-      match: { start: 0, end: 5, display: 'Наряд', alts: [], canonical: 'Наряд' },
+      match: { start: 0, end: 5, display: 'Наряд', alts: [], canonical: 'Наряд', linktext: 'Наряд' },
       foreign: [],
     });
 
@@ -119,7 +119,7 @@ describe('editor menu', () => {
     const plugin = await load();
     plugin.matchAtCursor = () => ({
       line: 0,
-      match: { start: 0, end: 8, display: 'spawning', alts: [], canonical: 'Spawn' },
+      match: { start: 0, end: 8, display: 'spawning', alts: [], canonical: 'Spawn', linktext: 'Spawn' },
       foreign: [],
     });
 

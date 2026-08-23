@@ -110,7 +110,7 @@ const linkAction = ({ id, name, titleKey, icon, run }) => ({
       file,
       hit,
       display: hit.match.display,
-      canonical: hit.match.canonical,
+      linktext: hit.match.linktext,
       scope: plugin.settings.linkFirstOnly ? t('scope.first') : t('scope.all'),
     };
   },
@@ -119,24 +119,24 @@ const linkAction = ({ id, name, titleKey, icon, run }) => ({
 
 // Only our own readings: a link is written by the linker that owns it, so a peer's meaning
 // here could only open its note, never link the word.
-const ownCandidates = (ctx) => [ctx.hit.match.canonical, ...(ctx.hit.match.alts || [])];
+const ownCandidates = (ctx) => [ctx.hit.match.linktext, ...(ctx.hit.match.alts || [])];
 
 const LINK_WORD_ACTIONS = [
   linkAction({
     id: 'link-word-here', name: 'cmd.linkWordHere', titleKey: 'menu.linkHere', icon: 'link',
     run: (plugin, ctx) => plugin.chooseTerm(ownCandidates(ctx), t('menu.linkDisplayTo', { display: ctx.display }),
-      (c) => plugin.materializeSingle(ctx.file, ctx.canonical, ctx.display,
+      (c) => plugin.materializeSingle(ctx.file, ctx.linktext, ctx.display,
         ctx.editor.posToOffset({ line: ctx.hit.line, ch: ctx.hit.match.start }), 0, c)),
   }),
   linkAction({
     id: 'link-word-note', name: 'cmd.linkWordNote', titleKey: 'menu.linkScopeThisNote', icon: 'links-coming-in',
     run: (plugin, ctx) => plugin.chooseTerm(ownCandidates(ctx), t('menu.linkScopeTo', { scope: ctx.scope, display: ctx.display }),
-      (c) => plugin.materializeTerm(ctx.file, ctx.canonical, c)),
+      (c) => plugin.materializeTerm(ctx.file, ctx.linktext, c)),
   }),
   linkAction({
     id: 'link-word-scope', name: 'cmd.linkWordScope', titleKey: 'menu.linkScopeAllNotes', icon: 'links-going-out',
     run: (plugin, ctx) => plugin.chooseTerm(ownCandidates(ctx), t('menu.linkScopeTo', { scope: ctx.scope, display: ctx.display }),
-      (c) => plugin.materializeTermScope(ctx.canonical, c)),
+      (c) => plugin.materializeTermScope(ctx.linktext, c)),
   }),
 ];
 

@@ -16,12 +16,12 @@ const { t } = require('../src/shared/i18n');
 const { GlossaryLinkerSettingTab } = require(path.join(__dirname, '..', 'src', 'settings-tab.js'));
 
 
-// Only what display() reaches for. An empty glossary folder means "whole vault", which is
-// the status line's default branch.
+// Only what display() reaches for. An empty glossary folder list means "whole vault", which
+// is the status line's default branch.
 function fakePlugin() {
   return {
     settings: {
-      glossaryFolder: '', termTemplate: '',
+      glossaryFolders: '', termTemplate: '',
       scopeMode: 'folders', scopeFolders: '', excludeFolders: '',
       matchMode: 'stemmer', minTermLength: 3,
       enabledLanguages: [], linkFirstOnly: false, excludeTerms: '', excludeWords: '',
@@ -37,6 +37,8 @@ function fakePlugin() {
     languages: [],
     languageErrors: [],
     index: { termCount: 0 },
+    glossaryFolderList: () => [],
+    termGroups: () => new Map(),
     api: { linker: { id: 'glossary-linker', precedence: 0 } },
     saveSettings: async () => {},
     rebuildIndex: () => {},
@@ -82,7 +84,7 @@ describe('settings tab', () => {
     assert.ok(names.includes(t('set.linkSuggest.name')), 'shared autocomplete section missing');
     assert.ok(names.includes(t('set.menuAddAlias.name')), 'shared menu toggles missing');
     // Glossary-only ones the shared renderers know nothing about.
-    assert.ok(names.includes(t('set.glossaryFolder.name')), 'glossary folder missing');
+    assert.ok(names.includes(t('set.glossaryFolders.name')), 'glossary folders missing');
     assert.ok(names.includes(t('set.excludeWords.name')), 'exclude words missing');
     assert.ok(names.includes(t('set.harvestOnSave.name')), 'harvest settings missing');
   });

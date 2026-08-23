@@ -15,7 +15,7 @@ const { fakeApp, installStubs } = require('../src/shared/testing/stubs');
 
 installStubs();
 
-const SPAN = { start: 2, end: 7, canonical: 'Spawn' };
+const SPAN = { start: 2, end: 7, canonical: 'Spawn', linktext: 'Spawn' };
 
 const load = async () => {
   const Plugin = require(path.join(__dirname, '..', 'src', 'main.js'));
@@ -23,7 +23,7 @@ const load = async () => {
   await plugin.onload();
   // Something to answer with: the harness vault is empty, so the real index never fills.
   plugin.findMatches = () => [SPAN];
-  plugin.terms = [{ canonical: 'Spawn', path: 'Spawn.md', aliases: [] }];
+  plugin.terms = [{ canonical: 'Spawn', linktext: 'Spawn', path: 'Spawn.md', aliases: [] }];
   plugin.settings.linkSuggest = true;
   plugin.settings.suggestMinChars = 1;
   return plugin;
@@ -104,5 +104,38 @@ describe('what we tell peers while drawing', () => {
     plugin.decorateTextNode({ textContent: 'a spawn here' }, null, 'Deep/inside.md');
     assert.deepStrictEqual(seen, [{ path: 'Deep/inside.md', surface: 'reading' }],
       'peers were asked without knowing where');
+  });
+});
+
+// Two notes under one title used to reach a sibling as one row, under a title naming neither.
+describe('a shared title as a sibling sees it', () => {
+  const clashing = async () => {
+    const plugin = await load();
+    plugin.findMatches = () => [{ start: 2, end: 11, canonical: 'Collision', linktext: 'glossary/Collision', alts: ['encyclopedia/Collision'] }];
+    plugin.terms = [
+      { canonical: 'Collision', linktext: 'glossary/Collision', path: 'glossary/Collision.md', aliases: [] },
+      { canonical: 'Collision', linktext: 'encyclopedia/Collision', path: 'encyclopedia/Collision.md', aliases: [] },
+    ];
+    return plugin;
+  };
+
+  it('carries every note the span could mean', async () => {
+    const plugin = await clashing();
+    const [span] = plugin.api.linker.matches('a collision here');
+    assert.strictEqual(span.target, 'glossary/Collision');
+    assert.deepStrictEqual(span.alts, [{ label: 'Collision', target: 'encyclopedia/Collision' }]);
+  });
+
+  it('tells the two apart by where they live, since the title cannot', async () => {
+    const plugin = await clashing();
+    const [span] = plugin.api.linker.matches('a collision here');
+    const notes = [span.target, ...span.alts.map((a) => a.target)].map((t) => plugin.api.linker.describe(t, 'collision'));
+    assert.deepStrictEqual(notes.map((n) => n.title), ['Collision', 'Collision']);
+    assert.deepStrictEqual(notes.map((n) => n.note), ['Term · glossary', 'Term · encyclopedia']);
+  });
+
+  it('writes the link to the note picked, not to the title they share', async () => {
+    const plugin = await clashing();
+    assert.strictEqual(plugin.api.linker.linkFor('encyclopedia/Collision', 'collision'), '[[encyclopedia/Collision|collision]]');
   });
 });

@@ -150,6 +150,18 @@ settings:
   color: var(--text-muted);
 }
 
+.%p%-overview-clash {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.%p%-overview-mark {
+  color: var(--text-warning, var(--text-error));
+  cursor: pointer;
+  font-size: var(--font-ui-smaller);
+}
+
 .%p%-overview-count {
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);

@@ -38,7 +38,7 @@ function makeSuggest(peers = {}) {
     index: { byKey: new Map() },
     terms: [],
     keysFor: () => [],
-    activeCanonical: () => null,
+    activeLinktext: () => null,
     wikiLink: (target, display) => `[[${target}|${display}]]<glossary>`,
   };
   peers['glossary-linker'] = plugin;
@@ -106,13 +106,13 @@ describe('autocomplete broker', () => {
   // "File#Heading". Getting it wrong writes a valid-looking link to the wrong place.
   it('writes our own candidate as a link to the term title', () => {
     const { suggest } = makeSuggest({});
-    const written = writeWith(suggest, { kind: 'prefix', canonical: 'Spawn', matchedForm: 'Spawn' });
+    const written = writeWith(suggest, { kind: 'prefix', canonical: 'Spawn', linktext: 'Spawn', matchedForm: 'Spawn' });
     assert.strictEqual(written, '[[Spawn|Spawn]]<glossary>');
   });
 
   it('keeps the reader’s wording when the typed word was an inflection', () => {
     const { suggest } = makeSuggest({});
-    const written = writeWith(suggest, { kind: 'form', canonical: 'Spawn', matchedForm: 'Spawn' });
+    const written = writeWith(suggest, { kind: 'form', canonical: 'Spawn', linktext: 'Spawn', matchedForm: 'Spawn' });
     assert.strictEqual(written, '[[Spawn|spawning]]<glossary>');
   });
 });
@@ -143,13 +143,13 @@ describe('plain-text mode', () => {
   it('completes a prefix without making a link', () => {
     const { plugin, suggest } = makeSuggest({});
     plugin.settings.suggestPlainText = true;
-    assert.strictEqual(writeWith(suggest, { kind: 'prefix', canonical: 'Spawn', matchedForm: 'Spawn' }), 'Spawn');
+    assert.strictEqual(writeWith(suggest, { kind: 'prefix', canonical: 'Spawn', linktext: 'Spawn', matchedForm: 'Spawn' }), 'Spawn');
   });
 
   it('keeps the reader’s own wording for an inflection', () => {
     const { plugin, suggest } = makeSuggest({});
     plugin.settings.suggestPlainText = true;
-    assert.strictEqual(writeWith(suggest, { kind: 'form', canonical: 'Spawn', matchedForm: 'Spawn' }), 'spawning');
+    assert.strictEqual(writeWith(suggest, { kind: 'form', canonical: 'Spawn', linktext: 'Spawn', matchedForm: 'Spawn' }), 'spawning');
   });
 
   // Two rules at once: our plain-text switch must not rewrite a sibling's row, and `peer()`
@@ -185,6 +185,6 @@ describe('plain-text mode', () => {
   it('still writes links when the switch is off', () => {
     const { plugin, suggest } = makeSuggest({});
     plugin.settings.suggestPlainText = false;
-    assert.ok(/^\[\[/.test(writeWith(suggest, { kind: 'prefix', canonical: 'Spawn', matchedForm: 'Spawn' })), 'plain text leaked into link mode');
+    assert.ok(/^\[\[/.test(writeWith(suggest, { kind: 'prefix', canonical: 'Spawn', linktext: 'Spawn', matchedForm: 'Spawn' })), 'plain text leaked into link mode');
   });
 });
