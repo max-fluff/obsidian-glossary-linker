@@ -5700,6 +5700,70 @@ var require_style_settings = __commonJS({
   }
 });
 
+// src/shared/theme-colors.js
+var require_theme_colors = __commonJS({
+  "src/shared/theme-colors.js"(exports2, module2) {
+    "use strict";
+    var PROSE_COLORS2 = {
+      "link-color": "var(--link-color, var(--text-accent))",
+      "link-color-hover": "var(--link-color-hover, var(--text-accent-hover, var(--link-color, var(--text-accent))))"
+    };
+    var SIGIL_COLORS = {
+      "link-color": "var(--link-external-color, var(--link-color, var(--text-accent)))",
+      "stale-color": "var(--text-warning, var(--color-orange))",
+      "broken-color": "var(--text-error, var(--color-red))"
+    };
+    function capAlpha(value, max) {
+      const m = /^rgba?\(([^)]*)\)$/.exec(value);
+      if (!m)
+        return value;
+      const parts = m[1].split(",").map((s) => s.trim());
+      if (parts.length < 3)
+        return value;
+      const alpha = parts.length > 3 ? parseFloat(parts[3]) : 1;
+      if (!(alpha > max))
+        return value;
+      return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${max})`;
+    }
+    function themeColorSheet(prefix, colors, resolve) {
+      const rows = [];
+      for (const name of Object.keys(colors)) {
+        const spec = colors[name];
+        const from = typeof spec === "string" ? spec : spec.from;
+        let value = resolve(from);
+        if (value && typeof spec !== "string" && spec.maxAlpha != null)
+          value = capAlpha(value, spec.maxAlpha);
+        if (value)
+          rows.push(`--${prefix}-${name}: ${value};`);
+      }
+      return rows.length ? `body { ${rows.join(" ")} }` : "";
+    }
+    function trackThemeColors2(plugin, prefix, colors) {
+      if (typeof document === "undefined" || !document.head || !document.body)
+        return;
+      const sheet = document.createElement("style");
+      document.head.appendChild(sheet);
+      plugin.register(() => sheet.remove());
+      const paint = () => {
+        const probe = document.createElement("span");
+        probe.style.position = "absolute";
+        probe.style.visibility = "hidden";
+        document.body.appendChild(probe);
+        const resolve = (expr) => {
+          probe.style.color = "";
+          probe.style.color = expr;
+          return getComputedStyle(probe).color;
+        };
+        sheet.textContent = themeColorSheet(prefix, colors, resolve);
+        probe.remove();
+      };
+      plugin.app.workspace.onLayoutReady(paint);
+      plugin.registerEvent(plugin.app.workspace.on("css-change", paint));
+    }
+    module2.exports = { trackThemeColors: trackThemeColors2, themeColorSheet, capAlpha, PROSE_COLORS: PROSE_COLORS2, SIGIL_COLORS };
+  }
+});
+
 // src/shared/menu.js
 var require_menu = __commonJS({
   "src/shared/menu.js"(exports2, module2) {
@@ -7520,6 +7584,7 @@ var { GlossaryTermSuggest, suggestAvailable } = require_term_suggest();
 var { GlossaryOverviewView, OVERVIEW_VIEW_TYPE } = require_overview_view();
 var { initI18n, withFamily, t, plural } = require_i18n();
 var { announceStyleSettings } = require_style_settings();
+var { trackThemeColors, PROSE_COLORS } = require_theme_colors();
 var { buildMenu } = require_menu_verbs();
 var { registerActions, menuActions } = require_actions2();
 var { PATH_ACTIONS } = require_path_actions();
@@ -7706,6 +7771,7 @@ var GlossaryLinkerPlugin = class extends Plugin {
     registerActions(this, EDITOR_ACTIONS);
     this.addSettingTab(new GlossaryLinkerSettingTab(this.app, this));
     announceStyleSettings(this);
+    trackThemeColors(this, "glossary", PROSE_COLORS);
     this.api = this.buildApi();
   }
   async saveSettings() {

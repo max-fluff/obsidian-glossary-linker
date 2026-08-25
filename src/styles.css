@@ -3,37 +3,9 @@
 name: Glossary Linker
 id: %p%-linker
 settings:
-  -
-    id: %p%-link-color
-    title: Highlight color
-    description: Color of %p%-term highlights. Leave at default to follow the theme's link color.
-    type: variable-themed-color
-    format: hex
-    opacity: false
-    default-light: '#705dcf'
-    default-dark: '#a68cff'
-  -
-    id: %p%-underline-style
-    title: Underline style
-    type: variable-select
-    default: dotted
-    options:
-      - dotted
-      - solid
-      - dashed
-      - double
-      - none
-  -
-    id: %p%-ambiguous-underline-style
-    title: Ambiguous-term underline style
-    description: Underline for words that match more than one %p% term.
-    type: variable-select
-    default: double
-    options:
-      - double
-      - dotted
-      - dashed
-      - solid
+%rows:prose%
+%rows:pickers%
+%rows:panels%
 
 */
 
@@ -72,6 +44,20 @@ settings:
 }
 
 /* Overview panel (right-sidebar ItemView) */
+.%p%-overview {
+  font-size: var(--%p%-panel-font-size, var(--font-ui-small));
+}
+
+body.%p%-dense .%p%-overview-row {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+body.%p%-roomy .%p%-overview-row {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
 .%p%-overview-bar {
   display: flex;
   align-items: center;
