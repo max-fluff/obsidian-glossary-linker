@@ -723,8 +723,10 @@ body.glossary-roomy .glossary-overview-row {
   gap: 2px;
 }
 
+/* Each mark opens one of the notes sharing the title, so it reads as the link it is rather
+   than as a warning: a clash is something to reach into, not something wrong. */
 .glossary-overview-mark {
-  color: var(--text-warning, var(--text-error));
+  color: var(--glossary-link-color);
   cursor: pointer;
   font-size: var(--font-ui-smaller);
 }
