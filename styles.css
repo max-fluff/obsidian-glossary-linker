@@ -108,27 +108,44 @@ body.glossary-hide-suggestion-path .glossary-suggestion-note {
   font-weight: var(--font-semibold);
 }
 
+/* The hidden span trackThemeColors settles a colour through, and the canvas it paints one the
+   swatch cannot take on. Off-flow so measuring never moves the page. */
+.glossary-probe {
+  position: absolute;
+  visibility: hidden;
+}
+
 /* Styles both prose linkers use. The plugin class prefix is substituted by build.mjs. */
 
 /* Colours are declared, not merely read with a fallback. Style Settings shows a colour row's
    live computed value when the row carries no default, and an undeclared variable reads as
-   empty and renders a blank swatch. Its own rule is `body.css-settings-manager`, so a colour
-   chosen there still outranks this. See CONTRIBUTING.md. */
-body {
+   empty and renders a blank swatch. On `:root` rather than `body`, so a value set on `body` —
+   Style Settings' own rule, or a snippet's — reaches the mark before this does.
+   See CONTRIBUTING.md. */
+:root {
   --glossary-link-color: var(--link-color);
   --glossary-link-color-hover: var(--link-color-hover);
   --glossary-link-background: rgba(0, 0, 0, 0);
+}
+
+/* A default that follows another of ours belongs where an override lands, not below it: a
+   custom property substitutes its var() on the element it is declared on, so from `:root`
+   these two would go on reading the theme's colour after one was set on `body`. */
+body {
   --glossary-link-background-hover: var(--glossary-link-background);
   --glossary-ambiguous-color: var(--glossary-link-color);
 }
 
 /* What a highlight looks like in each state is decided in --pl-* below, where no theme
    competes, and one rule spends them. That rule sits exactly where the plugin's has always
-   sat: a theme that paints its own links still wins, as it did before any of this was
-   configurable. See CONTRIBUTING.md. */
+   sat: with nothing set, a theme that paints its own links still wins, as it did before any
+   of this was configurable. See CONTRIBUTING.md.
+   The ink is read here rather than from the body-level variable, so a theme that recolours
+   links per note — `--link-color` on a container, which is what a cssclass sets — still
+   decides the colour of a mark inside it. */
 .glossary-link,
 .cm-glossary-link {
-  --pl-ink: var(--glossary-link-color);
+  --pl-ink: var(--link-color);
   --pl-bg: var(--glossary-link-background);
   --pl-width: var(--glossary-underline-width, 1px);
   --pl-style: var(--glossary-underline-style, dotted);
@@ -136,14 +153,13 @@ body {
 
 .glossary-ambiguous,
 .cm-glossary-ambiguous {
-  --pl-ink: var(--glossary-ambiguous-color);
   --pl-width: var(--glossary-ambiguous-underline-width, 3px);
   --pl-style: var(--glossary-ambiguous-underline-style, double);
 }
 
 .glossary-link:hover,
 .cm-glossary-link:hover {
-  --pl-ink: var(--glossary-link-color-hover);
+  --pl-ink: var(--link-color-hover);
   --pl-bg: var(--glossary-link-background-hover);
   --pl-style: var(--glossary-underline-style-hover, solid);
 }
@@ -154,6 +170,59 @@ body {
 .cm-glossary-ambiguous:hover {
   --pl-width: var(--glossary-ambiguous-underline-width, 3px);
   --pl-style: var(--glossary-ambiguous-underline-style, double);
+}
+
+/* A colour picked in Style Settings is the reader's own, and takes the ink over from the
+   theme's for as long as the pick stands. The classes come from trackPickedColors(). */
+body.glossary-link-color-picked .glossary-link:not(:hover),
+body.glossary-link-color-picked .cm-glossary-link:not(:hover) {
+  --pl-ink: var(--glossary-link-color);
+}
+
+body.glossary-link-color-hover-picked .glossary-link:hover,
+body.glossary-link-color-hover-picked .cm-glossary-link:hover {
+  --pl-ink: var(--glossary-link-color-hover);
+}
+
+/* Relative colours: an installer without them drops the block whole and the colour above
+   stands. The source is read where the mark sits, so the hue follows the link colour of the
+   note it is in. Below the picked rules, above the ambiguous one: a mode outranks a picked
+   colour, a picked ambiguous colour outranks the mode. */
+@supports (color: oklch(from red l c h)) {
+  body.glossary-hue-turned .glossary-link:not(:hover),
+  body.glossary-hue-turned .cm-glossary-link:not(:hover) {
+    --pl-ink: oklch(from var(--link-color) l c calc(h + var(--glossary-hue-shift, 0)));
+  }
+
+  body.glossary-hue-turned .glossary-link:hover,
+  body.glossary-hue-turned .cm-glossary-link:hover {
+    --pl-ink: oklch(from var(--link-color-hover) l c calc(h + var(--glossary-hue-shift, 0)));
+  }
+
+  body.glossary-hue-fixed .glossary-link:not(:hover),
+  body.glossary-hue-fixed .cm-glossary-link:not(:hover) {
+    --pl-ink: oklch(from var(--link-color) l c var(--glossary-hue, 210));
+  }
+
+  body.glossary-hue-fixed .glossary-link:hover,
+  body.glossary-hue-fixed .cm-glossary-link:hover {
+    --pl-ink: oklch(from var(--link-color-hover) l c var(--glossary-hue, 210));
+  }
+
+  /* Inside the block with the mode it answers for: on an installer that drops it, a mode is
+     not merely inert but must leave the theme's own colour where it was. */
+  body.glossary-hue-turned .glossary-link,
+  body.glossary-hue-turned .cm-glossary-link,
+  body.glossary-hue-fixed .glossary-link,
+  body.glossary-hue-fixed .cm-glossary-link {
+    color: var(--pl-ink) !important;
+  }
+}
+
+/* After the link's own, so a word that is both takes the ambiguous colour at rest. */
+body.glossary-ambiguous-color-picked .glossary-ambiguous:not(:hover),
+body.glossary-ambiguous-color-picked .cm-glossary-ambiguous:not(:hover) {
+  --pl-ink: var(--glossary-ambiguous-color);
 }
 
 /* currentColor, not `inherit`: a CSS-wide keyword in a custom property makes the property
@@ -184,6 +253,20 @@ body.glossary-quiet .cm-glossary-link:not(:hover) {
   font-weight: var(--glossary-link-weight, inherit);
   text-decoration: none;
   cursor: pointer;
+}
+
+/* The one place the theme is answered rather than left to win: a colour the reader picked and
+   a highlight they quieted. A derived hue answers from inside its own @supports block above.
+   See CONTRIBUTING.md. */
+body.glossary-link-color-picked .glossary-link,
+body.glossary-link-color-picked .cm-glossary-link,
+body.glossary-link-color-hover-picked .glossary-link:hover,
+body.glossary-link-color-hover-picked .cm-glossary-link:hover,
+body.glossary-ambiguous-color-picked .glossary-ambiguous,
+body.glossary-ambiguous-color-picked .cm-glossary-ambiguous,
+body.glossary-quiet .glossary-link:not(:hover),
+body.glossary-quiet .cm-glossary-link:not(:hover) {
+  color: var(--pl-ink) !important;
 }
 
 body.glossary-link-italic .glossary-link,
@@ -408,6 +491,37 @@ settings:
     type: variable-color
     format: hex
     opacity: false
+  -
+    id: glossary-hue-mode
+    title: Follow the link colour
+    description: Paints a highlight from the link colour where the word sits — including one a cssclass gives a single note — with a hue of your own, so it keeps that relationship when the theme changes. Leave empty to use the colours above. Relative colours need a recent Obsidian installer; without them the colours above are used.
+    type: class-select
+    allowEmpty: true
+    options:
+      -
+        label: Shift its hue
+        value: glossary-hue-turned
+      -
+        label: Replace its hue
+        value: glossary-hue-fixed
+  -
+    id: glossary-hue-shift
+    title: Hue shift
+    description: How far round the colour wheel a highlight sits from the link colour, in degrees. Read by "Shift its hue".
+    type: variable-number-slider
+    default: 0
+    min: -180
+    max: 180
+    step: 5
+  -
+    id: glossary-hue
+    title: Hue
+    description: The hue a highlight takes, in degrees, keeping the lightness and saturation of the link colour beside it. Read by "Replace its hue".
+    type: variable-number-slider
+    default: 210
+    min: 0
+    max: 360
+    step: 5
   -
     id: glossary-underline-style
     title: Underline style
