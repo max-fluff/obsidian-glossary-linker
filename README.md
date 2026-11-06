@@ -256,19 +256,19 @@ How a highlight looks is exposed to the [Style Settings](https://github.com/mgme
 
 | Section | What you can set |
 |---|---|
-| **Links** | colour and underline (style, thickness, offset), the same again for hover, *Follow the link colour* (a hue of your own, kept in step with the colour your theme gives links there), a marker-pen background with its corner radius, font weight, italic, and *Show highlight only on hover* — a highlighted word reads as plain text until you point at it |
+| **Links** | colour and underline (style, thickness, offset), the same again for hover, *Hue shift* (shifts the hue of the highlight colour), a marker-pen background with its corner radius, font weight, italic, and *Show highlight only on hover* — a highlighted word reads as plain text until you point at it |
 | **Ambiguous terms** | the double underline (style, thickness), a colour that tells a collision apart, a symbol beside the word, and how wide the list of meanings grows on hover |
 | **Autocomplete**, **Side panel** | hide the note column in suggestions; row density and text size in the overview |
 
 Every colour picker opens on the colour actually in use and follows your theme until you pick one; every option is a plain CSS variable or a class on `body`, so a snippet in `.obsidian/snippets/` does just as well:
 
-- **Links** — `--glossary-link-color`, `--glossary-link-color-hover`, `--glossary-hue-shift`, `--glossary-hue`, `--glossary-underline-style`, `--glossary-underline-style-hover`, `--glossary-underline-width`, `--glossary-underline-offset`, `--glossary-link-background`, `--glossary-link-background-hover`, `--glossary-link-radius`, `--glossary-link-weight`; `body.glossary-hue-turned`, `body.glossary-hue-fixed`, `body.glossary-link-italic`, `body.glossary-quiet`
-- **Ambiguous terms** — `--glossary-ambiguous-underline-style`, `--glossary-ambiguous-underline-width`, `--glossary-ambiguous-color`, `--glossary-ambiguous-symbol`, `--glossary-choices-width`; `body.glossary-mark-after`
+- **Links** — `--glossary-link-color`, `--glossary-link-color-hover`, `--glossary-hue-shift`, `--glossary-underline-style`, `--glossary-underline-style-hover`, `--glossary-underline-width`, `--glossary-underline-offset`, `--glossary-link-background`, `--glossary-link-background-hover`, `--glossary-link-radius`, `--glossary-link-weight`; `body.glossary-hue-shifted`, `body.glossary-link-italic`, `body.glossary-quiet`
+- **Ambiguous terms** — `--glossary-ambiguous-underline-style`, `--glossary-ambiguous-underline-width`, `--glossary-ambiguous-color`, `--glossary-ambiguous-hue-shift`, `--glossary-ambiguous-symbol`, `--glossary-choices-width`; `body.glossary-ambiguous-hue-shifted`, `body.glossary-mark-after`
 - **Autocomplete and panel** — `--glossary-panel-font-size`; `body.glossary-hide-suggestion-path`, `body.glossary-dense`, `body.glossary-roomy`
 
-*Follow the link colour* derives a highlight from the link colour of the note it sits in — the one your theme paints there, including a colour a `cssclass` gives a single note — and either turns its hue by *Hue shift* or replaces it with *Hue*. Lightness and saturation stay the theme's, so the highlight keeps its relationship to your links when the theme, the accent colour or the note changes. It needs an Obsidian installer new enough for relative colours; without them the colours above are used.
+*Hue shift* shifts the hue of the highlight colours by the angle you set. Lightness and saturation stay the same. It shifts the colour you picked. If you picked none, it shifts the link colour of the note the word is in, including a colour set by a `cssclass`. So the highlight follows the theme, the accent colour and the note. 0 turns it off. It needs an Obsidian installer with relative colour support; on older installers the colours are not shifted.
 
-To mark collisions, set *Ambiguous-term colour*, or type anything into *Ambiguous-term symbol* — a character or an emoji, shown before the word unless you turn on *Put the symbol after the word*. The colour marks the word at rest; hovering shows the ordinary hover colour, and the double underline keeps saying it is ambiguous either way.
+Ambiguous words have their own colour settings. *Ambiguous-term colour* is the theme link colour until you pick one; the highlight colour does not apply to it. *Ambiguous-term hue shift* works like *Hue shift*, for that colour. On hover an ambiguous word takes the hover colour, shifted by its own hue shift. *Ambiguous-term symbol* puts a character or emoji before the word, or after it with *Put the symbol after the word*. The double underline marks the word in every state.
 
 *Show highlight only on hover* leaves the ambiguity symbol visible, so a collision is still easy to spot on an otherwise quiet page.
 

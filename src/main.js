@@ -15,7 +15,9 @@ const { GlossaryTermSuggest, suggestAvailable } = require('./term-suggest');
 const { GlossaryOverviewView, OVERVIEW_VIEW_TYPE } = require('./overview-view');
 const { initI18n, withFamily, t, plural } = require('./shared/i18n');
 const { announceStyleSettings } = require('./shared/style-settings');
-const { trackThemeColors, PROSE_COLORS, PROSE_PICKS } = require('./shared/theme-colors');
+const {
+  trackThemeColors, PROSE_COLORS, PROSE_PICKS, PROSE_SHIFTS,
+} = require('./shared/theme-colors');
 const { buildMenu } = require('./shared/menu-verbs');
 const { registerActions, menuActions } = require('./shared/actions');
 const { PATH_ACTIONS } = require('./path-actions');
@@ -216,7 +218,7 @@ class GlossaryLinkerPlugin extends Plugin {
 
     this.addSettingTab(new GlossaryLinkerSettingTab(this.app, this));
     announceStyleSettings(this);
-    trackThemeColors(this, 'glossary', PROSE_COLORS, PROSE_PICKS);
+    trackThemeColors(this, 'glossary', PROSE_COLORS, PROSE_PICKS, PROSE_SHIFTS);
 
     // Published last, and deliberately so. The api (app.plugins.plugins['glossary-linker'].api)
     // is how a sibling linker finds us and decides to stand down on a word we both match — so

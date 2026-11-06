@@ -167,8 +167,10 @@ module.exports = {
     if (!sel) { new Notice(t('notice.nothingSelected')); return; }
 
     // If the selection already matches a term, open that one instead of making a duplicate.
+    // Only a term covering all of it is one: "natural language" over an existing "language"
+    // is a new term, and wins wherever both fit (#6).
     if (this.settings.aliasCollisionWarnings) {
-      const hits = this.termsMatchingText(sel);
+      const hits = this.termsMatchingWhole(sel);
       if (hits.length) {
         const sourcePath = this.app.workspace.getActiveFile()?.path || '';
         this.openTerm(hits[0], sourcePath, false);
@@ -443,7 +445,9 @@ module.exports = {
       if (add.has(cand)) continue;
       if (literals.has(cand)) { skip.add(cand); continue; }
       if (this.partialOfMultiwordTitle(file, cand)) { skip.add(cand); continue; }
-      add.set(cand, this.settings.aliasCollisionWarnings ? this.termsMatchingText(cand, own).map((c) => this.labelFor(c)) : []);
+      const warn = this.settings.aliasCollisionWarnings;
+      const collides = warn ? this.termsMatchingWhole(cand, own) : [];
+      add.set(cand, collides.map((c) => this.labelFor(c)));
     }
   },
 
@@ -531,7 +535,8 @@ module.exports = {
       return;
     }
 
-    const collidesWith = this.termsMatchingText(alias)
+    // A collision is another term on the same wording; one inside it loses to the alias.
+    const collidesWith = this.termsMatchingWhole(alias)
       .filter((c) => c !== term.linktext)
       .map((c) => this.labelFor(c));
 

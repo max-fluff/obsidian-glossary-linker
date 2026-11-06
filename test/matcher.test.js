@@ -9,6 +9,8 @@
 
 const { describe, it, assert } = require('../src/shared/testing/harness');
 const matcher = require('../src/matcher');
+const actions = require('../src/actions');
+const { TFile } = require('obsidian');
 const en = require('../src/shared/morphology/languages/en.js');
 
 // A stand-in for the plugin object the matcher mixin is applied to: just the state its
@@ -202,5 +204,101 @@ describe('a title two notes share', () => {
   it('leaves the notes that keep a title of their own addressed by it', () => {
     const p = makePlugin({ notes: [...twice, spawn] });
     assert.strictEqual(p.terms.find((t) => t.canonical === 'Spawn').linktext, 'Spawn');
+  });
+});
+
+describe('an alias with punctuation between its words (#5)', () => {
+  it('links the text written the same way', () => {
+    const p = makePlugin({ notes: [{ title: 'Ticket', aliases: ['1234/1234'] }] });
+    const m = p.findMatches('see 1234/1234 for details', null);
+    assert.deepStrictEqual(m.map((x) => [x.display, x.canonical]), [['1234/1234', 'Ticket']]);
+  });
+
+  it('still inflects the words around the punctuation', () => {
+    const p = makePlugin({ notes: [{ title: 'Client/server model' }] });
+    const m = p.findMatches('two client/server models', null);
+    assert.deepStrictEqual(m.map((x) => x.display), ['client/server models']);
+  });
+});
+
+describe('a new term containing an existing one (#6)', () => {
+  const notes = [{ title: 'language' }];
+
+  it('is not taken for the shorter term it contains', () => {
+    const p = makePlugin({ notes });
+    assert.deepStrictEqual(p.termsMatchingWhole('natural language'), []);
+    assert.deepStrictEqual(p.termsMatchingWhole('large language models'), []);
+  });
+
+  it('is still caught when it is only another form of an existing term', () => {
+    const p = makePlugin({ notes });
+    assert.deepStrictEqual(p.termsMatchingWhole('languages'), ['language']);
+  });
+
+  // The create-term action over the matcher, with the two ways out of it recorded: making
+  // the note, or opening the term the selection already is.
+  const createFrom = async (sel) => {
+    const settings = { aliasCollisionWarnings: true };
+    const p = Object.assign(makePlugin({ notes, settings }), actions);
+    const made = [];
+    const opened = [];
+    p.createTermNote = async (editor, text) => { made.push(text); };
+    p.openTerm = (linktext) => { opened.push(linktext); };
+    p.labelFor = (linktext) => linktext;
+    p.app.workspace = { getActiveFile: () => null };
+    await p.createTermFromSelection({ getSelection: () => sel }, true);
+    return { made, opened };
+  };
+
+  it('is created from a selection rather than opening the shorter term', async () => {
+    const got = await createFrom('natural language');
+    assert.deepStrictEqual(got, { made: ['natural language'], opened: [] });
+  });
+
+  it('is not created from a selection that is the existing term in another form', async () => {
+    assert.deepStrictEqual(await createFrom('languages'), { made: [], opened: ['language'] });
+  });
+
+  it('is no collision as an alias collected for another term', () => {
+    // [[NLP|natural language]] collects "natural language" for NLP; "language" inside it
+    // is no other term on the same wording, so there is nothing to warn about.
+    const settings = {
+      aliasCollisionWarnings: true, aliasHarvestMode: 'literal',
+      harvestSingleWordOnly: false, harvestMinLength: 2,
+    };
+    const p = Object.assign(makePlugin({ notes: [...notes, { title: 'NLP' }], settings }), actions);
+    p.linktextForPath = () => 'NLP';
+    p.labelFor = (linktext) => linktext;
+    const add = new Map();
+    const file = { path: 'NLP.md', basename: 'NLP' };
+    p.collectAliasesFromDisplay(file, 'natural language', new Set(), add, new Set());
+    assert.deepStrictEqual([...add], [['natural language', []]]);
+  });
+
+  // Adding an alias by hand: which other terms it is reported to collide with, as the
+  // labels asked for — the notice itself is a stub that shows nothing.
+  const collisionsOf = async (alias) => {
+    const p = Object.assign(makePlugin({ notes: [...notes, { title: 'NLP' }] }), actions);
+    const labelled = [];
+    p.labelFor = (linktext) => { labelled.push(linktext); return linktext; };
+    p.updateStatusBar = () => {};
+    p.app.vault.getAbstractFileByPath = () => Object.assign(new TFile(), { basename: 'NLP' });
+    p.app.fileManager = { processFrontMatter: async () => {} };
+    await p.writeAlias(p.terms.find((x) => x.canonical === 'NLP'), alias);
+    return labelled;
+  };
+
+  it('is no collision as an alias added by hand', async () => {
+    assert.deepStrictEqual(await collisionsOf('natural language'), []);
+    assert.deepStrictEqual(await collisionsOf('languages'), ['language']);
+  });
+
+  it('wins over the shorter term once it exists', () => {
+    const p = makePlugin({ notes: [{ title: 'language' }, { title: 'natural language' }] });
+    const m = p.findMatches('a natural language and a language', null);
+    assert.deepStrictEqual(m.map((x) => [x.display, x.canonical]), [
+      ['natural language', 'natural language'],
+      ['language', 'language'],
+    ]);
   });
 });
