@@ -10,17 +10,21 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/max-fluff/obsidian-glossary-linker?color=7c3aed" alt="License: MIT"></a>
 </p>
 
-Highlights glossary terms in your notes in any word form (declensions, plurals), lets you turn them into real links, and picks up new aliases from links you've already made by hand. It was inspired by Virtual Linker, but it matches inflected forms instead of exact spellings only.
+Highlights glossary terms in your notes in any word form — plurals, cases, irregular plurals — and turns them into real links when you ask. It was inspired by Virtual Linker, but it matches inflected forms instead of exact spellings only.
+
+<p align="center">
+  <img src="docs/images/demo.gif" alt="Typing a note: glossary terms are highlighted in English and Russian word forms, then one command turns them into wikilinks after a preview" width="760">
+</p>
+
+- **Any word form.** `unit` finds `units`, `mouse` finds `mice`, `Клетка` finds `в клетках`. English, Spanish, German, French, Russian and Ukrainian out of the box; Latin and Greek optional.
+- **Overlay first, links on demand.** Highlights change nothing on disk. One command turns them into `[[Title|word]]` for a note, a selection or the whole vault, after a preview.
+- **Learns from links you already made.** Aliases are collected from your hand-made links, with collisions flagged before anything is saved.
+- **Asks instead of guessing** when a word could mean two terms; the [glossary overview](#glossary-overview) shows unused terms and frequent words that aren't in the glossary yet.
+- **Desktop and mobile.**
 
 > **Links whole notes as terms — not the headings inside them.** If you want a word to link to an individual **heading** in a file, that's the one thing this plugin leaves out, and its sibling [Heading Linker](https://community.obsidian.md/plugins/heading-linker) does exactly that, on the same matching engine. The two are made to work together.
 
-Available in the Obsidian community catalog: **[community.obsidian.md/plugins/glossary-linker](https://community.obsidian.md/plugins/glossary-linker)**.
-
-<p align="center">
-  <img src="docs/images/hero.png" alt="One note with glossary terms highlighted in several word forms and in two languages" width="700">
-</p>
-
-The plugin ships as `main.js`, `manifest.json` and `styles.css`. Eight language modules are baked into `main.js`, so it works the moment you install it. You can add more languages as modules (see [Adding a language](#adding-a-language)). `main.js` is built from `src/` with esbuild (see [Development](#development)).
+**Install:** *Settings → Community plugins → Browse* → **Glossary Linker**, or open [its catalog page](https://community.obsidian.md/plugins/glossary-linker). Other ways are under [Installation](#installation).
 
 ## Contents
 
@@ -47,6 +51,10 @@ The plugin ships as `main.js`, `manifest.json` and `styles.css`. Eight language 
 - [Related plugins](#related-plugins)
 
 ## What it does
+
+<p align="center">
+  <img src="docs/images/hero.png" alt="One note with glossary terms highlighted in several word forms and in two languages" width="700">
+</p>
 
 ### Highlight terms in any word form
 
