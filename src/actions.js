@@ -319,20 +319,39 @@ module.exports = {
     return null;
   },
 
-  async addToExclusion(listKey, value) {
+  async addToExclusion(listKey, values) {
+    const wanted = [].concat(values);
     const lines = splitLines(this.settings[listKey]);
-    if (lines.some((l) => l.toLowerCase() === value.toLowerCase())) {
-      new Notice(t('notice.alreadyExcluded', { value }));
+    const have = new Set(lines.map((l) => l.toLowerCase()));
+    const fresh = wanted.filter((v) => !have.has(v.toLowerCase()));
+    if (!fresh.length) {
+      new Notice(t('notice.alreadyExcluded', { value: wanted.join(', ') }));
       return;
     }
-    lines.push(value);
+    lines.push(...fresh);
     this.settings[listKey] = lines.join('\n');
     await this.saveSettings();
     this.rebuildIndex();
     this.rerenderViews();
     this.updateStatusBar();
     const where = listKey === 'excludeWords' ? t('exclude.words') : t('exclude.terms');
-    new Notice(t('notice.addedToExcluded', { value, where }));
+    new Notice(t('notice.addedToExcluded', { value: fresh.join(', '), where }));
+  },
+
+  // One starred line covers only the spellings sharing its keys (dormice and dormouse need
+  // two), and the stem is re-stemmed when read back, so univers* would miss universe.
+  async dismissCandidate(candidate) {
+    const silenced = new Set();
+    const lines = [];
+    for (const form of [candidate.display, ...(candidate.forms || [])]) {
+      const keys = this.keysFor(form);
+      if (!keys.length || keys.some((k) => silenced.has(k))) continue;
+      const stemKeys = this.keysFor(keys[0]);
+      const base = keys.some((k) => stemKeys.includes(k)) ? keys[0] : form.toLowerCase();
+      lines.push(`${base}*`);
+      for (const k of this.keysFor(base)) silenced.add(k);
+    }
+    if (lines.length) await this.addToExclusion('excludeWords', lines);
   },
 
   async removeFromExclusion(listKey, value) {

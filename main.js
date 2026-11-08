@@ -775,6 +775,13 @@ var require_en = __commonJS({
       ["criterion", "criteria"],
       ["ganglion", "ganglia"],
       ["automaton", "automata"],
+      ["mitochondrion", "mitochondria"],
+      ["taxon", "taxa"],
+      ["noumenon", "noumena"],
+      ["prolegomenon", "prolegomena"],
+      ["aphelion", "aphelia"],
+      ["perihelion", "perihelia"],
+      ["hedron", "hedra"],
       ["index", "indices", "indexes"],
       ["matrix", "matrices"],
       ["appendix", "appendices", "appendixes"],
@@ -4649,20 +4656,41 @@ var require_actions = __commonJS({
         }
         return null;
       },
-      async addToExclusion(listKey, value) {
+      async addToExclusion(listKey, values) {
+        const wanted = [].concat(values);
         const lines = splitLines2(this.settings[listKey]);
-        if (lines.some((l) => l.toLowerCase() === value.toLowerCase())) {
-          new Notice2(t2("notice.alreadyExcluded", { value }));
+        const have = new Set(lines.map((l) => l.toLowerCase()));
+        const fresh = wanted.filter((v) => !have.has(v.toLowerCase()));
+        if (!fresh.length) {
+          new Notice2(t2("notice.alreadyExcluded", { value: wanted.join(", ") }));
           return;
         }
-        lines.push(value);
+        lines.push(...fresh);
         this.settings[listKey] = lines.join("\n");
         await this.saveSettings();
         this.rebuildIndex();
         this.rerenderViews();
         this.updateStatusBar();
         const where = listKey === "excludeWords" ? t2("exclude.words") : t2("exclude.terms");
-        new Notice2(t2("notice.addedToExcluded", { value, where }));
+        new Notice2(t2("notice.addedToExcluded", { value: fresh.join(", "), where }));
+      },
+      // One starred line covers only the spellings sharing its keys (dormice and dormouse need
+      // two), and the stem is re-stemmed when read back, so univers* would miss universe.
+      async dismissCandidate(candidate) {
+        const silenced = /* @__PURE__ */ new Set();
+        const lines = [];
+        for (const form of [candidate.display, ...candidate.forms || []]) {
+          const keys = this.keysFor(form);
+          if (!keys.length || keys.some((k) => silenced.has(k)))
+            continue;
+          const stemKeys = this.keysFor(keys[0]);
+          const base = keys.some((k) => stemKeys.includes(k)) ? keys[0] : form.toLowerCase();
+          lines.push(`${base}*`);
+          for (const k of this.keysFor(base))
+            silenced.add(k);
+        }
+        if (lines.length)
+          await this.addToExclusion("excludeWords", lines);
       },
       async removeFromExclusion(listKey, value) {
         const v = value.toLowerCase();
@@ -5067,39 +5095,73 @@ var require_usage = __commonJS({
           continue;
         if (plugin.overlapsProtected(protect, m.index, m.index + raw.length))
           continue;
-        if (isTermWord(plugin.keysFor(raw), raw))
+        const keys = plugin.keysFor(raw);
+        if (isTermWord(keys, raw))
           continue;
         const lemma = plugin.lemmaFor(raw);
         if (lemma.length < minLen)
           continue;
         let g = here.get(lemma);
         if (!g) {
-          g = { forms: /* @__PURE__ */ new Map(), total: 0 };
+          g = { forms: /* @__PURE__ */ new Map(), total: 0, keys: /* @__PURE__ */ new Set() };
           here.set(lemma, g);
         }
         g.forms.set(raw, (g.forms.get(raw) || 0) + 1);
         g.total++;
+        for (const k of keys)
+          g.keys.add(k);
       }
       return here;
     }
     function aggregateCandidates(results, minNotes) {
       const groups = /* @__PURE__ */ new Map();
-      for (const { value: here } of results) {
+      const parent = /* @__PURE__ */ new Map();
+      const root = (l) => {
+        while (parent.get(l) !== l) {
+          parent.set(l, parent.get(parent.get(l)));
+          l = parent.get(l);
+        }
+        return l;
+      };
+      const ownerOfKey = /* @__PURE__ */ new Map();
+      results.forEach(({ value: here }, note) => {
         for (const [lemma, g] of here) {
           let all = groups.get(lemma);
           if (!all) {
-            all = { forms: /* @__PURE__ */ new Map(), total: 0, docFreq: 0 };
+            all = { forms: /* @__PURE__ */ new Map(), total: 0, notes: /* @__PURE__ */ new Set() };
             groups.set(lemma, all);
+            parent.set(lemma, lemma);
           }
           for (const [form, n] of g.forms)
             all.forms.set(form, (all.forms.get(form) || 0) + n);
           all.total += g.total;
-          all.docFreq++;
+          all.notes.add(note);
+          for (const k of g.keys) {
+            const other = ownerOfKey.get(k);
+            if (other === void 0)
+              ownerOfKey.set(k, lemma);
+            else
+              parent.set(root(lemma), root(other));
+          }
         }
+      });
+      const merged = /* @__PURE__ */ new Map();
+      for (const [lemma, g] of groups) {
+        const r = root(lemma);
+        let m = merged.get(r);
+        if (!m) {
+          m = { forms: /* @__PURE__ */ new Map(), total: 0, notes: /* @__PURE__ */ new Set() };
+          merged.set(r, m);
+        }
+        for (const [form, n] of g.forms)
+          m.forms.set(form, (m.forms.get(form) || 0) + n);
+        m.total += g.total;
+        for (const n of g.notes)
+          m.notes.add(n);
       }
       const out = [];
-      for (const [lemma, g] of groups) {
-        if (g.docFreq < minNotes)
+      for (const [lemma, g] of merged) {
+        if (g.notes.size < minNotes)
           continue;
         let display = lemma, best = -1;
         for (const [form, n] of g.forms)
@@ -5107,7 +5169,7 @@ var require_usage = __commonJS({
             best = n;
             display = form;
           }
-        out.push({ lemma, display, count: g.total, docFreq: g.docFreq });
+        out.push({ lemma, display, forms: [...g.forms.keys()], count: g.total, docFreq: g.notes.size });
       }
       out.sort((a, b) => b.docFreq - a.docFreq || b.count - a.count);
       return out.slice(0, 100);
@@ -5687,7 +5749,7 @@ var require_overview_view = __commonJS({
           };
           const dismiss = actions2.createEl("a", { cls: "glossary-overview-act", text: "\u2715" });
           dismiss.onclick = async () => {
-            await this.plugin.addToExclusion("excludeWords", `${this.plugin.keysFor(c.display)[0]}*`);
+            await this.plugin.dismissCandidate(c);
             this.drop(c);
           };
         }
