@@ -5,8 +5,8 @@
 # Glossary Linker
 
 <p align="center">
-  <a href="https://community.obsidian.md/plugins/glossary-linker"><img src="https://img.shields.io/badge/dynamic/json?logo=obsidian&color=7c3aed&query=%24%5B%22glossary-linker%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json&label=downloads" alt="Obsidian downloads"></a>
-  <a href="https://github.com/max-fluff/obsidian-glossary-linker/releases/latest"><img src="https://img.shields.io/github/v/release/max-fluff/obsidian-glossary-linker?sort=semver&color=7c3aed&label=release" alt="Latest release"></a>
+  <a href="https://community.obsidian.md/plugins/glossary-linker"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmax-fluff%2Fobsidian-linker-shared%2Fbadges%2Fglossary-linker.json" alt="Obsidian downloads"></a>
+  <a href="https://github.com/max-fluff/obsidian-glossary-linker/releases/latest"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmax-fluff%2Fobsidian-glossary-linker%2Fmain%2Fmanifest.json&query=%24.version&prefix=v&label=release&color=7c3aed" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/max-fluff/obsidian-glossary-linker?color=7c3aed" alt="License: MIT"></a>
 </p>
 
