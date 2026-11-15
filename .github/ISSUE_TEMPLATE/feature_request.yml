@@ -1,0 +1,16 @@
+name: Feature request
+description: Suggest something Glossary Linker could do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: The task or situation, not the solution yet. What gets in the way now?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How it could work
+      description: Optional. Your idea of how Glossary Linker could help.

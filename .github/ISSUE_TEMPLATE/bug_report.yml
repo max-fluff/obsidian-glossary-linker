@@ -1,0 +1,75 @@
+name: Bug report
+description: Something in Glossary Linker doesn't work the way the README says it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting. Please check first that you are on the latest version of Glossary Linker.
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Glossary Linker version
+      description: Settings → Community plugins, under the plugin's name.
+    validations:
+      required: true
+  - type: input
+    id: obsidian-version
+    attributes:
+      label: Obsidian version
+      description: Settings → General → Current version.
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Android
+        - iOS / iPadOS
+    validations:
+      required: true
+  - type: input
+    id: language
+    attributes:
+      label: Language of the notes
+      description: The language of the words that are matched or missed, if it matters.
+      placeholder: English, Russian
+  - type: textarea
+    id: glossary
+    attributes:
+      label: Glossary setup
+      description: Glossary folders or whole-vault mode, and the term and the word form involved, if the problem is about matching.
+      placeholder: |
+        Glossary folder: Glossary/
+        Term: Mouse; in the note: mice
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: A small note that shows the problem helps a lot. Screenshots are welcome.
+      placeholder: |
+        1.
+        2.
+        3.
+  - type: textarea
+    id: console
+    attributes:
+      label: Console errors
+      description: Open the developer console (Ctrl+Shift+I, or Cmd+Option+I on macOS), switch to Console and paste any red lines that mention the plugin.
+      render: text
+  - type: input
+    id: other-plugins
+    attributes:
+      label: Other plugins that might be involved
+      description: Optional. For example, Heading Linker, Virtual Linker or other plugins that add links, highlights or autocomplete.
