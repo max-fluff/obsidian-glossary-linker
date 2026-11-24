@@ -12,10 +12,10 @@ const { t, plural } = require('./shared/i18n');
 // Turning terms into links + collecting aliases. Mixed into the plugin prototype.
 module.exports = {
   // Ambiguous matches keep their `alts` so the preview can let the user pick a term.
-  collectMatches(text, currentLinktext) {
+  collectMatches(text, currentLinktext, sourcePath) {
     const matches = this.findMatches(text, currentLinktext, { protect: true });
     if (!this.settings.linkFirstOnly) return matches;
-    const seen = new Set();
+    const seen = this.linkedTerms(text, sourcePath);
     const out = [];
     for (const m of matches) {
       if (seen.has(m.linktext)) continue;
@@ -54,7 +54,7 @@ module.exports = {
     const file = this.app.workspace.getActiveFile();
     if (!file) { new Notice(t('notice.noActiveNote')); return; }
     const text = await this.app.vault.cachedRead(file);
-    const matches = this.collectMatches(text, this.linktextForPath(file.path));
+    const matches = this.collectMatches(text, this.linktextForPath(file.path), file.path);
     if (!matches.length) { new Notice(t('notice.noMatches')); return; }
     this.openMaterializePreview([{ file, original: text, matches }], async (results) => {
       const r = results[0];
@@ -105,9 +105,33 @@ module.exports = {
 
   async materializeScope() {
     const files = await this.scanScopeMatches((text, file) =>
-      this.collectMatches(text, this.linktextForPath(file.path)));
+      this.collectMatches(text, this.linktextForPath(file.path), file.path));
     if (!files.length) { new Notice(t('notice.noMatches')); return; }
     this.openMaterializePreview(files, (results) => this.writeScopeResults(results));
+  },
+
+  indexedTermFor(target, sourcePath) {
+    const dest = this.app.metadataCache.getFirstLinkpathDest(target, sourcePath || '');
+    if (!dest || !this.isGlossaryFile(dest)) return null;
+    return (this.terms || []).find((x) => x.path === dest.path) || null;
+  },
+
+  linkedTerms(text, sourcePath) {
+    const ranges = this.codeFrontmatterRanges(text);
+    const re = /\[\[([^\]\n]+)\]\]/g;
+    const out = new Set();
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      if (this.overlapsProtected(ranges, m.index, m.index + m[0].length)) continue;
+      const term = this.indexedTermFor(this.parseWikiInner(m[1]).target, sourcePath);
+      if (term) out.add(term.linktext);
+    }
+    return out;
+  },
+
+  firstUnlinked(matches, text, sourcePath, linkedAs) {
+    if (!matches.length || this.linkedTerms(text, sourcePath).has(linkedAs || matches[0].linktext)) return [];
+    return matches.slice(0, 1);
   },
 
   // Glossary wikilinks in `text` that unlink can revert: each resolves to a glossary note,
@@ -124,9 +148,9 @@ module.exports = {
       if (this.overlapsProtected(ranges, start, end)) continue;
       const { target, display, hasSubpath } = this.parseWikiInner(m[1]);
       if (!target || !display || hasSubpath) continue;
-      const dest = this.app.metadataCache.getFirstLinkpathDest(target, sourcePath || '');
-      if (!dest || !this.isGlossaryFile(dest)) continue;
-      out.push({ start, end, canonical: dest.basename, display, source: m[0] });
+      const term = this.indexedTermFor(target, sourcePath);
+      if (!term) continue;
+      out.push({ start, end, canonical: term.canonical, display, source: m[0] });
     }
     return out;
   },
@@ -398,8 +422,8 @@ module.exports = {
     await this.app.vault.process(file, (text) => {
       let matches = this.findMatches(text, this.linktextForPath(file.path), { protect: true })
         .filter((m) => m.linktext === linktext);
+      if (this.settings.linkFirstOnly) matches = this.firstUnlinked(matches, text, file.path, linkAs);
       if (!matches.length) return text;
-      if (this.settings.linkFirstOnly) matches = matches.slice(0, 1);
       if (linkAs && linkAs !== linktext) matches = matches.map((m) => ({ ...m, linktext: linkAs }));
       count = matches.length;
       return this.applyLinks(text, matches).newText;
@@ -414,7 +438,7 @@ module.exports = {
     const files = await this.scanScopeMatches((text, file) => {
       let matches = this.findMatches(text, this.linktextForPath(file.path), { protect: true })
         .filter((m) => m.linktext === linktext);
-      if (this.settings.linkFirstOnly) matches = matches.slice(0, 1);
+      if (this.settings.linkFirstOnly) matches = this.firstUnlinked(matches, text, file.path, term);
       // Term already chosen → no per-occurrence picker in the preview.
       return matches.map((m) => ({ ...m, linktext: term, alts: null }));
     });
